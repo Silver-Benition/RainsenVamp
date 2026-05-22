@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54fac86b00a88784db7cc28ee21c0c83, type: 3}
+  m_Name: FireBall
+  m_EditorClassIdentifier: 
+  weaponID: 1
+  weaponNameKey: "\u706B\u7403"
+  descriptionKey: 
+  levelConfigs:
+  - damage: 5
+    cooldown: 1
+    projectileSpeed: 5
+    pierceCount: 0
+    lifeTime: 3
+    auraRadius: 3
+    projectileCount: 1
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 1
+    features: 
+  - damage: 20
+    cooldown: 1
+    projectileSpeed: 5
+    pierceCount: 0
+    lifeTime: 3
+    auraRadius: 3
+    projectileCount: 2
+    spreadAngle: 30
+    bounceCount: 0
+    bounceMode: 1
+    features: 
+  - damage: 20
+    cooldown: 1
+    projectileSpeed: 5
+    pierceCount: 1
+    lifeTime: 3
+    auraRadius: 3
+    projectileCount: 3
+    spreadAngle: 30
+    bounceCount: 0
+    bounceMode: 1
+    features: 
+  projectilePrefab: {fileID: 2303125396859290572, guid: 9a017251c9b44e149873a6f095f257f1, type: 3}

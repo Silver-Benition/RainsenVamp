@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: Aura_Upgrade
+  m_EditorClassIdentifier: 
+  upgradeName: "\u5149\u73AF"
+  description: "\u83B7\u5F97\u5149\u73AF"
+  icon: {fileID: 21300000, guid: 110539cc35d06664baff8ef0c4e8a49a, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: 839ee33455b2d0140a9f9684a5b1a556, type: 2}
+  runtimeType: 1

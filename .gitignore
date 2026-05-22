@@ -1,0 +1,65 @@
+# ===========================
+# Unity Generated
+# ===========================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# ===========================
+# IDE
+# ===========================
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ===========================
+# OS Generated
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+# ===========================
+# Unity3D Specific
+# ===========================
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+crashlytics-build.properties
+
+# ===========================
+# Builds
+# ===========================
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# ===========================
+# Packages (保留 manifest，忽略缓存)
+# ===========================
+Packages/packages-lock.json
+
+# ===========================
+# 个人配置（不提交）
+# ===========================
+ignore.conf

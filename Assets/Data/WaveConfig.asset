@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 932fb552f48a12049934083c29bff086, type: 3}
+  m_Name: WaveConfig
+  m_EditorClassIdentifier: 
+  duration: 0
+  rules:
+  - enemyPrefab: {fileID: 366242633661983014, guid: 5cbaf7a980e7e7b4891efaffd44e6ec0, type: 3}
+    startTime: 0
+    endTime: -1
+    spawnsPerSecond: 1
+    maxAlive: 10
+    spawnRadiusMin: 4
+    spawnRadiusMax: 6
