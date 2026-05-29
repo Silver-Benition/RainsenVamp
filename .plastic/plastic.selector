@@ -1,4 +1,0 @@
-repository "NewVampSur/RainsenVamp@33263687133959@cloud"
-  path "/"
-    br "/main"
-    co "/main"
