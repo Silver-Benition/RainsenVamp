@@ -139,6 +139,14 @@ Task ID：唯一且简短的任务标识
 
 ## 5. 存档输出规范
 
+一个完整的开发 Session 默认使用三份同编号文档组成归档闭环：
+
+- `DevLog/progress/session-X.md`：面向项目进度的摘要、机制状态和 Todo。
+- `DevLog/code-changes/session-X-changes.md`：面向实现细节的类、方法、资源和配置改动。
+- `DevLog/retrospectives/session-X-retro.md`：面向架构决策、工程教训、风险和未决问题的复盘。
+
+非代码专项 Session 也应创建对应的 `code-changes` 文件，并明确写出“本次无代码改动”，避免三类归档缺失。
+
 当雨弦输入 `/save` 或明确要求总结进度时，归档摘要必须包含：
 
 - 本次新增或修改的 C# 类、核心方法和删除的临时类。
