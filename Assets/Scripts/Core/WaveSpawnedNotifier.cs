@@ -9,6 +9,7 @@ using UnityEngine;
 public class WaveSpawnedNotifier : MonoBehaviour
 {
     private WaveManager owner;
+    private WorldWaveManager worldOwner;
     private int ruleIndex = -1;
 
     // 只有被 WaveManager 显式开启追踪的实例，才会在 OnDisable 时回调计数
@@ -20,6 +21,7 @@ public class WaveSpawnedNotifier : MonoBehaviour
     public void EnableTracking(WaveManager waveManager, int boundRuleIndex)
     {
         owner = waveManager;
+        worldOwner = null;
         ruleIndex = boundRuleIndex;
         trackingEnabled = true;
     }
@@ -27,9 +29,21 @@ public class WaveSpawnedNotifier : MonoBehaviour
     /// <summary>
     /// 关闭追踪。用于非 WaveManager 来源生成同一敌人时，明确不参与波次统计。
     /// </summary>
+    /// <summary>
+    /// 绑定到世界专属波次管理器。
+    /// </summary>
+    public void EnableTracking(WorldWaveManager waveManager, int boundRuleIndex)
+    {
+        owner = null;
+        worldOwner = waveManager;
+        ruleIndex = boundRuleIndex;
+        trackingEnabled = true;
+    }
+
     public void DisableTracking()
     {
         owner = null;
+        worldOwner = null;
         ruleIndex = -1;
         trackingEnabled = false;
     }
@@ -41,6 +55,10 @@ public class WaveSpawnedNotifier : MonoBehaviour
         if (owner != null && ruleIndex >= 0)
         {
             owner.NotifyDespawn(ruleIndex);
+        }
+        else if (worldOwner != null && ruleIndex >= 0)
+        {
+            worldOwner.NotifyDespawn(ruleIndex);
         }
 
         // 回调后立即关闭，防止重复 Disable 导致计数穿透。

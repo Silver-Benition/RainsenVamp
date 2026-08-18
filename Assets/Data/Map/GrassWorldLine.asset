@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5a7c9b1d3f54e16b2d6f8a0c4e71935, type: 3}
+  m_Name: GrassWorldLine
+  m_EditorClassIdentifier: 
+  worldLineId: main
+  displayNameKey: world.main
+  groundTheme: {fileID: 11400000, guid: f7c9e1a3b5d65027a4c8e0f2b6d71935, type: 2}
+  coverSprite: {fileID: 21300000, guid: b8d0f2a4c6e85279b5d7f9a1c3e64026, type: 3}
+  coverCells:
+  - {x: 4, y: 4}
+  - {x: 5, y: 4}
+  - {x: 4, y: 5}
+  - {x: 10, y: 4}
+  - {x: 11, y: 4}
+  - {x: 10, y: 5}
+  - {x: 4, y: 11}
+  - {x: 5, y: 11}
+  - {x: 4, y: 12}
+  - {x: 10, y: 10}
+  - {x: 11, y: 10}
+  - {x: 10, y: 11}
+  safeRadiusInCells: 2
+  testEnemyPrefab: {fileID: 366242633661983014, guid: 5cbaf7a980e7e7b4891efaffd44e6ec0, type: 3}
+  testEnemySpawnOffsets:
+  - {x: 6, y: 0}
+  - {x: -6, y: 2}
+  - {x: 3, y: 6}
+  waveConfig: {fileID: 11400000, guid: 2c8e4a1f7b9d6305e0f2c6a8d1b4e937, type: 2}
