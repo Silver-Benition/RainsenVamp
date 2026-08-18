@@ -2155,9 +2155,11 @@ MonoBehaviour:
   upgradeButtonPrefab: {fileID: 1305550386764439733, guid: fcd5499132b4dd84ab1ca67a4bd69caa, type: 3}
   upgradeChoiceCount: 3
   allAvailableUpgrades:
+  - {fileID: 11400000, guid: 68a38a4daeb9a1e46986a012567f7112, type: 2}
+  - {fileID: 11400000, guid: 9ea6b2025d22e754f8e05a471bcbd528, type: 2}
   - {fileID: 11400000, guid: 2e87e0eacd6d695498e92618491ece73, type: 2}
   - {fileID: 11400000, guid: 5488dd8f1abd6f546889add8478f4cbb, type: 2}
-  - {fileID: 11400000, guid: 68a38a4daeb9a1e46986a012567f7112, type: 2}
+  - {fileID: 11400000, guid: 2e29f349924bc69478a151313abd1cef, type: 2}
 --- !u!1 &2125086236
 GameObject:
   m_ObjectHideFlags: 0

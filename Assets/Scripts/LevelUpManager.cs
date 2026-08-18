@@ -24,6 +24,9 @@ public class LevelUpManager : MonoBehaviour
     private Transform playerTransform;
     private readonly Dictionary<string, WeaponBase> ownedWeapons = new Dictionary<string, WeaponBase>();
 
+    /// <summary>
+    /// 建立升级管理器单例并确保升级面板初始隐藏。
+    /// </summary>
     private void Awake()
     {
         if (Instance != null && Instance != this) Destroy(gameObject);
@@ -32,6 +35,9 @@ public class LevelUpManager : MonoBehaviour
         levelUpPanel.SetActive(false);
     }
 
+    /// <summary>
+    /// 缓存玩家并登记场景预置武器，使后续候选过滤能识别默认火球。
+    /// </summary>
     private void Start()
     {
         // 缓存玩家引用，用于后续发放武器
@@ -131,9 +137,32 @@ public class LevelUpManager : MonoBehaviour
         playerTransform.GetComponent<PlayerStats>().CheckLevelUpQueue();
     }
 
+    /// <summary>
+    /// 已持有武器时提升等级，否则创建对应运行类型的新武器子对象。
+    /// </summary>
     private void GrantWeapon(UpgradeDataSO upgradeData)
     {
-        WeaponDataSO weaponData = upgradeData.weaponToGrant;
+        if (upgradeData == null || upgradeData.weaponToGrant == null)
+        {
+            return;
+        }
+
+        GrantOrUpgradeWeapon(upgradeData.weaponToGrant);
+    }
+
+    /// <summary>
+    /// 执行一次正式的武器授予：未持有时创建 Lv.1，已持有时提升一级，并返回最终运行时组件。
+    /// </summary>
+    /// <param name="weaponData">需要授予或升级的武器静态配置。</param>
+    /// <returns>成功时返回玩家持有的武器组件；配置或玩家无效时返回 null。</returns>
+    private WeaponBase GrantOrUpgradeWeapon(WeaponDataSO weaponData)
+    {
+        if (weaponData == null || playerTransform == null)
+        {
+            Debug.LogWarning("[LevelUpManager] 武器授予失败：武器配置或玩家引用无效。");
+            return null;
+        }
+
         string weaponId = GetWeaponId(weaponData);
 
         // 已拥有 → 升级等级
@@ -147,7 +176,7 @@ public class LevelUpManager : MonoBehaviour
             {
                 Debug.Log($"武器已满级，跳过: {weaponData.weaponNameKey}");
             }
-            return;
+            return existingWeapon;
         }
 
         // 未拥有 → 动态挂载武器脚本
@@ -155,17 +184,102 @@ public class LevelUpManager : MonoBehaviour
         newWeaponObj.transform.SetParent(playerTransform);
         newWeaponObj.transform.localPosition = Vector3.zero;
 
-        WeaponBase weaponBase = upgradeData.runtimeType switch
-        {
-            WeaponRuntimeType.Aura => newWeaponObj.AddComponent<AuraWeapon>(),
-            _ => newWeaponObj.AddComponent<WeaponBase>()
-        };
+        WeaponBase weaponBase = CreateWeaponRuntime(newWeaponObj, weaponData.runtimeType);
         weaponBase.weaponData = weaponData;
 
         ownedWeapons[weaponId] = weaponBase;
         Debug.Log($"获得新武器: {weaponData.weaponNameKey} Lv.{weaponBase.CurrentLevel}/{weaponBase.MaxLevel}");
+        return weaponBase;
     }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// 调试环境下确保玩家持有指定武器并至少达到目标等级；只允许升级，不执行降级或删除。
+    /// </summary>
+    /// <param name="weaponData">需要测试的武器静态配置。</param>
+    /// <param name="targetLevel">期望达到的等级，会限制在该武器的有效等级范围内。</param>
+    /// <returns>成功时返回武器运行时组件；找不到玩家或配置无效时返回 null。</returns>
+    public WeaponBase DebugEnsureWeaponLevel(WeaponDataSO weaponData, int targetLevel)
+    {
+        if (weaponData == null || !EnsureDebugPlayerReference())
+        {
+            return null;
+        }
+
+        int safeTargetLevel = Mathf.Clamp(targetLevel, 1, weaponData.MaxLevel);
+        WeaponBase weapon = GetOwnedWeapon(weaponData);
+
+        if (weapon == null)
+        {
+            weapon = GrantOrUpgradeWeapon(weaponData);
+        }
+
+        while (weapon != null && weapon.CurrentLevel < safeTargetLevel)
+        {
+            if (!weapon.TryLevelUp())
+            {
+                break;
+            }
+        }
+
+        if (weapon != null)
+        {
+            Debug.Log($"[WeaponDebug] {weaponData.weaponNameKey} 已就绪：Lv.{weapon.CurrentLevel}/{weapon.MaxLevel}");
+        }
+
+        return weapon;
+    }
+
+    /// <summary>
+    /// 调试面板早于 Start 调用时补齐玩家引用，并登记场景中的默认武器。
+    /// </summary>
+    /// <returns>玩家引用有效时返回 true，否则记录警告并返回 false。</returns>
+    private bool EnsureDebugPlayerReference()
+    {
+        if (playerTransform != null)
+        {
+            return true;
+        }
+
+        GameObject playerObject = GameObject.FindWithTag("Player");
+        if (playerObject == null)
+        {
+            Debug.LogWarning("[WeaponDebug] 找不到 Player，无法授予测试武器。");
+            return false;
+        }
+
+        playerTransform = playerObject.transform;
+        RegisterDefaultWeapons();
+        return true;
+    }
+#endif
+
+    /// <summary>
+    /// 根据武器数据中的稳定运行类型挂载对应组件，避免升级卡与武器行为配置不一致。
+    /// </summary>
+    /// <param name="weaponObject">本次动态创建的武器宿主对象。</param>
+    /// <param name="runtimeType">武器数据声明的运行时类型。</param>
+    /// <returns>已经挂载到宿主对象上的武器运行时组件。</returns>
+    private WeaponBase CreateWeaponRuntime(GameObject weaponObject, WeaponRuntimeType runtimeType)
+    {
+        switch (runtimeType)
+        {
+            case WeaponRuntimeType.Aura:
+                return weaponObject.AddComponent<AuraWeapon>();
+            case WeaponRuntimeType.Orbiting:
+                return weaponObject.AddComponent<OrbitWeapon>();
+            case WeaponRuntimeType.Lobbed:
+                return weaponObject.AddComponent<LobbedWeapon>();
+            case WeaponRuntimeType.Melee:
+                return weaponObject.AddComponent<MeleeWeapon>();
+            default:
+                return weaponObject.AddComponent<WeaponBase>();
+        }
+    }
+
+    /// <summary>
+    /// 构建未获得或尚未满级的升级候选副本，不修改配置资产中的原始列表。
+    /// </summary>
     private List<UpgradeDataSO> BuildSelectableUpgradePool()
     {
         List<UpgradeDataSO> pool = new List<UpgradeDataSO>();
@@ -202,6 +316,9 @@ public class LevelUpManager : MonoBehaviour
         return pool;
     }
 
+    /// <summary>
+    /// 读取武器稳定 ID；旧资产缺少 ID 时暂以资产名作为安全回退。
+    /// </summary>
     private string GetWeaponId(WeaponDataSO weaponData)
     {
         if (weaponData == null) return string.Empty;

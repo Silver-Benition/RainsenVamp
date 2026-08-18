@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54fac86b00a88784db7cc28ee21c0c83, type: 3}
-  m_Name: Aura
+  m_Name: Knife
   m_EditorClassIdentifier: 
-  weaponID: aura
-  weaponNameKey: weapon.aura.name
-  descriptionKey: weapon.aura.description
-  runtimeType: 1
+  weaponID: orbiting_dagger
+  weaponNameKey: weapon.orbiting_dagger.name
+  descriptionKey: weapon.orbiting_dagger.description
+  runtimeType: 2
   levelConfigs:
-  - damage: 2
+  - damage: 6
     cooldown: 0.5
     projectileCount: 1
     projectileSpeed: 0
@@ -26,7 +26,7 @@ MonoBehaviour:
     spreadAngle: 0
     bounceCount: 0
     bounceMode: 0
-    auraRadius: 1.4
+    auraRadius: 1
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
@@ -35,17 +35,17 @@ MonoBehaviour:
     meleeRange: 1
     meleeArc: 90
     activeDuration: 0.18
-    features:
-  - damage: 2.5
+    features: 
+  - damage: 6
     cooldown: 0.5
-    projectileCount: 1
+    projectileCount: 2
     projectileSpeed: 0
     pierceCount: 0
     lifeTime: 99999
     spreadAngle: 0
     bounceCount: 0
     bounceMode: 0
-    auraRadius: 1.5
+    auraRadius: 1
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
@@ -54,62 +54,62 @@ MonoBehaviour:
     meleeRange: 1
     meleeArc: 90
     activeDuration: 0.18
-    features:
-  - damage: 3
-    cooldown: 0.45
-    projectileCount: 1
+    features: 
+  - damage: 8
+    cooldown: 0.5
+    projectileCount: 2
     projectileSpeed: 0
     pierceCount: 0
     lifeTime: 99999
     spreadAngle: 0
     bounceCount: 0
     bounceMode: 0
-    auraRadius: 1.7
-    tickInterval: 0.45
-    orbitRadius: 1.7
-    orbitAngularSpeed: 180
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.9
+    orbitAngularSpeed: 200
     arcHeight: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
     activeDuration: 0.18
-    features:
-  - damage: 3.5
-    cooldown: 0.4
-    projectileCount: 1
+    features: 
+  - damage: 9
+    cooldown: 0.5
+    projectileCount: 3
     projectileSpeed: 0
     pierceCount: 0
     lifeTime: 99999
     spreadAngle: 0
     bounceCount: 0
     bounceMode: 0
-    auraRadius: 1.9
-    tickInterval: 0.4
-    orbitRadius: 1.7
-    orbitAngularSpeed: 180
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 2
+    orbitAngularSpeed: 210
     arcHeight: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
     activeDuration: 0.18
-    features:
-  - damage: 4.5
-    cooldown: 0.35
-    projectileCount: 1
+    features: 
+  - damage: 12
+    cooldown: 0.5
+    projectileCount: 3
     projectileSpeed: 0
     pierceCount: 0
     lifeTime: 99999
     spreadAngle: 0
     bounceCount: 0
     bounceMode: 0
-    auraRadius: 2.2
-    tickInterval: 0.35
-    orbitRadius: 1.7
-    orbitAngularSpeed: 180
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 2.2
+    orbitAngularSpeed: 240
     arcHeight: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
     activeDuration: 0.18
-    features:
-  projectilePrefab: {fileID: 6879842671633894356, guid: 64a7a900519899543b347b0bccdceaab, type: 3}
+    features: 
+  projectilePrefab: {fileID: 5100000000000000001, guid: eed65a57ff259d540b2c84c3d231a399, type: 3}

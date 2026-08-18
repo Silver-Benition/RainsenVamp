@@ -31,9 +31,18 @@ public class AimController : MonoBehaviour
     /// </summary>
     public Vector2 AimDirection { get; private set; }
 
+    /// <summary>
+    /// 最后一次有效水平输入的朝向符号；向右为 1，向左为 -1。
+    /// </summary>
+    public float HorizontalFacingSign { get; private set; } = 1f;
+
+    /// <summary>
+    /// 使用默认瞄准方向初始化瞄准向量与稳定水平朝向。
+    /// </summary>
     private void Awake()
     {
         AimDirection = defaultDirection.normalized;
+        HorizontalFacingSign = AimDirection.x < -0.01f ? -1f : 1f;
     }
 
     private void Update()
@@ -65,6 +74,10 @@ public class AimController : MonoBehaviour
         if (input.sqrMagnitude > 0.01f)
         {
             AimDirection = input.normalized;
+            if (Mathf.Abs(input.x) > 0.01f)
+            {
+                HorizontalFacingSign = Mathf.Sign(input.x);
+            }
         }
     }
 

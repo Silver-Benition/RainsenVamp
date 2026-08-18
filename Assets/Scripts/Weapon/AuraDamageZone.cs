@@ -37,6 +37,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     // 当前在范围内的可受击目标（避免每帧物理查询）
     private readonly List<IDamageable> targets = new List<IDamageable>(64);
 
+    /// <summary>
+    /// 缓存圆形触发器并同步首次可视化范围。
+    /// </summary>
     private void Awake()
     {
         circleCollider = GetComponent<CircleCollider2D>();
@@ -51,11 +54,17 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         targets.Clear();
     }
 
+    /// <summary>
+    /// 保存原始 Prefab 引用，供生命周期结束时归还正确的对象池。
+    /// </summary>
     public void SetPrefabReference(GameObject prefab)
     {
         prefabReference = prefab;
     }
 
+    /// <summary>
+    /// 使用武器一级数据快速初始化，保留给独立测试和旧调用路径。
+    /// </summary>
     public void Initialize(WeaponDataSO data, Transform target, float overrideTickInterval)
     {
         WeaponLevelData levelData = data != null ? data.GetLevelConfig(1) : null;
@@ -69,7 +78,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         );
     }
 
-    // 供 AuraWeapon 注入”当前等级快照”属性
+    /// <summary>
+    /// 注入 AuraWeapon 当前等级的完整运行时快照。
+    /// </summary>
     public void Initialize(WeaponDataSO data, Transform target, float overrideTickInterval, float damage, float lifeTimeValue, float radius)
     {
         followTarget = target;
@@ -88,6 +99,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         RefreshRangeVisual();
     }
 
+    /// <summary>
+    /// 跟随玩家、推进生命周期，并按固定间隔对已进入范围的目标结算伤害。
+    /// </summary>
     private void Update()
     {
         if (followTarget != null)
@@ -97,7 +111,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
 
         if (currentDamage <= 0f)
         {
-            ReturnToPool();
+            ReleaseToPool();
             return;
         }
 
@@ -105,7 +119,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         lifeTimer -= Time.deltaTime;
         if (lifeTimer <= 0f)
         {
-            ReturnToPool();
+            ReleaseToPool();
             return;
         }
 
@@ -118,6 +132,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         }
     }
 
+    /// <summary>
+    /// 倒序遍历范围内目标，顺便移除已经失效的接口引用。
+    /// </summary>
     private void TickDamage()
     {
         // 倒序遍历，顺便清理失效引用
@@ -133,6 +150,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         }
     }
 
+    /// <summary>
+    /// 登记进入光环的可受击目标，避免每次伤害跳动重新执行物理查询。
+    /// </summary>
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.TryGetComponent<IDamageable>(out var damageable))
@@ -144,6 +164,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         }
     }
 
+    /// <summary>
+    /// 移除离开光环的可受击目标。
+    /// </summary>
     private void OnTriggerExit2D(Collider2D other)
     {
         if (other.TryGetComponent<IDamageable>(out var damageable))
@@ -152,7 +175,10 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         }
     }
 
-    private void ReturnToPool()
+    /// <summary>
+    /// 将光环归还对象池；供自身生命周期与 AuraWeapon 禁用清理共同调用。
+    /// </summary>
+    public void ReleaseToPool()
     {
         if (prefabReference != null && PoolManager.Instance != null)
         {
@@ -164,12 +190,18 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         }
     }
 
+    /// <summary>
+    /// Inspector 数值变化时重新同步碰撞范围与表现大小。
+    /// </summary>
     private void OnValidate()
     {
         circleCollider = GetComponent<CircleCollider2D>();
         RefreshRangeVisual();
     }
 
+    /// <summary>
+    /// 按 CircleCollider2D 的世界尺寸缩放半透明范围 Sprite。
+    /// </summary>
     private void RefreshRangeVisual()
     {
         if (rangeVisualRenderer == null) return;
@@ -211,6 +243,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         visualTransform.localScale = new Vector3(localScaleX, localScaleY, 1f);
     }
 
+    /// <summary>
+    /// 选中 Prefab 时绘制真实碰撞半径，便于校对视觉圈。
+    /// </summary>
     private void OnDrawGizmosSelected()
     {
         if (!drawDebugGizmo) return;
@@ -228,4 +263,3 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         Gizmos.DrawWireSphere(center, worldRadius);
     }
 }
-

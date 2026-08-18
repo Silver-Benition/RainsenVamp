@@ -1,89 +1,124 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
-/// 弹射模式枚举：区分指向性弹射和追踪性弹射。
-/// 指向性：命中后找最近未命中敌人并转向飞去。
-/// 追踪性：全程锁定单一目标，命中后换下一个目标继续追踪（需派生 TrackingProjectile 实现）。
+/// 武器运行时类型。数值 0、1 保持与旧升级资产一致。
 /// </summary>
-public enum BounceMode
+public enum WeaponRuntimeType
 {
-    None = 0,    // 不弹射
-    Directional = 1,    // 指向性弹射：命中后瞬间转向最近未命中目标
-    Tracking = 2,    // 追踪性弹射：全程跟踪目标，命中后切换下一目标（预留，需 TrackingProjectile 支持）
+    Projectile = 0,
+    Aura = 1,
+    Orbiting = 2,
+    Lobbed = 3,
+    Melee = 4
 }
 
 /// <summary>
-/// 功能型升级标签（非纯数值）。
-/// 当前先打通数据与运行时开关，具体行为由各武器脚本自行解释。
+/// 弹射模式枚举。
+/// </summary>
+public enum BounceMode
+{
+    None = 0,
+    Directional = 1,
+    Tracking = 2
+}
+
+/// <summary>
+/// 功能型升级标签。
 /// </summary>
 public enum WeaponFeatureType
 {
     None = 0,
-    AuraPersistent = 1,   // 光环常驻（示例：AuraWeapon 可据此决定常驻逻辑）
-    MultiShot = 2,        // 多重发射
-    Ricochet = 3,         // 反弹
-    ExplodeOnHit = 4      // 命中爆炸
+    AuraPersistent = 1,
+    MultiShot = 2,
+    Ricochet = 3,
+    ExplodeOnHit = 4
 }
 
+/// <summary>
+/// 单个武器等级的数值快照。编辑工具会根据武器类型隐藏无关字段。
+/// </summary>
 [System.Serializable]
-public class WeaponLevelData
+public sealed class WeaponLevelData
 {
-    [Header("该等级数值")]
-    public float damage = 10f;
-    public float cooldown = 1f;
-    public float projectileSpeed = 5f;
-    [Tooltip("额外穿透层数。0=命中1次即消失（不穿透）；1=能额外穿透1个目标（共命中2次消失）；以此类推。")]
-    public int pierceCount = 0;         // 额外穿透层数（0=不穿透）
-    public float lifeTime = 3f;
-    public float auraRadius = 3f;       // 光环类武器可用，非光环武器可忽略
+    [Header("通用数值")]
+    [Min(0f)] public float damage = 10f;
+    [Min(0.05f)] public float cooldown = 1f;
+    [Min(1)] public int projectileCount = 1;
 
-    [Header("多发 & 弹射")]
-    [Tooltip("同时发射的子弹数量（1=单发，2+=多发）。")]
-    public int projectileCount = 1;     // 多发数量
-    [Tooltip("多发时子弹之间的总扩散角（度）。0=平行射出，30=总扇形30度。")]
-    public float spreadAngle = 0f;      // 多发扩散角（总角度，由 projectileCount 等分）
-    [Tooltip("弹射次数（0=不弹射，1=命中后再弹1次，以此类推）。")]
-    public int bounceCount = 0;         // 弹射次数
-    [Tooltip("弹射模式：指向性（瞬间转向）或追踪性（全程锁定，预留）。")]
-    public BounceMode bounceMode = BounceMode.Directional; // 弹射类型
+    [Header("直飞与投掷")]
+    [Min(0f)] public float projectileSpeed = 5f;
+    [Tooltip("额外穿透层数。0 表示命中首个目标后回收。")]
+    [Min(0)] public int pierceCount;
+    [Min(0.01f)] public float lifeTime = 3f;
+    [Range(0f, 360f)] public float spreadAngle;
+    [Min(0)] public int bounceCount;
+    public BounceMode bounceMode = BounceMode.Directional;
 
-    [Header("该等级功能标签")]
+    [Header("光环")]
+    [Min(0.05f)] public float auraRadius = 3f;
+    [Min(0.01f)] public float tickInterval = 0.5f;
+
+    [Header("环绕")]
+    [Min(0.05f)] public float orbitRadius = 1.7f;
+    [Tooltip("环绕角速度，单位为度/秒。")]
+    public float orbitAngularSpeed = 180f;
+
+    [Header("抛物线投掷")]
+    [FormerlySerializedAs("arcHeight")]
+    [Tooltip("投掷物受到的恒定向下加速度，单位为世界单位/秒²。")]
+    [Min(0.01f)] public float lobGravity = 3f;
+    [Tooltip("投掷物自转速度，单位为度/秒。")]
+    public float spinSpeed = 540f;
+
+    [Header("近战挥击")]
+    [Min(0.05f)] public float meleeRange = 1.5f;
+    [Range(1f, 360f)] public float meleeArc = 90f;
+    [Min(0.02f)] public float activeDuration = 0.18f;
+
+    [Header("功能标签")]
     public List<WeaponFeatureType> features = new List<WeaponFeatureType>();
 }
 
-// 添加到创建菜单，方便在 Project 窗口右键创建数据文件
+/// <summary>
+/// 武器静态配置资产。运行时只读取当前等级的快照，不修改共享资产。
+/// </summary>
 [CreateAssetMenu(fileName = "NewWeaponData", menuName = "GameData/Weapon Data")]
-public class WeaponDataSO : ScriptableObject
+public sealed class WeaponDataSO : ScriptableObject
 {
-    [Header("基础信息 (Base Info)")]
-    public string weaponID;             // 武器唯一ID
-    public string weaponNameKey;        // 多语言字典Key（预留本地化接口）
-    [TextArea] public string descriptionKey; // 描述文本Key
+    [Header("基础信息")]
+    [Tooltip("稳定且唯一的逻辑 ID，不使用本地化显示名。")]
+    public string weaponID;
+    public string weaponNameKey;
+    [TextArea] public string descriptionKey;
+    public WeaponRuntimeType runtimeType = WeaponRuntimeType.Projectile;
 
-    [Header("每级配置 (Per-Level Config)")]
-    [Tooltip("按等级顺序配置（索引0=Lv1，索引1=Lv2 ...）。每级可完全不同，不走固定公式。")]
-    public List<WeaponLevelData> levelConfigs = new List<WeaponLevelData>()
+    [Header("每级配置")]
+    [Tooltip("索引 0 对应 Lv.1。每级保存完整快照，避免运行时修改 ScriptableObject。")]
+    public List<WeaponLevelData> levelConfigs = new List<WeaponLevelData>
     {
         new WeaponLevelData()
     };
 
-    [Header("表现与预制体 (Visuals & Prefabs)")]
-    public GameObject projectilePrefab; // 对应的子弹预制体
-    // public AudioClip fireSound;      // 预留音效接口
+    [Header("运行时实体")]
+    [Tooltip("对象池使用的攻击实体 Prefab；光环、环绕物和近战判定同样使用该入口。")]
+    public GameObject projectilePrefab;
 
+    /// <summary>
+    /// 返回武器最大等级；空配置仍按一级处理，避免升级流程出现零级上限。
+    /// </summary>
     public int MaxLevel => Mathf.Max(1, levelConfigs != null ? levelConfigs.Count : 0);
 
     /// <summary>
-    /// 安全读取指定等级配置（等级从1开始）。
-    /// 若索引越界，自动回退到最后一级，避免运行时空引用。
+    /// 安全读取从 1 开始的等级配置；越界时回退到最近的有效等级。
     /// </summary>
+    /// <param name="level">从 1 开始的目标等级。</param>
+    /// <returns>可供本次攻击读取的等级快照配置。</returns>
     public WeaponLevelData GetLevelConfig(int level)
     {
         if (levelConfigs == null || levelConfigs.Count == 0)
         {
-            // 兜底配置，避免运行时崩溃
             return new WeaponLevelData();
         }
 

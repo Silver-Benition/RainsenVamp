@@ -76,6 +76,9 @@ public class UpgradeUIItem : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 把当前按钮绑定的升级数据交给全局升级管理器。
+    /// </summary>
     private void OnButtonClicked()
     {
         LevelUpManager.Instance.ApplyUpgrade(currentData);
@@ -98,47 +101,90 @@ public class UpgradeUIItem : MonoBehaviour
                 return custom.customDesc;
         }
 
-        WeaponLevelData cur  = weaponData.GetLevelConfig(currentLv);
+        WeaponLevelData current = weaponData.GetLevelConfig(currentLv);
         WeaponLevelData next = weaponData.GetLevelConfig(currentLv + 1);
-
         var parts = new System.Collections.Generic.List<string>();
 
-        float dmgDiff = next.damage - cur.damage;
-        if (Mathf.Abs(dmgDiff) > 0.01f)
-            parts.Add($"伤害  {FormatDiff(dmgDiff)}");
+        AppendFloatDifference(parts, "伤害", current.damage, next.damage);
+        AppendFloatDifference(parts, "冷却", current.cooldown, next.cooldown, "s");
 
-        float cdDiff = next.cooldown - cur.cooldown;
-        if (Mathf.Abs(cdDiff) > 0.001f)
-            parts.Add($"冷却  {FormatDiff(cdDiff)}s");
-
-        int pierceDiff = next.pierceCount - cur.pierceCount;
-        if (pierceDiff != 0)
-            parts.Add($"穿刺  {FormatDiff(pierceDiff)}");
-
-        float speedDiff = next.projectileSpeed - cur.projectileSpeed;
-        if (Mathf.Abs(speedDiff) > 0.01f)
-            parts.Add($"速度  {FormatDiff(speedDiff)}");
-
-        int countDiff = next.projectileCount - cur.projectileCount;
-        if (countDiff != 0)
-            parts.Add($"发射数  {FormatDiff(countDiff)}");
-
-        int bounceDiff = next.bounceCount - cur.bounceCount;
-        if (bounceDiff != 0)
-            parts.Add($"弹射  {FormatDiff(bounceDiff)}");
-
-        float radiusDiff = next.auraRadius - cur.auraRadius;
-        if (Mathf.Abs(radiusDiff) > 0.01f)
-            parts.Add($"光环范围  {FormatDiff(radiusDiff)}");
+        switch (weaponData.runtimeType)
+        {
+            case WeaponRuntimeType.Projectile:
+                AppendIntDifference(parts, "发射数", current.projectileCount, next.projectileCount);
+                AppendFloatDifference(parts, "速度", current.projectileSpeed, next.projectileSpeed);
+                AppendIntDifference(parts, "穿透", current.pierceCount, next.pierceCount);
+                AppendIntDifference(parts, "弹射", current.bounceCount, next.bounceCount);
+                break;
+            case WeaponRuntimeType.Aura:
+                AppendFloatDifference(parts, "光环范围", current.auraRadius, next.auraRadius);
+                AppendFloatDifference(parts, "伤害间隔", current.tickInterval, next.tickInterval, "s");
+                break;
+            case WeaponRuntimeType.Orbiting:
+                AppendIntDifference(parts, "旋刃数量", current.projectileCount, next.projectileCount);
+                AppendFloatDifference(parts, "环绕半径", current.orbitRadius, next.orbitRadius);
+                AppendFloatDifference(parts, "环绕速度", current.orbitAngularSpeed, next.orbitAngularSpeed, "°/s");
+                break;
+            case WeaponRuntimeType.Lobbed:
+                AppendIntDifference(parts, "飞斧数量", current.projectileCount, next.projectileCount);
+                AppendFloatDifference(parts, "投掷力度", current.projectileSpeed, next.projectileSpeed);
+                AppendIntDifference(parts, "穿透", current.pierceCount, next.pierceCount);
+                AppendFloatDifference(parts, "下坠重力", current.lobGravity, next.lobGravity);
+                break;
+            case WeaponRuntimeType.Melee:
+                AppendFloatDifference(parts, "攻击范围", current.meleeRange, next.meleeRange);
+                AppendFloatDifference(parts, "挥击角度", current.meleeArc, next.meleeArc, "°");
+                AppendFloatDifference(parts, "判定时间", current.activeDuration, next.activeDuration, "s");
+                break;
+        }
 
         return parts.Count > 0
             ? string.Join("\n", parts)
             : "属性强化";
     }
 
+    /// <summary>
+    /// 当浮点属性发生可见变化时追加一行差异描述。
+    /// </summary>
+    private void AppendFloatDifference(
+        System.Collections.Generic.List<string> parts,
+        string label,
+        float currentValue,
+        float nextValue,
+        string suffix = "")
+    {
+        float difference = nextValue - currentValue;
+        if (Mathf.Abs(difference) > 0.001f)
+        {
+            parts.Add($"{label}  {FormatDiff(difference)}{suffix}");
+        }
+    }
+
+    /// <summary>
+    /// 当整数属性变化时追加一行差异描述。
+    /// </summary>
+    private void AppendIntDifference(
+        System.Collections.Generic.List<string> parts,
+        string label,
+        int currentValue,
+        int nextValue)
+    {
+        int difference = nextValue - currentValue;
+        if (difference != 0)
+        {
+            parts.Add($"{label}  {FormatDiff(difference)}");
+        }
+    }
+
+    /// <summary>
+    /// 把浮点差值格式化为带正负号的紧凑文本。
+    /// </summary>
     private string FormatDiff(float diff)
         => diff > 0 ? $"+{diff:0.##}" : $"{diff:0.##}";
 
+    /// <summary>
+    /// 把整数差值格式化为带正负号的紧凑文本。
+    /// </summary>
     private string FormatDiff(int diff)
         => diff > 0 ? $"+{diff}" : $"{diff}";
 }
