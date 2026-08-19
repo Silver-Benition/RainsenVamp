@@ -10,14 +10,13 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     private Rigidbody2D rb;
     private GameObject prefabReference;
 
-    // 受击反馈组件缓存（Awake 时自动获取，不强制依赖）
     private HitFlash hitFlash;
 
+    /// <summary>缓存移动刚体与可选受击表现组件，避免在战斗热路径中重复查找。</summary>
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
 
-        // 尝试获取闪白组件（可能挂在自身或子物体上）
         hitFlash = GetComponent<HitFlash>();
         if (hitFlash == null)
         {
@@ -25,16 +24,24 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
     }
 
+    /// <summary>保存对象池使用的原始 Prefab 键。</summary>
     public void SetPrefabReference(GameObject prefab)
     {
         prefabReference = prefab;
     }
 
+    /// <summary>对象池取出时重置生命、速度和玩家目标。</summary>
     private void OnEnable()
     {
         if (enemyData != null)
         {
             currentHealth = enemyData.maxHealth;
+        }
+
+        if (rb != null)
+        {
+            rb.velocity = Vector2.zero;
+            rb.angularVelocity = 0f;
         }
 
         if (playerTransform == null)
@@ -44,16 +51,30 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
     }
 
+    /// <summary>对象池回收时清空刚体动量，避免下一次取出继承旧速度。</summary>
+    private void OnDisable()
+    {
+        if (rb != null)
+        {
+            rb.velocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+        }
+    }
+
+    /// <summary>
+    /// 计算朝向玩家的期望速度并交给 Dynamic Rigidbody2D。
+    /// Physics2D 随后求解 Enemy 间实体接触，使敌群保持追踪的同时互相滑开。
+    /// </summary>
     private void FixedUpdate()
     {
-        if (playerTransform == null || enemyData == null) return;
+        if (rb == null || playerTransform == null || enemyData == null)
+        {
+            if (rb != null) rb.velocity = Vector2.zero;
+            return;
+        }
 
-        // 计算朝向玩家的方向
         Vector2 direction = (playerTransform.position - transform.position).normalized;
-
-        // 使用 Rigidbody2D.MovePosition 移动（适合处理物理挤压）
-        Vector2 newPosition = rb.position + direction * enemyData.moveSpeed * Time.fixedDeltaTime;
-        rb.MovePosition(newPosition);
+        rb.velocity = direction * Mathf.Max(0f, enemyData.moveSpeed);
 
         // 美术翻转（适配默认朝左的素材）
         if (direction.x != 0)
@@ -62,9 +83,22 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
     }
 
-    // =====================================================================
-    // IDamageable 实现
-    // =====================================================================
+    /// <summary>
+    /// 与玩家持续接触时请求一次接触伤害。
+    /// PlayerHealth 负责无敌帧，多敌人或多 Collider 同帧接触也只会生效一次。
+    /// </summary>
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        if (enemyData == null || enemyData.collisionDamage <= 0f)
+        {
+            return;
+        }
+
+        if (DamageTargetFilter.TryGetPlayerDamageable(collision.collider, out IDamageable player))
+        {
+            player.TakeDamage(enemyData.collisionDamage);
+        }
+    }
 
     /// <summary>
     /// 简易版受击（向后兼容，默认非暴击）。
@@ -81,6 +115,11 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     /// <param name="isCritical">是否暴击</param>
     public void TakeDamage(float damage, bool isCritical)
     {
+        if (damage <= 0f || currentHealth <= 0f)
+        {
+            return;
+        }
+
         currentHealth -= damage;
 
         // --- 受击闪白 ---
@@ -102,6 +141,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
     }
 
+    /// <summary>生成经验掉落并把敌人归还对应对象池。</summary>
     private void Die()
     {
         // 掉落经验球

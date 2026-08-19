@@ -137,7 +137,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (_hitColliders.Contains(other)
-            || !other.TryGetComponent<IDamageable>(out var damageable))
+            || !DamageTargetFilter.TryGetEnemyDamageable(other, out IDamageable damageable))
         {
             return;
         }

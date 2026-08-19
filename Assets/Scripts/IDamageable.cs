@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 可受击接口。
-/// 所有能承受伤害的实体（怪物、Boss、可破坏物）必须实现此接口。
+/// 所有能承受伤害的实体（玩家、怪物、Boss、可破坏物）必须实现此接口。
 /// 配合 TryGetComponent 使用，彻底解耦攻击方与受击方。
 /// </summary>
 public interface IDamageable

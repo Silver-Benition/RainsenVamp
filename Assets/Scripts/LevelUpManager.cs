@@ -90,7 +90,15 @@ public class LevelUpManager : MonoBehaviour
             return;
         }
 
-        Time.timeScale = 0f; // 暂停时间，怪物和子弹全部冻结
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.EnterLevelUpPause();
+        }
+        else
+        {
+            // 缺少统一流程管理器时保留旧行为，避免升级界面在测试场景中失去暂停能力。
+            Time.timeScale = 0f;
+        }
         levelUpPanel.SetActive(true);
 
         // 销毁上一次生成的按钮（避免残留旧候选）
@@ -131,7 +139,14 @@ public class LevelUpManager : MonoBehaviour
 
         // 2. 关闭面板、恢复时间
         levelUpPanel.SetActive(false);
-        Time.timeScale = 1f;
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.ExitLevelUpPause();
+        }
+        else
+        {
+            Time.timeScale = 1f;
+        }
 
         // 3. 通知 PlayerStats 检查是否还有排队的升级
         playerTransform.GetComponent<PlayerStats>().CheckLevelUpQueue();

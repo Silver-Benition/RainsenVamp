@@ -93,8 +93,8 @@ public class ProjectileBase : MonoBehaviour, IPoolable
         // 弹射模式：跳过已命中过的目标（防止来回弹同一个怪）
         if (currentBounce > 0 && hitColliders.Contains(collision)) return;
 
-        // 只处理实现了 IDamageable 的物体（怪物、Boss、可破坏物等）
-        if (!collision.TryGetComponent<IDamageable>(out var damageableEntity)) return;
+        // 先按 Enemy Layer 过滤，防止玩家实现 IDamageable 后被己方投射物误伤。
+        if (!DamageTargetFilter.TryGetEnemyDamageable(collision, out IDamageable damageableEntity)) return;
 
         damageableEntity.TakeDamage(currentDamage);
 
@@ -145,7 +145,10 @@ public class ProjectileBase : MonoBehaviour, IPoolable
     /// </summary>
     private Collider2D FindNextBounceTarget(float searchRadius = 10f)
     {
-        Collider2D[] candidates = Physics2D.OverlapCircleAll(transform.position, searchRadius);
+        Collider2D[] candidates = Physics2D.OverlapCircleAll(
+            transform.position,
+            searchRadius,
+            DamageTargetFilter.EnemyLayerMask);
 
         Collider2D bestTarget = null;
         float bestDist = float.MaxValue;
@@ -153,7 +156,7 @@ public class ProjectileBase : MonoBehaviour, IPoolable
         foreach (var candidate in candidates)
         {
             if (hitColliders.Contains(candidate)) continue;                    // 排除已命中目标
-            if (!candidate.TryGetComponent<IDamageable>(out _)) continue;      // 排除非伤害目标
+            if (!DamageTargetFilter.TryGetEnemyDamageable(candidate, out _)) continue;
 
             float dist = Vector3.Distance(transform.position, candidate.transform.position);
             if (dist < bestDist)

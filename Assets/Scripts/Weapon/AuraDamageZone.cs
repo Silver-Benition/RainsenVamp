@@ -155,7 +155,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     /// </summary>
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.TryGetComponent<IDamageable>(out var damageable))
+        if (DamageTargetFilter.TryGetEnemyDamageable(other, out IDamageable damageable))
         {
             if (!targets.Contains(damageable))
             {
@@ -169,7 +169,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     /// </summary>
     private void OnTriggerExit2D(Collider2D other)
     {
-        if (other.TryGetComponent<IDamageable>(out var damageable))
+        if (DamageTargetFilter.TryGetEnemyDamageable(other, out IDamageable damageable))
         {
             targets.Remove(damageable);
         }

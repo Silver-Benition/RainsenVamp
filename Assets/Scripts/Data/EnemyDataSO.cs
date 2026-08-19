@@ -1,15 +1,21 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// 敌人静态配置资产，保存生命、移动、接触伤害和掉落物等策划数据。
+/// </summary>
 [CreateAssetMenu(fileName = "NewEnemyData", menuName = "GameData/Enemy Data")]
 public class EnemyDataSO : ScriptableObject
 {
     [Header("基础属性")]
+    [Tooltip("敌人名称的本地化键；运行时逻辑不得依赖显示文本。")]
     public string enemyNameKey;
+    [Min(0.01f), Tooltip("敌人满生命值。")]
     public float maxHealth = 20f;
+    [Min(0f), Tooltip("敌人追踪玩家时的基础移动速度。")]
     public float moveSpeed = 2f;
-    public float collisionDamage = 10f; // 碰到玩家时造成的伤害（预留）
+    [Min(0f), Tooltip("敌人与玩家持续接触时，每次有效受击造成的伤害。")]
+    public float collisionDamage = 10f;
     [Header("掉落物")]
-    public GameObject dropExpPrefab; // 怪物死亡掉落的经验球预制体
+    [Tooltip("敌人死亡时从对象池生成的经验球 Prefab。")]
+    public GameObject dropExpPrefab;
 }

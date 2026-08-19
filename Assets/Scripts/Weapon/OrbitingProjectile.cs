@@ -52,7 +52,8 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     /// </summary>
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (_damage > 0f && other.TryGetComponent<IDamageable>(out var damageable))
+        if (_damage > 0f
+            && DamageTargetFilter.TryGetEnemyDamageable(other, out IDamageable damageable))
         {
             damageable.TakeDamage(_damage);
         }
