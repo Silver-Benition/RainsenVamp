@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -23,16 +24,35 @@ public class LevelUpManager : MonoBehaviour
 
     private Transform playerTransform;
     private readonly Dictionary<string, WeaponBase> ownedWeapons = new Dictionary<string, WeaponBase>();
+    private readonly List<WeaponBase> _ownedWeaponOrder =
+        new List<WeaponBase>(PlayerLoadoutRules.MaxWeaponCount);
+
+    /// <summary>玩家持有武器的种类或等级变化时触发，供 HUD 等只读表现层刷新。</summary>
+    public event Action OwnedWeaponsChanged;
+
+    /// <summary>按首次获得顺序排列的只读武器列表。</summary>
+    public IReadOnlyList<WeaponBase> OwnedWeapons => _ownedWeaponOrder;
+
+    /// <summary>玩家当前持有的不同武器种类数。</summary>
+    public int OwnedWeaponCount => _ownedWeaponOrder.Count;
 
     /// <summary>
     /// 建立升级管理器单例并确保升级面板初始隐藏。
     /// </summary>
     private void Awake()
     {
-        if (Instance != null && Instance != this) Destroy(gameObject);
-        else Instance = this;
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
-        levelUpPanel.SetActive(false);
+        Instance = this;
+
+        if (levelUpPanel != null)
+        {
+            levelUpPanel.SetActive(false);
+        }
     }
 
     /// <summary>
@@ -41,11 +61,27 @@ public class LevelUpManager : MonoBehaviour
     private void Start()
     {
         // 缓存玩家引用，用于后续发放武器
-        playerTransform = GameObject.FindWithTag("Player").transform;
+        GameObject playerObject = GameObject.FindWithTag("Player");
+        if (playerObject == null)
+        {
+            Debug.LogError("[LevelUpManager] 找不到 Player，无法登记或发放武器。", this);
+            return;
+        }
+
+        playerTransform = playerObject.transform;
 
         // 扫描玩家身上已有的武器（场景预置的默认武器），注册进 ownedWeapons
         // 这样升级系统才能感知到默认武器的存在，避免重复发放 / 正确处理升级等级
         RegisterDefaultWeapons();
+    }
+
+    /// <summary>销毁时释放单例引用，避免场景重载后其他系统取得失效管理器。</summary>
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     /// <summary>
@@ -56,6 +92,7 @@ public class LevelUpManager : MonoBehaviour
     {
         if (playerTransform == null) return;
 
+        bool inventoryChanged = false;
         WeaponBase[] existingWeapons = playerTransform.GetComponentsInChildren<WeaponBase>();
         foreach (var weapon in existingWeapons)
         {
@@ -67,9 +104,26 @@ public class LevelUpManager : MonoBehaviour
             // 只注册尚未记录的武器，避免重复注册
             if (!ownedWeapons.ContainsKey(weaponId))
             {
+                if (OwnedWeaponCount >= PlayerLoadoutRules.MaxWeaponCount)
+                {
+                    weapon.enabled = false;
+                    Debug.LogError(
+                        $"[LevelUpManager] 场景预置武器超过 {PlayerLoadoutRules.MaxWeaponCount} 种上限，" +
+                        $"已禁用多余武器：{weapon.weaponData.weaponNameKey}",
+                        weapon);
+                    continue;
+                }
+
                 ownedWeapons[weaponId] = weapon;
+                _ownedWeaponOrder.Add(weapon);
+                inventoryChanged = true;
                 Debug.Log($"[LevelUpManager] 注册默认武器: {weapon.weaponData.weaponNameKey} (ID: {weaponId}) Lv.{weapon.CurrentLevel}");
             }
+        }
+
+        if (inventoryChanged)
+        {
+            NotifyOwnedWeaponsChanged();
         }
     }
 
@@ -112,7 +166,7 @@ public class LevelUpManager : MonoBehaviour
         int count = Mathf.Min(upgradeChoiceCount, pool.Count);
         for (int i = 0; i < count; i++)
         {
-            int randomIndex = Random.Range(0, pool.Count);
+            int randomIndex = UnityEngine.Random.Range(0, pool.Count);
             UpgradeDataSO selectedUpgrade = pool[randomIndex];
             pool.RemoveAt(randomIndex); // 防止同一选项出现两次
 
@@ -179,6 +233,11 @@ public class LevelUpManager : MonoBehaviour
         }
 
         string weaponId = GetWeaponId(weaponData);
+        if (string.IsNullOrEmpty(weaponId))
+        {
+            Debug.LogWarning("[LevelUpManager] 武器授予失败：武器稳定 ID 为空。");
+            return null;
+        }
 
         // 已拥有 → 升级等级
         if (ownedWeapons.TryGetValue(weaponId, out var existingWeapon))
@@ -186,12 +245,21 @@ public class LevelUpManager : MonoBehaviour
             if (existingWeapon != null && existingWeapon.TryLevelUp())
             {
                 Debug.Log($"武器升级成功: {weaponData.weaponNameKey} Lv.{existingWeapon.CurrentLevel}/{existingWeapon.MaxLevel}");
+                NotifyOwnedWeaponsChanged();
             }
             else
             {
                 Debug.Log($"武器已满级，跳过: {weaponData.weaponNameKey}");
             }
             return existingWeapon;
+        }
+
+        if (OwnedWeaponCount >= PlayerLoadoutRules.MaxWeaponCount)
+        {
+            Debug.LogWarning(
+                $"[LevelUpManager] 已达到 {PlayerLoadoutRules.MaxWeaponCount} 种武器上限，" +
+                $"无法获得新武器：{weaponData.weaponNameKey}");
+            return null;
         }
 
         // 未拥有 → 动态挂载武器脚本
@@ -203,6 +271,8 @@ public class LevelUpManager : MonoBehaviour
         weaponBase.weaponData = weaponData;
 
         ownedWeapons[weaponId] = weaponBase;
+        _ownedWeaponOrder.Add(weaponBase);
+        NotifyOwnedWeaponsChanged();
         Debug.Log($"获得新武器: {weaponData.weaponNameKey} Lv.{weaponBase.CurrentLevel}/{weaponBase.MaxLevel}");
         return weaponBase;
     }
@@ -298,6 +368,10 @@ public class LevelUpManager : MonoBehaviour
     private List<UpgradeDataSO> BuildSelectableUpgradePool()
     {
         List<UpgradeDataSO> pool = new List<UpgradeDataSO>();
+        if (allAvailableUpgrades == null)
+        {
+            return pool;
+        }
 
         for (int i = 0; i < allAvailableUpgrades.Count; i++)
         {
@@ -316,7 +390,10 @@ public class LevelUpManager : MonoBehaviour
             // 未拥有 → 放行（首次解锁）
             if (!ownedWeapons.TryGetValue(weaponId, out var ownedWeapon))
             {
-                pool.Add(upgrade);
+                if (OwnedWeaponCount < PlayerLoadoutRules.MaxWeaponCount)
+                {
+                    pool.Add(upgrade);
+                }
                 continue;
             }
 
@@ -351,5 +428,38 @@ public class LevelUpManager : MonoBehaviour
         string weaponId = GetWeaponId(weaponData);
         ownedWeapons.TryGetValue(weaponId, out var weapon);
         return weapon;
+    }
+
+    /// <summary>
+    /// 判断指定武器当前是否可以获得或升级。
+    /// 已持有武器不受种类上限影响；新武器仅在存在空槽时允许。
+    /// </summary>
+    /// <param name="weaponData">需要检查的武器静态数据。</param>
+    /// <returns>可以获得或继续升级时返回 true。</returns>
+    public bool CanAcquireWeapon(WeaponDataSO weaponData)
+    {
+        if (weaponData == null)
+        {
+            return false;
+        }
+
+        string weaponId = GetWeaponId(weaponData);
+        if (string.IsNullOrEmpty(weaponId))
+        {
+            return false;
+        }
+
+        if (ownedWeapons.TryGetValue(weaponId, out var ownedWeapon) && ownedWeapon != null)
+        {
+            return true;
+        }
+
+        return OwnedWeaponCount < PlayerLoadoutRules.MaxWeaponCount;
+    }
+
+    /// <summary>集中发布武器清单变化，避免表现层轮询运行时组件。</summary>
+    private void NotifyOwnedWeaponsChanged()
+    {
+        OwnedWeaponsChanged?.Invoke();
     }
 }

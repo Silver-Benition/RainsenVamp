@@ -94,6 +94,14 @@ public sealed class WeaponDataSO : ScriptableObject
     [TextArea] public string descriptionKey;
     public WeaponRuntimeType runtimeType = WeaponRuntimeType.Projectile;
 
+    [Header("UI 表现")]
+    [Tooltip("武器在升级候选和右上角持有栏中使用的统一图标。")]
+    public Sprite icon;
+    [Tooltip("仅影响右上角持有栏中的图标缩放，用于补偿原图透明留白；不影响战斗 Sprite。")]
+    [Min(0.01f)] public float loadoutIconScale = 1f;
+    [Tooltip("仅影响右上角持有栏中的图标位置，用于把放大后的可见内容重新居中。")]
+    public Vector2 loadoutIconOffset;
+
     [Header("每级配置")]
     [Tooltip("索引 0 对应 Lv.1。每级保存完整快照，避免运行时修改 ScriptableObject。")]
     public List<WeaponLevelData> levelConfigs = new List<WeaponLevelData>

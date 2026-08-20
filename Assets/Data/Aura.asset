@@ -16,6 +16,9 @@ MonoBehaviour:
   weaponNameKey: weapon.aura.name
   descriptionKey: weapon.aura.description
   runtimeType: 1
+  icon: {fileID: 21300000, guid: 110539cc35d06664baff8ef0c4e8a49a, type: 3}
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:
   - damage: 2
     cooldown: 0.5

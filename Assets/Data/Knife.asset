@@ -16,6 +16,9 @@ MonoBehaviour:
   weaponNameKey: weapon.orbiting_dagger.name
   descriptionKey: weapon.orbiting_dagger.description
   runtimeType: 2
+  icon: {fileID: 21300000, guid: d72beab121f2d504f9de797279ed60d8, type: 3}
+  loadoutIconScale: 1.88
+  loadoutIconOffset: {x: -4, y: 1}
   levelConfigs:
   - damage: 6
     cooldown: 0.5

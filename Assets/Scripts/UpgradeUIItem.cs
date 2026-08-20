@@ -64,9 +64,15 @@ public class UpgradeUIItem : MonoBehaviour
         if (levelText != null)
             levelText.text = string.Empty;
 
-        // --- 图标 ---
-        if (iconImage != null && data.icon != null)
-            iconImage.sprite = data.icon;
+        // --- 图标：武器自身配置是统一来源，旧升级资产图标作为兼容回退 ---
+        if (iconImage != null)
+        {
+            Sprite displayIcon = data.weaponToGrant != null && data.weaponToGrant.icon != null
+                ? data.weaponToGrant.icon
+                : data.icon;
+            iconImage.sprite = displayIcon;
+            iconImage.enabled = displayIcon != null;
+        }
 
         // --- 按钮事件 ---
         if (button != null)

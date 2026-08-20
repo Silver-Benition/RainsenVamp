@@ -16,6 +16,9 @@ MonoBehaviour:
   weaponNameKey: weapon.throwing_axe.name
   descriptionKey: weapon.throwing_axe.description
   runtimeType: 3
+  icon: {fileID: 21300000, guid: 42c14ac6ea4d177439104bb284b3f831, type: 3}
+  loadoutIconScale: 1.05
+  loadoutIconOffset: {x: -0.5, y: -1}
   levelConfigs:
   - damage: 15
     cooldown: 1.6

@@ -40,8 +40,14 @@ public sealed class GameFlowManager : MonoBehaviour
     private PauseReason _pauseReasons;
     private bool _playerDeathSubscribed;
 
+    /// <summary>手动暂停状态变化时触发；升级选择与游戏结束不会被误报为手动暂停。</summary>
+    public event Action<bool> ManualPauseChanged;
+
     /// <summary>游戏是否正处于任意暂停状态。</summary>
     public bool IsPaused => _pauseReasons != PauseReason.None;
+
+    /// <summary>玩家是否通过暂停菜单进入了手动暂停。</summary>
+    public bool IsManuallyPaused => HasPauseReason(PauseReason.Manual);
 
     /// <summary>本局是否已经进入不可恢复的游戏结束状态。</summary>
     public bool IsGameOver => HasPauseReason(PauseReason.GameOver);
@@ -110,13 +116,14 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>进入手动暂停并显示暂停面板。</summary>
     public void PauseGame()
     {
-        if (IsGameOver || HasPauseReason(PauseReason.LevelUp))
+        if (IsGameOver || HasPauseReason(PauseReason.LevelUp) || IsManuallyPaused)
         {
             return;
         }
 
         AddPauseReason(PauseReason.Manual);
         SetPanelActive(pausePanel, true);
+        NotifyManualPauseChanged(true);
     }
 
     /// <summary>解除手动暂停；其他暂停原因仍然存在时不会恢复游戏时间。</summary>
@@ -129,6 +136,7 @@ public sealed class GameFlowManager : MonoBehaviour
 
         RemovePauseReason(PauseReason.Manual);
         SetPanelActive(pausePanel, false);
+        NotifyManualPauseChanged(false);
     }
 
     /// <summary>由升级系统请求暂停，保留独立原因以避免被手动恢复覆盖。</summary>
@@ -257,6 +265,7 @@ public sealed class GameFlowManager : MonoBehaviour
             return;
         }
 
+        bool wasManuallyPaused = IsManuallyPaused;
         _pauseReasons = PauseReason.GameOver;
 
         if (playerRigidbody != null)
@@ -273,6 +282,11 @@ public sealed class GameFlowManager : MonoBehaviour
         SetPanelActive(pausePanel, false);
         SetPanelActive(gameOverPanel, true);
         ApplyPauseState();
+
+        if (wasManuallyPaused)
+        {
+            NotifyManualPauseChanged(false);
+        }
     }
 
     /// <summary>添加暂停原因并立即同步全局时间状态。</summary>
@@ -299,6 +313,12 @@ public sealed class GameFlowManager : MonoBehaviour
     private void ApplyPauseState()
     {
         Time.timeScale = IsPaused ? 0f : 1f;
+    }
+
+    /// <summary>集中发布手动暂停状态，供 HUD 等表现层按需展开附加信息。</summary>
+    private void NotifyManualPauseChanged(bool isManuallyPaused)
+    {
+        ManualPauseChanged?.Invoke(isManuallyPaused);
     }
 
     /// <summary>安全设置可选界面的激活状态。</summary>

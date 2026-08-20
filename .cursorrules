@@ -42,3 +42,7 @@
 - Unity/C#、目录职责、对象池、数据驱动、性能和资源组织规范，以 `DevLog/conventions/project-engineering.md` 为准。
 - `CLAUDE.md` 与 `.cursorrules` 是不同 Agent 工具的入口文件，内容应保持同步，不得依赖某个具体模型的记忆。
 - 规划模型和执行模型可以不同；执行模型必须重新读取上述规范和目标文件后再开始工作。
+
+# 【Git 提交规范】
+
+- 每次 Git commit 的提交信息必须包含 `session-X` 标识，用于说明该提交属于第几次开发会话（例如：`session-10: feat: add loadout HUD and main menu`）；不得省略。

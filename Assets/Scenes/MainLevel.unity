@@ -2194,6 +2194,7 @@ GameObject:
   - component: {fileID: 2125086238}
   - component: {fileID: 2125086237}
   - component: {fileID: 2125086241}
+  - component: {fileID: 3200000300}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -2287,6 +2288,37 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &3200000300
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125086236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4df41675535f4a5c84b809a7a97e0614, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  panelRoot: {fileID: 0}
+  anchoredOffset: {x: -24, y: -24}
+  slotSize: {x: 48, y: 48}
+  spacing: {x: 4, y: 4}
+  borderThickness: 2
+  iconPadding: 0
+  levelAreaHeight: 32
+  levelAreaSpacing: 4
+  levelDotSize: {x: 8, y: 8}
+  levelDotSpacing: {x: 2, y: 2}
+  levelPanelBorderThickness: 1
+  levelPanelPadding: 1
+  levelDotBorderThickness: 1
+  borderColor: {r: 0.68, g: 0.65, b: 0.5, a: 0.95}
+  slotBackgroundColor: {r: 0.12, g: 0.12, b: 0.1, a: 0.82}
+  activeLevelColor: {r: 1, g: 0.88, b: 0.35, a: 1}
+  inactiveLevelColor: {r: 0.25, g: 0.23, b: 0.16, a: 0.65}
+  levelNumberColor: {r: 1, g: 0.88, b: 0.35, a: 1}
+  levelFont: {fileID: 12800000, guid: 908fbcfb17a61464bba8832bb24f2c92, type: 3}
 --- !u!1 &3100000150
 GameObject:
   m_ObjectHideFlags: 0
