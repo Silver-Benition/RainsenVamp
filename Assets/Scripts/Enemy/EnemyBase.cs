@@ -144,6 +144,12 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     /// <summary>生成经验掉落并把敌人归还对应对象池。</summary>
     private void Die()
     {
+        // 只有进入一次死亡流程时登记，后续重复受击会被 currentHealth <= 0 拦截。
+        if (RunStatsUI.Instance != null)
+        {
+            RunStatsUI.Instance.RegisterKill();
+        }
+
         // 掉落经验球
         if (enemyData.dropExpPrefab != null)
         {

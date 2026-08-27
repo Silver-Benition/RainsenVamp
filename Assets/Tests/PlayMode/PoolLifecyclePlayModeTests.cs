@@ -68,5 +68,48 @@ namespace RainsenVampSur.Tests.PlayMode
 
             yield return null;
         }
+
+        /// <summary>敌人进入真实死亡出口时，击杀统计应只增加一次。</summary>
+        [UnityTest]
+        public IEnumerator EnemyDeath_进入死亡出口_击杀数增加一次()
+        {
+            GameObject managerObject = CreateTrackedGameObject("PlayModeTest_KillCounterPoolManager");
+            Component poolManager = RuntimeComponentTestUtility.AddRuntimeComponent(
+                managerObject,
+                "PoolManager");
+            GameObject statsObject = CreateTrackedGameObject("PlayModeTest_RunStats");
+            Component runStats = RuntimeComponentTestUtility.AddRuntimeComponent(statsObject, "RunStatsUI");
+
+            ScriptableObject enemyData = TrackObject(
+                RuntimeComponentTestUtility.CreateRuntimeScriptableObject("EnemyDataSO"));
+            RuntimeComponentTestUtility.SetField(enemyData, "maxHealth", 10f);
+
+            GameObject template = CreateTrackedGameObject("PlayModeTest_KillCounterEnemyTemplate", false);
+            Rigidbody2D body = template.AddComponent<Rigidbody2D>();
+            body.gravityScale = 0f;
+            template.AddComponent<BoxCollider2D>();
+            Component templateEnemy = RuntimeComponentTestUtility.AddRuntimeComponent(template, "EnemyBase");
+            RuntimeComponentTestUtility.SetField(templateEnemy, "enemyData", enemyData);
+            template.SetActive(true);
+
+#if UNITY_EDITOR
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex("PoolManager\\.Spawn 收到的对象不是 Prefab 资产"));
+#endif
+            GameObject enemyInstance = TrackObject((GameObject)RuntimeComponentTestUtility.Invoke(
+                poolManager,
+                "Spawn",
+                template,
+                Vector3.zero,
+                Quaternion.identity));
+            Component enemy = enemyInstance.GetComponent("EnemyBase");
+
+            RuntimeComponentTestUtility.Invoke(enemy, "TakeDamage", 10f);
+            RuntimeComponentTestUtility.Invoke(enemy, "TakeDamage", 10f);
+            yield return null;
+
+            Assert.That(RuntimeComponentTestUtility.GetProperty<int>(runStats, "KillCount"), Is.EqualTo(1));
+        }
     }
 }

@@ -32,13 +32,18 @@ public sealed class GameFlowManager : MonoBehaviour
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private Button resumeButton;
     [SerializeField] private Button pauseRestartButton;
+    [SerializeField] private Button pauseMainMenuButton;
     [SerializeField] private Button gameOverRestartButton;
 
     [Header("输入配置")]
     [SerializeField] private KeyCode pauseKey = KeyCode.Escape;
 
+    [Header("场景配置")]
+    [SerializeField] private string mainMenuSceneName = "MainMenu";
+
     private PauseReason _pauseReasons;
     private bool _playerDeathSubscribed;
+    private bool _isLoadingMainMenu;
 
     /// <summary>手动暂停状态变化时触发；升级选择与游戏结束不会被误报为手动暂停。</summary>
     public event Action<bool> ManualPauseChanged;
@@ -51,6 +56,9 @@ public sealed class GameFlowManager : MonoBehaviour
 
     /// <summary>本局是否已经进入不可恢复的游戏结束状态。</summary>
     public bool IsGameOver => HasPauseReason(PauseReason.GameOver);
+
+    /// <summary>是否已经提交返回主菜单的异步加载请求。</summary>
+    public bool IsLoadingMainMenu => _isLoadingMainMenu;
 
     /// <summary>建立单例、初始化界面和按钮，并确保新一局从正常时间流速开始。</summary>
     private void Awake()
@@ -81,7 +89,10 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>监听暂停按键；升级选择和游戏结束期间不允许切换手动暂停。</summary>
     private void Update()
     {
-        if (!Input.GetKeyDown(pauseKey) || IsGameOver || HasPauseReason(PauseReason.LevelUp))
+        if (_isLoadingMainMenu ||
+            !Input.GetKeyDown(pauseKey) ||
+            IsGameOver ||
+            HasPauseReason(PauseReason.LevelUp))
         {
             return;
         }
@@ -163,6 +174,44 @@ public sealed class GameFlowManager : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
+    /// <summary>
+    /// 从暂停菜单返回主界面；提交加载后锁定暂停菜单按钮，避免重复创建场景切换请求。
+    /// </summary>
+    public void ReturnToMainMenu()
+    {
+        if (_isLoadingMainMenu)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(mainMenuSceneName) ||
+            !Application.CanStreamedLevelBeLoaded(mainMenuSceneName))
+        {
+            Debug.LogError(
+                $"无法加载主菜单场景“{mainMenuSceneName}”，请检查 Build Settings。",
+                this);
+            return;
+        }
+
+        _isLoadingMainMenu = true;
+        SetPauseControlsInteractable(false);
+        Time.timeScale = 1f;
+
+        AsyncOperation loadOperation = SceneManager.LoadSceneAsync(
+            mainMenuSceneName,
+            LoadSceneMode.Single);
+        if (loadOperation != null)
+        {
+            return;
+        }
+
+        // Unity 正常情况下会返回 AsyncOperation；保底恢复暂停状态并允许再次尝试。
+        _isLoadingMainMenu = false;
+        SetPauseControlsInteractable(true);
+        ApplyPauseState();
+        Debug.LogError($"主菜单场景“{mainMenuSceneName}”未能创建加载任务。", this);
+    }
+
     /// <summary>解析玩家生命、控制器与刚体引用，允许场景未手动绑定时安全回退。</summary>
     private void ResolvePlayerReferences()
     {
@@ -207,6 +256,11 @@ public sealed class GameFlowManager : MonoBehaviour
             pauseRestartButton.onClick.AddListener(RestartGame);
         }
 
+        if (pauseMainMenuButton != null)
+        {
+            pauseMainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        }
+
         if (gameOverRestartButton != null)
         {
             gameOverRestartButton.onClick.AddListener(RestartGame);
@@ -226,9 +280,33 @@ public sealed class GameFlowManager : MonoBehaviour
             pauseRestartButton.onClick.RemoveListener(RestartGame);
         }
 
+        if (pauseMainMenuButton != null)
+        {
+            pauseMainMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+        }
+
         if (gameOverRestartButton != null)
         {
             gameOverRestartButton.onClick.RemoveListener(RestartGame);
+        }
+    }
+
+    /// <summary>统一控制暂停菜单内按钮的可交互状态。</summary>
+    private void SetPauseControlsInteractable(bool interactable)
+    {
+        if (resumeButton != null)
+        {
+            resumeButton.interactable = interactable;
+        }
+
+        if (pauseRestartButton != null)
+        {
+            pauseRestartButton.interactable = interactable;
+        }
+
+        if (pauseMainMenuButton != null)
+        {
+            pauseMainMenuButton.interactable = interactable;
         }
     }
 
