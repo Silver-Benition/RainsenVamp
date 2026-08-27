@@ -17,11 +17,25 @@ public class ProjectileBase : MonoBehaviour, IPoolable
     private Vector3 moveDirection;         // 当前飞行方向
     private float currentDamage;           // 当前伤害值
     private float currentSpeed;            // 当前飞行速度
+    private Vector3 baseLocalScale;
 
     // 弹射时排除已命中目标，防止来回弹同一个怪
     // 用 HashSet 而非 List：Contains() 查找复杂度 O(1) vs List 的 O(N)，
     // OnTriggerEnter2D 高频调用时性能更稳定。对象池复用时必须 Clear()。
     private readonly HashSet<Collider2D> hitColliders = new HashSet<Collider2D>();
+
+    /// <summary>缓存 Prefab 初始缩放，确保对象池复用时 Area 不会重复累乘。</summary>
+    private void Awake()
+    {
+        baseLocalScale = transform.localScale;
+    }
+
+    /// <summary>对象池回收时恢复初始尺寸并清理命中集合。</summary>
+    private void OnDisable()
+    {
+        transform.localScale = baseLocalScale;
+        hitColliders.Clear();
+    }
 
     // =====================================================================
     // IPoolable 接口
@@ -45,7 +59,8 @@ public class ProjectileBase : MonoBehaviour, IPoolable
             levelData != null ? levelData.pierceCount : 0,
             levelData != null ? levelData.lifeTime : 1f,
             levelData != null ? levelData.bounceCount : 0,
-            levelData != null ? levelData.bounceMode : BounceMode.Directional
+            levelData != null ? levelData.bounceMode : BounceMode.Directional,
+            1f
         );
     }
 
@@ -54,7 +69,8 @@ public class ProjectileBase : MonoBehaviour, IPoolable
     // =====================================================================
     public virtual void Initialize(WeaponDataSO data, Vector3 direction,
         float damage, float speed, int pierce, float lifeTimeValue,
-        int bounce = 0, BounceMode bounceMode = BounceMode.Directional)
+        int bounce = 0, BounceMode bounceMode = BounceMode.Directional,
+        float areaMultiplier = 1f)
     {
         weaponData = data;
         moveDirection = direction.normalized;
@@ -64,6 +80,11 @@ public class ProjectileBase : MonoBehaviour, IPoolable
         lifeTimer = lifeTimeValue;
         currentBounce = bounce;
         currentBounceMode = bounceMode;
+        float safeAreaMultiplier = Mathf.Max(0.01f, areaMultiplier);
+        transform.localScale = new Vector3(
+            baseLocalScale.x * safeAreaMultiplier,
+            baseLocalScale.y * safeAreaMultiplier,
+            baseLocalScale.z);
 
         // 对象池复用时必须清空，否则上一发子弹的命中记录会影响新子弹
         hitColliders.Clear();

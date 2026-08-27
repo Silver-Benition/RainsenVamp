@@ -23,7 +23,10 @@ public sealed class OrbitWeapon : WeaponBase
         }
 
         _orbitPhase = Mathf.Repeat(
-            _orbitPhase + levelData.orbitAngularSpeed * Time.deltaTime,
+            _orbitPhase
+                + levelData.orbitAngularSpeed
+                * GetCurrentProjectileSpeedMultiplier()
+                * Time.deltaTime,
             360f);
 
         int count = _orbiters.Count;
@@ -82,7 +85,7 @@ public sealed class OrbitWeapon : WeaponBase
             return;
         }
 
-        int desiredCount = Mathf.Max(1, levelData.projectileCount);
+        int desiredCount = GetCurrentProjectileCount();
         while (_orbiters.Count > desiredCount)
         {
             int lastIndex = _orbiters.Count - 1;
@@ -118,7 +121,10 @@ public sealed class OrbitWeapon : WeaponBase
             OrbitingProjectile orbiter = _orbiters[index];
             if (orbiter != null)
             {
-                orbiter.Initialize(transform, levelData.damage);
+                orbiter.Initialize(
+                    transform,
+                    GetCurrentDamage(),
+                    GetCurrentAreaMultiplier());
             }
         }
     }

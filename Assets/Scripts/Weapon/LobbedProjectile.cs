@@ -20,6 +20,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
     private float _elapsedTime;
     private float _spinSpeed;
     private int _remainingPierce;
+    private Vector3 _baseLocalScale;
 
     /// <summary>
     /// 缓存飞斧表现组件和游戏相机，避免在每帧视口检测时重复查找。
@@ -28,6 +29,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
     {
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _mainCamera = Camera.main;
+        _baseLocalScale = transform.localScale;
     }
 
     /// <summary>
@@ -46,6 +48,13 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         _hitColliders.Clear();
     }
 
+    /// <summary>对象池回收时恢复 Prefab 初始尺寸，防止 Area 在多次生命周期中累乘。</summary>
+    private void OnDisable()
+    {
+        transform.localScale = _baseLocalScale;
+        _hitColliders.Clear();
+    }
+
     /// <summary>
     /// 注入一次投掷的完整数值快照并重置弹道计时器。
     /// </summary>
@@ -58,6 +67,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
     /// <param name="pierceCount">允许额外穿透的目标数量。</param>
     /// <param name="gravity">持续向下的加速度大小。</param>
     /// <param name="spinSpeed">贴图自转速度，单位为度/秒。</param>
+    /// <param name="areaMultiplier">玩家 Area 转换出的实体尺寸倍率。</param>
     public void Initialize(
         Vector3 startPosition,
         Vector3 inheritedVelocity,
@@ -67,7 +77,8 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         float maxLifetime,
         int pierceCount,
         float gravity,
-        float spinSpeed)
+        float spinSpeed,
+        float areaMultiplier = 1f)
     {
         _startPosition = startPosition;
         Vector3 safeDirection = direction.sqrMagnitude > 0.0001f
@@ -82,6 +93,12 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         _elapsedTime = 0f;
         _hitColliders.Clear();
         transform.position = _startPosition;
+        transform.rotation = Quaternion.identity;
+        float safeAreaMultiplier = Mathf.Max(0.01f, areaMultiplier);
+        transform.localScale = new Vector3(
+            _baseLocalScale.x * safeAreaMultiplier,
+            _baseLocalScale.y * safeAreaMultiplier,
+            _baseLocalScale.z);
 
         if (_mainCamera == null)
         {

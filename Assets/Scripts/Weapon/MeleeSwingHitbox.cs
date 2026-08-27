@@ -78,7 +78,8 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         float damage,
         float range,
         float arc,
-        float duration)
+        float duration,
+        float startAngleOffset = 0f)
     {
         _owner = owner;
         _damage = Mathf.Max(0f, damage);
@@ -87,7 +88,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         _hitColliders.Clear();
 
         float swingArc = Mathf.Clamp(arc, 1f, 360f);
-        _startAngle = 90f;
+        _startAngle = 90f + startAngleOffset;
         _endAngle = facesRight
             ? _startAngle - swingArc
             : _startAngle + swingArc;

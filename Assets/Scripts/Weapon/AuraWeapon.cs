@@ -42,7 +42,13 @@ public sealed class AuraWeapon : WeaponBase
         }
 
         bool persistent = forcePersistentAura || HasFeature(WeaponFeatureType.AuraPersistent);
-        float lifeTime = persistent ? Mathf.Max(levelData.lifeTime, 99999f) : levelData.lifeTime;
+        float modifiedLifeTime = GetModifiedDuration(levelData.lifeTime);
+        float lifeTime = persistent ? Mathf.Max(modifiedLifeTime, 99999f) : modifiedLifeTime;
+        float damage = GetCurrentDamage();
+        float radius = GetModifiedArea(levelData.auraRadius);
+        float tickInterval = Mathf.Max(
+            0.01f,
+            levelData.tickInterval * GetCurrentCooldownMultiplier());
 
         if (_auraInstance != null && _auraInstance.activeInHierarchy)
         {
@@ -51,10 +57,10 @@ public sealed class AuraWeapon : WeaponBase
                 existingAura.Initialize(
                     weaponData,
                     transform,
-                    levelData.tickInterval,
-                    levelData.damage,
+                    tickInterval,
+                    damage,
                     lifeTime,
-                    levelData.auraRadius);
+                    radius);
             }
             return;
         }
@@ -69,10 +75,10 @@ public sealed class AuraWeapon : WeaponBase
             aura.Initialize(
                 weaponData,
                 transform,
-                levelData.tickInterval,
-                levelData.damage,
+                tickInterval,
+                damage,
                 lifeTime,
-                levelData.auraRadius);
+                radius);
         }
         else if (_auraInstance != null)
         {

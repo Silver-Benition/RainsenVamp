@@ -1286,6 +1286,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a82eef4995ce154697d0045300d53b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  characterData: {fileID: 11400000, guid: a1f0e4c7d2b34513a4c98fcd12000105, type: 2}
   currentLevel: 1
   currentExp: 0
   expToNextLevel: 10
@@ -1301,8 +1302,6 @@ MonoBehaviour:
   - 43
   - 52
   experienceFallbackGrowth: 1.2
-  baseMoveSpeed: 3
-  moveSpeedBonus: 0
 --- !u!114 &1127848273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3034,6 +3033,7 @@ GameObject:
   - component: {fileID: 3200000101}
   - component: {fileID: 3200000103}
   - component: {fileID: 3200000102}
+  - component: {fileID: 3200000104}
   m_Layer: 5
   m_Name: PausePanel
   m_TagString: Untagged
@@ -3101,6 +3101,28 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3200000100}
   m_CullTransparentMesh: 1
+--- !u!114 &3200000104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3200000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1f0e4c7d2b34513a4c98fcd12000109, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  boardSize: {x: 410, y: 720}
+  anchoredOffset: {x: -32, y: 32}
+  titleFontSize: 28
+  rowFontSize: 20
+  rowSpacing: 2
+  borderColor: {r: 0.66, g: 0.61, b: 0.4, a: 0.95}
+  backgroundColor: {r: 0.055, g: 0.07, b: 0.1, a: 0.96}
+  titleColor: {r: 1, g: 0.88, b: 0.45, a: 1}
+  labelColor: {r: 0.86, g: 0.88, b: 0.91, a: 1}
+  valueColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &3200000110
 GameObject:
   m_ObjectHideFlags: 0

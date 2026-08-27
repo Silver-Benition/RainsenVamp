@@ -754,6 +754,7 @@ MonoBehaviour:
   gameplaySceneName: MainLevel
   startButton: {fileID: 1296310067}
   quitButton: {fileID: 1564534802}
+  characterSelectionUI: {fileID: 1294393490}
   versionText: {fileID: 1939840532}
   versionFormat: v{0}
 --- !u!4 &1093678242
@@ -933,6 +934,7 @@ GameObject:
   - component: {fileID: 1294393489}
   - component: {fileID: 1294393488}
   - component: {fileID: 1294393487}
+  - component: {fileID: 1294393490}
   m_Layer: 5
   m_Name: MainMenuCanvas
   m_TagString: Untagged
@@ -1029,6 +1031,25 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &1294393490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1294393485}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1f0e4c7d2b34513a4c98fcd12000114, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  availableCharacters:
+  - {fileID: 11400000, guid: a1f0e4c7d2b34513a4c98fcd12000105, type: 2}
+  - {fileID: 11400000, guid: a1f0e4c7d2b34513a4c98fcd12000117, type: 2}
+  slotCapacity: 12
+  columns: 4
+  portraitSlideDuration: 0.4
+  previewFrameInterval: 0.2
 --- !u!1 &1296310062
 GameObject:
   m_ObjectHideFlags: 0

@@ -11,6 +11,7 @@ public class WeaponBase : MonoBehaviour
     protected float _currentCooldown;
     protected int _currentLevel = 1;
     protected AimController _aimController;
+    protected PlayerStats _playerStats;
 
     public int CurrentLevel => _currentLevel;
     public int MaxLevel => weaponData != null ? weaponData.MaxLevel : 1;
@@ -22,6 +23,7 @@ public class WeaponBase : MonoBehaviour
     protected virtual void Awake()
     {
         _aimController = GetComponentInParent<AimController>();
+        _playerStats = GetComponentInParent<PlayerStats>();
     }
 
     /// <summary>
@@ -91,7 +93,14 @@ public class WeaponBase : MonoBehaviour
     protected float GetCurrentDamage()
     {
         WeaponLevelData levelData = GetCurrentLevelData();
-        return levelData != null ? levelData.damage : 0f;
+        if (levelData == null) return 0f;
+
+        float might = _playerStats != null
+            && weaponData != null
+            && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Might)
+            ? _playerStats.Might
+            : 1f;
+        return levelData.damage * might;
     }
 
     /// <summary>
@@ -100,7 +109,19 @@ public class WeaponBase : MonoBehaviour
     protected float GetCurrentCooldown()
     {
         WeaponLevelData levelData = GetCurrentLevelData();
-        return levelData != null ? Mathf.Max(0.05f, levelData.cooldown) : 0.1f;
+        if (levelData == null) return 0.1f;
+
+        return Mathf.Max(0.05f, levelData.cooldown * GetCurrentCooldownMultiplier());
+    }
+
+    /// <summary>返回玩家 Cooldown 处理后的攻击间隔倍率。</summary>
+    protected float GetCurrentCooldownMultiplier()
+    {
+        return _playerStats != null
+            && weaponData != null
+            && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Cooldown)
+            ? _playerStats.Cooldown
+            : 1f;
     }
 
     /// <summary>
@@ -109,7 +130,59 @@ public class WeaponBase : MonoBehaviour
     protected float GetCurrentProjectileSpeed()
     {
         WeaponLevelData levelData = GetCurrentLevelData();
-        return levelData != null ? levelData.projectileSpeed : 0f;
+        if (levelData == null) return 0f;
+        return levelData.projectileSpeed * GetCurrentProjectileSpeedMultiplier();
+    }
+
+    /// <summary>返回投射物速度倍率，供环绕等非直线运动武器复用。</summary>
+    protected float GetCurrentProjectileSpeedMultiplier()
+    {
+        return _playerStats != null
+            && weaponData != null
+            && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.ProjectileSpeed)
+            ? _playerStats.ProjectileSpeed
+            : 1f;
+    }
+
+    /// <summary>返回当前等级基础数量叠加玩家 Amount 后的安全整数数量。</summary>
+    protected int GetCurrentProjectileCount()
+    {
+        WeaponLevelData levelData = GetCurrentLevelData();
+        if (levelData == null) return 1;
+
+        float bonusAmount = _playerStats != null
+            && weaponData != null
+            && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Amount)
+            ? _playerStats.Amount
+            : 0f;
+        return Mathf.Max(1, levelData.projectileCount + Mathf.FloorToInt(bonusAmount + 0.0001f));
+    }
+
+    /// <summary>返回玩家 Duration 处理后的武器效果持续时间。</summary>
+    protected float GetModifiedDuration(float baseDuration)
+    {
+        float multiplier = _playerStats != null
+            && weaponData != null
+            && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Duration)
+            ? _playerStats.Duration
+            : 1f;
+        return Mathf.Max(0.01f, baseDuration * multiplier);
+    }
+
+    /// <summary>返回玩家 Area 处理后的范围、半径或尺寸值。</summary>
+    protected float GetModifiedArea(float baseArea)
+    {
+        return Mathf.Max(0.01f, baseArea * GetCurrentAreaMultiplier());
+    }
+
+    /// <summary>返回供池化攻击实体保存的 Area 尺寸倍率。</summary>
+    protected float GetCurrentAreaMultiplier()
+    {
+        return _playerStats != null
+            && weaponData != null
+            && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Area)
+            ? _playerStats.Area
+            : 1f;
     }
 
     /// <summary>
@@ -129,7 +202,7 @@ public class WeaponBase : MonoBehaviour
         }
 
         Vector3 baseDirection = GetAimDirection();
-        int count = Mathf.Max(1, levelData.projectileCount);
+        int count = GetCurrentProjectileCount();
 
         for (int index = 0; index < count; index++)
         {
@@ -149,12 +222,13 @@ public class WeaponBase : MonoBehaviour
                 projectile.Initialize(
                     weaponData,
                     fireDirection,
-                    levelData.damage,
-                    levelData.projectileSpeed,
+                    GetCurrentDamage(),
+                    GetCurrentProjectileSpeed(),
                     levelData.pierceCount,
-                    levelData.lifeTime,
+                    GetModifiedDuration(levelData.lifeTime),
                     levelData.bounceCount,
-                    levelData.bounceMode);
+                    levelData.bounceMode,
+                    GetCurrentAreaMultiplier());
             }
         }
     }

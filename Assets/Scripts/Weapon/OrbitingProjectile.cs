@@ -9,6 +9,21 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     private GameObject _prefabReference;
     private Transform _owner;
     private float _damage;
+    private Vector3 _baseLocalScale;
+
+    /// <summary>缓存 Prefab 初始尺寸，避免池化复用时 Area 倍率重复累积。</summary>
+    private void Awake()
+    {
+        _baseLocalScale = transform.localScale;
+    }
+
+    /// <summary>对象禁用时恢复初始尺寸并清理旧归属。</summary>
+    private void OnDisable()
+    {
+        transform.localScale = _baseLocalScale;
+        _owner = null;
+        _damage = 0f;
+    }
 
     /// <summary>
     /// 保存原始 Prefab 引用，供对象池回收时作为稳定键。
@@ -21,10 +36,15 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     /// <summary>
     /// 注入本次生命周期的玩家归属和伤害快照。
     /// </summary>
-    public void Initialize(Transform owner, float damage)
+    public void Initialize(Transform owner, float damage, float areaMultiplier = 1f)
     {
         _owner = owner;
         _damage = Mathf.Max(0f, damage);
+        float safeAreaMultiplier = Mathf.Max(0.01f, areaMultiplier);
+        transform.localScale = new Vector3(
+            _baseLocalScale.x * safeAreaMultiplier,
+            _baseLocalScale.y * safeAreaMultiplier,
+            _baseLocalScale.z);
     }
 
     /// <summary>

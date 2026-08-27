@@ -21,24 +21,31 @@ public sealed class MeleeWeapon : WeaponBase
             return;
         }
 
-        GameObject instance = PoolManager.Instance.Spawn(
-            weaponData.projectilePrefab,
-            transform.position,
-            Quaternion.identity);
-        if (instance != null
-            && instance.TryGetComponent<MeleeSwingHitbox>(out var swingHitbox))
+        int count = GetCurrentProjectileCount();
+        for (int index = 0; index < count; index++)
         {
-            swingHitbox.Initialize(
-                transform,
-                GetHorizontalFacingSign() >= 0f,
-                levelData.damage,
-                levelData.meleeRange,
-                levelData.meleeArc,
-                levelData.activeDuration);
-        }
-        else if (instance != null)
-        {
-            PoolManager.Instance.Release(weaponData.projectilePrefab, instance);
+            GameObject instance = PoolManager.Instance.Spawn(
+                weaponData.projectilePrefab,
+                transform.position,
+                Quaternion.identity);
+            if (instance != null
+                && instance.TryGetComponent<MeleeSwingHitbox>(out var swingHitbox))
+            {
+                // Amount 大于零时把额外挥击均匀排布在玩家周围，避免完全重叠后退化为伤害倍增。
+                float startAngleOffset = count > 1 ? 360f * index / count : 0f;
+                swingHitbox.Initialize(
+                    transform,
+                    GetHorizontalFacingSign() >= 0f,
+                    GetCurrentDamage(),
+                    GetModifiedArea(levelData.meleeRange),
+                    levelData.meleeArc,
+                    GetModifiedDuration(levelData.activeDuration),
+                    startAngleOffset);
+            }
+            else if (instance != null)
+            {
+                PoolManager.Instance.Release(weaponData.projectilePrefab, instance);
+            }
         }
     }
 }

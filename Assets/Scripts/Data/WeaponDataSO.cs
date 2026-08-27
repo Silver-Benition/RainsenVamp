@@ -37,6 +37,22 @@ public enum WeaponFeatureType
 }
 
 /// <summary>
+/// 武器可选择忽略的玩家全局战斗属性。
+/// 默认值 None 表示全部接入，保证现有武器资产无需迁移即可继承角色属性。
+/// </summary>
+[System.Flags]
+public enum IgnoredPlayerWeaponStats
+{
+    None = 0,
+    Might = 1 << 0,
+    Area = 1 << 1,
+    ProjectileSpeed = 1 << 2,
+    Duration = 1 << 3,
+    Amount = 1 << 4,
+    Cooldown = 1 << 5
+}
+
+/// <summary>
 /// 单个武器等级的数值快照。编辑工具会根据武器类型隐藏无关字段。
 /// </summary>
 [System.Serializable]
@@ -113,6 +129,10 @@ public sealed class WeaponDataSO : ScriptableObject
     [Tooltip("对象池使用的攻击实体 Prefab；光环、环绕物和近战判定同样使用该入口。")]
     public GameObject projectilePrefab;
 
+    [Header("玩家属性影响")]
+    [Tooltip("仅勾选该武器明确不应继承的全局属性；默认不忽略任何属性。")]
+    public IgnoredPlayerWeaponStats ignoredPlayerStats = IgnoredPlayerWeaponStats.None;
+
     /// <summary>
     /// 返回武器最大等级；空配置仍按一级处理，避免升级流程出现零级上限。
     /// </summary>
@@ -132,5 +152,11 @@ public sealed class WeaponDataSO : ScriptableObject
 
         int index = Mathf.Clamp(level - 1, 0, levelConfigs.Count - 1);
         return levelConfigs[index];
+    }
+
+    /// <summary>判断该武器是否明确忽略指定玩家全局属性。</summary>
+    public bool IgnoresPlayerStat(IgnoredPlayerWeaponStats stat)
+    {
+        return (ignoredPlayerStats & stat) != 0;
     }
 }

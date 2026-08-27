@@ -209,6 +209,31 @@ namespace RainsenVampSur.Tests.PlayMode
             Component playerStats = playerObject != null
                 ? playerObject.GetComponent("PlayerStats")
                 : null;
+            Component playerHealth = playerObject != null
+                ? playerObject.GetComponent("PlayerHealth")
+                : null;
+            UnityEngine.Object characterData = playerStats != null
+                ? RuntimeComponentTestUtility.GetProperty<UnityEngine.Object>(playerStats, "CharacterData")
+                : null;
+            float playerMaxHealth = playerStats != null
+                ? RuntimeComponentTestUtility.GetProperty<float>(playerStats, "MaxHealth")
+                : -1f;
+            float playerMoveSpeed = playerStats != null
+                ? RuntimeComponentTestUtility.GetProperty<float>(playerStats, "FinalMoveSpeed")
+                : -1f;
+            float playerMagnet = playerStats != null
+                ? RuntimeComponentTestUtility.GetProperty<float>(playerStats, "Magnet")
+                : -1f;
+            float healthMaxHealth = playerHealth != null
+                ? RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "MaxHealth")
+                : -1f;
+            Transform magnetTransform = playerObject != null
+                ? playerObject.transform.Find("MagnetRadius")
+                : null;
+            CircleCollider2D magnetCollider = magnetTransform != null
+                ? magnetTransform.GetComponent<CircleCollider2D>()
+                : null;
+            float magnetRadius = magnetCollider != null ? magnetCollider.radius : -1f;
             Component expBarUi = expBarObject != null
                 ? expBarObject.GetComponent("ExpBarUI")
                 : null;
@@ -432,6 +457,13 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(initialGoldText, Is.EqualTo("0"));
             Assert.That(killCountAfterRegistration, Is.EqualTo(1));
             Assert.That(killTextAfterRegistration, Is.EqualTo("1"));
+            Assert.IsNotNull(characterData, "MainLevel 的 PlayerStats 没有绑定默认角色资产。");
+            Assert.That(characterData != null ? characterData.name : string.Empty, Is.EqualTo("DefaultCharacter"));
+            Assert.That(playerMaxHealth, Is.EqualTo(100f).Within(FloatTolerance));
+            Assert.That(healthMaxHealth, Is.EqualTo(100f).Within(FloatTolerance));
+            Assert.That(playerMoveSpeed, Is.EqualTo(3f).Within(FloatTolerance));
+            Assert.That(playerMagnet, Is.EqualTo(3f).Within(FloatTolerance));
+            Assert.That(magnetRadius, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.IsFalse(debugComponentInMainScene, "MainLevel 仍然挂载双世界线调试组件。");
         }
 
@@ -489,6 +521,7 @@ namespace RainsenVampSur.Tests.PlayMode
             bool managerFound = manager != null;
             bool pausedBeforeReturn = false;
             bool returnButtonFound = false;
+            bool attributeBoardFound = false;
             bool reachedMainMenu = false;
 
             if (managerFound)
@@ -497,6 +530,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 pausedBeforeReturn =
                     RuntimeComponentTestUtility.GetProperty<bool>(manager, "IsPaused") &&
                     Mathf.Approximately(Time.timeScale, 0f);
+                attributeBoardFound = GameObject.Find("PlayerStatBoard") != null;
 
                 GameObject returnButtonObject = GameObject.Find("PauseMainMenuButton");
                 UnityEngine.UI.Button returnButton = returnButtonObject != null
@@ -527,6 +561,7 @@ namespace RainsenVampSur.Tests.PlayMode
 
             Assert.IsTrue(managerFound, "MainLevel 缺少 GameFlowManager。");
             Assert.IsTrue(pausedBeforeReturn, "返回主菜单前没有进入真实暂停状态。");
+            Assert.IsTrue(attributeBoardFound, "暂停菜单右侧没有创建角色属性看板。");
             Assert.IsTrue(returnButtonFound, "暂停菜单缺少返回主界面按钮。");
             Assert.IsTrue(reachedMainMenu, "点击返回主界面后没有进入 MainMenu。");
             Assert.That(activeSceneName, Is.EqualTo("MainMenu"));

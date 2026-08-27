@@ -17,6 +17,7 @@ public sealed class MainMenuController : MonoBehaviour
     [Header("Controls")]
     [SerializeField] private Button startButton;
     [SerializeField] private Button quitButton;
+    [SerializeField] private CharacterSelectionUI characterSelectionUI;
 
     [Header("Version")]
     [SerializeField] private TMP_Text versionText;
@@ -31,10 +32,20 @@ public sealed class MainMenuController : MonoBehaviour
     /// <summary>返回当前配置的游戏场景名，供诊断和自动化测试读取。</summary>
     public string GameplaySceneName => gameplaySceneName;
 
+    /// <summary>角色选择页当前是否打开。</summary>
+    public bool IsCharacterSelectionVisible =>
+        characterSelectionUI != null && characterSelectionUI.IsVisible;
+
     /// <summary>校验必要引用，并确保从暂停状态返回主菜单时恢复正常时间流速。</summary>
     private void Awake()
     {
         Time.timeScale = 1f;
+        CharacterSelectionSession.Clear();
+
+        if (characterSelectionUI == null)
+        {
+            characterSelectionUI = FindObjectOfType<CharacterSelectionUI>(true);
+        }
 
         if (startButton != null && quitButton != null && versionText != null)
         {
@@ -52,6 +63,11 @@ public sealed class MainMenuController : MonoBehaviour
     {
         startButton.onClick.AddListener(StartGame);
         quitButton.onClick.AddListener(QuitGame);
+        if (characterSelectionUI != null)
+        {
+            characterSelectionUI.CharacterConfirmed += BeginGameLoad;
+            characterSelectionUI.Closed += HandleCharacterSelectionClosed;
+        }
         versionText.text = string.Format(versionFormat, Application.version);
 
         _selectionCoroutine = StartCoroutine(SelectDefaultButtonNextFrame());
@@ -70,6 +86,12 @@ public sealed class MainMenuController : MonoBehaviour
             quitButton.onClick.RemoveListener(QuitGame);
         }
 
+        if (characterSelectionUI != null)
+        {
+            characterSelectionUI.CharacterConfirmed -= BeginGameLoad;
+            characterSelectionUI.Closed -= HandleCharacterSelectionClosed;
+        }
+
         if (_selectionCoroutine != null)
         {
             StopCoroutine(_selectionCoroutine);
@@ -78,10 +100,31 @@ public sealed class MainMenuController : MonoBehaviour
     }
 
     /// <summary>
-    /// 开始异步加载游戏场景；一旦提交便立即锁定按钮，避免快速连点创建重复加载请求。
-    /// 如果目标场景未加入 Build Settings，则保留当前页面并输出明确错误。
+    /// 从主菜单进入角色选择页；只有角色确认后才开始加载游戏场景。
     /// </summary>
     private void StartGame()
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        Time.timeScale = 1f;
+        if (characterSelectionUI != null)
+        {
+            SetControlsInteractable(false);
+            characterSelectionUI.Show();
+            return;
+        }
+
+        Debug.LogWarning("主菜单未配置角色选择页，将直接使用场景内默认角色。", this);
+        BeginGameLoad(null);
+    }
+
+    /// <summary>
+    /// 保存确认角色并异步加载游戏场景；提交后立即锁定所有选择控件，避免重复加载。
+    /// </summary>
+    private void BeginGameLoad(CharacterDataSO character)
     {
         if (_isLoading)
         {
@@ -91,14 +134,28 @@ public sealed class MainMenuController : MonoBehaviour
         if (string.IsNullOrWhiteSpace(gameplaySceneName) ||
             !Application.CanStreamedLevelBeLoaded(gameplaySceneName))
         {
+            if (characterSelectionUI != null)
+            {
+                characterSelectionUI.SetInteractionEnabled(true);
+            }
+
             Debug.LogError(
                 $"无法加载游戏场景“{gameplaySceneName}”，请检查 Build Settings。",
                 this);
             return;
         }
 
+        if (character != null)
+        {
+            CharacterSelectionSession.Select(character);
+        }
+
         _isLoading = true;
         SetControlsInteractable(false);
+        if (characterSelectionUI != null)
+        {
+            characterSelectionUI.SetInteractionEnabled(false);
+        }
         Time.timeScale = 1f;
 
         AsyncOperation loadOperation = SceneManager.LoadSceneAsync(
@@ -112,7 +169,29 @@ public sealed class MainMenuController : MonoBehaviour
         // Unity 正常情况下会返回 AsyncOperation；保底恢复能让异常平台仍可重新尝试。
         _isLoading = false;
         SetControlsInteractable(true);
+        CharacterSelectionSession.Clear();
+        if (characterSelectionUI != null)
+        {
+            characterSelectionUI.SetInteractionEnabled(true);
+        }
         Debug.LogError($"游戏场景“{gameplaySceneName}”未能创建加载任务。", this);
+    }
+
+    /// <summary>从角色选择页返回后恢复主菜单按钮和默认焦点。</summary>
+    private void HandleCharacterSelectionClosed()
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        SetControlsInteractable(true);
+        if (_selectionCoroutine != null)
+        {
+            StopCoroutine(_selectionCoroutine);
+        }
+
+        _selectionCoroutine = StartCoroutine(SelectDefaultButtonNextFrame());
     }
 
     /// <summary>在正式构建中退出应用；Editor 内保持运行，避免误关编辑器或测试进程。</summary>

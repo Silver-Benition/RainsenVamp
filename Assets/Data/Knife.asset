@@ -116,3 +116,4 @@ MonoBehaviour:
     activeDuration: 0.18
     features: 
   projectilePrefab: {fileID: 5100000000000000001, guid: eed65a57ff259d540b2c84c3d231a399, type: 3}
+  ignoredPlayerStats: 40

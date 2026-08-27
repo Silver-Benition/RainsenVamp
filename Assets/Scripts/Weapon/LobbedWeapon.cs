@@ -33,7 +33,7 @@ public sealed class LobbedWeapon : WeaponBase
         }
 
         Vector3 baseDirection = GetUpperHemisphereAimDirection();
-        int count = Mathf.Max(1, levelData.projectileCount);
+        int count = GetCurrentProjectileCount();
         Vector3 inheritedVelocity = _ownerRigidbody != null
             ? new Vector3(_ownerRigidbody.velocity.x, _ownerRigidbody.velocity.y, 0f)
             : Vector3.zero;
@@ -57,12 +57,13 @@ public sealed class LobbedWeapon : WeaponBase
                     transform.position,
                     inheritedVelocity,
                     direction,
-                    levelData.damage,
-                    levelData.projectileSpeed,
-                    levelData.lifeTime,
+                    GetCurrentDamage(),
+                    GetCurrentProjectileSpeed(),
+                    GetModifiedDuration(levelData.lifeTime),
                     levelData.pierceCount,
                     levelData.lobGravity,
-                    levelData.spinSpeed);
+                    levelData.spinSpeed,
+                    GetCurrentAreaMultiplier());
             }
             else if (instance != null)
             {
