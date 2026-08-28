@@ -15,7 +15,13 @@ public class EnemyDataSO : ScriptableObject
     public float moveSpeed = 2f;
     [Min(0f), Tooltip("敌人与玩家持续接触时，每次有效受击造成的伤害。")]
     public float collisionDamage = 10f;
+
+    [Tooltip("关闭后该敌人不会被 Defang，供未来首领或特殊机关使用。")]
+    public bool canBeDefanged = true;
     [Header("掉落物")]
     [Tooltip("敌人死亡时从对象池生成的经验球 Prefab。")]
     public GameObject dropExpPrefab;
+
+    [Tooltip("金币与宝箱的可选掉落配置；为空时只生成经验球。")]
+    public EnemyDropTableSO dropTable;
 }

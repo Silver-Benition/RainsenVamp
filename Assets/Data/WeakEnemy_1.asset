@@ -16,4 +16,6 @@ MonoBehaviour:
   maxHealth: 20
   moveSpeed: 2
   collisionDamage: 10
+  canBeDefanged: 1
   dropExpPrefab: {fileID: 4754037072693363561, guid: d13aa15b6d2a3b5429389ce6fc3a2bf2, type: 3}
+  dropTable: {fileID: 11400000, guid: 29bf1cf2037c4703a94dcf9f31463ef2, type: 2}

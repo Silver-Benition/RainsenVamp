@@ -87,7 +87,10 @@ public class UpgradeUIItem : MonoBehaviour
     /// </summary>
     private void OnButtonClicked()
     {
-        LevelUpManager.Instance.ApplyUpgrade(currentData);
+        if (LevelUpManager.Instance != null)
+        {
+            LevelUpManager.Instance.HandleCandidateSelected(currentData);
+        }
     }
 
     /// <summary>

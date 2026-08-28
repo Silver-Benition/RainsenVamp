@@ -41,12 +41,13 @@ public class PlayerMagnet : MonoBehaviour
         }
     }
 
-    /// <summary>经验球进入最终磁吸范围时，令其飞向玩家根节点。</summary>
+    /// <summary>任意磁吸拾取物进入最终范围时，令其飞向玩家根节点。</summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.TryGetComponent<ExpGem>(out var gem))
+        IMagneticPickup pickup = collision.GetComponent(typeof(IMagneticPickup)) as IMagneticPickup;
+        if (pickup != null)
         {
-            gem.StartFlyingTowards(transform.parent);
+            pickup.StartFlyingTowards(transform.parent);
         }
     }
 

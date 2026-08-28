@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,8 +20,14 @@ public class LevelUpManager : MonoBehaviour
 
     // 运行时生成的按钮实例（关闭面板时销毁，下次重新生成）
     private readonly List<UpgradeUIItem> activeButtons = new List<UpgradeUIItem>();
+    private readonly List<UpgradeDataSO> _currentCandidates = new List<UpgradeDataSO>();
 
     private Transform playerTransform;
+    private PlayerStats _playerStats;
+    private RunState _runState;
+    private LevelUpActionBarUI _actionBar;
+    private readonly IRandomSource _randomSource = new UnityRandomSource();
+    private bool _banishMode;
     private readonly Dictionary<string, WeaponBase> ownedWeapons = new Dictionary<string, WeaponBase>();
     private readonly List<WeaponBase> _ownedWeaponOrder =
         new List<WeaponBase>(PlayerLoadoutRules.MaxWeaponCount);
@@ -35,6 +40,12 @@ public class LevelUpManager : MonoBehaviour
 
     /// <summary>玩家当前持有的不同武器种类数。</summary>
     public int OwnedWeaponCount => _ownedWeaponOrder.Count;
+
+    /// <summary>当前面板正在展示的只读候选快照。</summary>
+    public IReadOnlyList<UpgradeDataSO> CurrentCandidates => _currentCandidates;
+
+    /// <summary>当前是否等待玩家点击一个候选执行放逐。</summary>
+    public bool IsBanishMode => _banishMode;
 
     /// <summary>
     /// 建立升级管理器单例并确保升级面板初始隐藏。
@@ -60,15 +71,11 @@ public class LevelUpManager : MonoBehaviour
     /// </summary>
     private void Start()
     {
-        // 缓存玩家引用，用于后续发放武器
-        GameObject playerObject = GameObject.FindWithTag("Player");
-        if (playerObject == null)
+        if (!ResolvePlayerReferences())
         {
             Debug.LogError("[LevelUpManager] 找不到 Player，无法登记或发放武器。", this);
             return;
         }
-
-        playerTransform = playerObject.transform;
 
         // 扫描玩家身上已有的武器（场景预置的默认武器），注册进 ownedWeapons
         // 这样升级系统才能感知到默认武器的存在，避免重复发放 / 正确处理升级等级
@@ -78,6 +85,11 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>销毁时释放单例引用，避免场景重载后其他系统取得失效管理器。</summary>
     private void OnDestroy()
     {
+        if (_runState != null)
+        {
+            _runState.StateChanged -= RefreshActionBar;
+        }
+
         if (Instance == this)
         {
             Instance = null;
@@ -132,15 +144,16 @@ public class LevelUpManager : MonoBehaviour
     /// </summary>
     public void ShowLevelUpUI()
     {
-        // 候选池：过滤掉已拥有且已满级的武器
-        List<UpgradeDataSO> pool = BuildSelectableUpgradePool();
-
-        // 保底处理：如果没有可选升级项，直接跳过面板，恢复游戏
-        if (pool.Count == 0)
+        if (!ResolvePlayerReferences())
         {
-            Debug.Log("[LevelUpManager] 候选池为空（所有武器已满级），跳过升级面板。");
-            // 依然检查队列中是否有残余升级
-            playerTransform.GetComponent<PlayerStats>().CheckLevelUpQueue();
+            Debug.LogError("[LevelUpManager] 找不到玩家属性，无法展示升级候选。", this);
+            return;
+        }
+
+        if (!TryBuildCurrentCandidates())
+        {
+            Debug.Log("[LevelUpManager] 候选池为空，跳过本次升级选择。", this);
+            ContinueLevelQueue();
             return;
         }
 
@@ -150,34 +163,14 @@ public class LevelUpManager : MonoBehaviour
         }
         else
         {
-            // 缺少统一流程管理器时保留旧行为，避免升级界面在测试场景中失去暂停能力。
             Time.timeScale = 0f;
         }
+
+        _banishMode = false;
         levelUpPanel.SetActive(true);
-
-        // 销毁上一次生成的按钮（避免残留旧候选）
-        foreach (var btn in activeButtons)
-        {
-            if (btn != null) Destroy(btn.gameObject);
-        }
-        activeButtons.Clear();
-
-        // 动态生成按钮 Prefab，数量取"期望数量"和"候选池数量"的较小值
-        int count = Mathf.Min(upgradeChoiceCount, pool.Count);
-        for (int i = 0; i < count; i++)
-        {
-            int randomIndex = UnityEngine.Random.Range(0, pool.Count);
-            UpgradeDataSO selectedUpgrade = pool[randomIndex];
-            pool.RemoveAt(randomIndex); // 防止同一选项出现两次
-
-            // 在 buttonContainer 下生成 Prefab
-            GameObject btnObj = Instantiate(upgradeButtonPrefab, buttonContainer);
-            if (btnObj.TryGetComponent<UpgradeUIItem>(out var uiItem))
-            {
-                uiItem.Setup(selectedUpgrade);
-                activeButtons.Add(uiItem);
-            }
-        }
+        RebuildCandidateButtons();
+        EnsureActionBar();
+        RefreshActionBar();
     }
 
     /// <summary>
@@ -185,25 +178,109 @@ public class LevelUpManager : MonoBehaviour
     /// </summary>
     public void ApplyUpgrade(UpgradeDataSO selectedData)
     {
+        HandleCandidateSelected(selectedData);
+    }
+
+    /// <summary>
+    /// 处理候选卡点击：普通模式授予奖励，放逐模式则消费次数并刷新当前候选。
+    /// </summary>
+    public void HandleCandidateSelected(UpgradeDataSO selectedData)
+    {
+        if (selectedData == null || !_currentCandidates.Contains(selectedData))
+        {
+            return;
+        }
+
+        if (_banishMode)
+        {
+            TryBanishCandidate(selectedData);
+            return;
+        }
+
         // 1. 发放奖励
         if (selectedData.weaponToGrant != null)
         {
             GrantWeapon(selectedData);
         }
 
-        // 2. 关闭面板、恢复时间
-        levelUpPanel.SetActive(false);
-        if (GameFlowManager.Instance != null)
+        CompleteCurrentChoice();
+    }
+
+    /// <summary>消耗一次重掷并用同一合法池重新生成当前候选。</summary>
+    public void RerollCurrentChoices()
+    {
+        if (_runState == null || levelUpPanel == null || !levelUpPanel.activeSelf ||
+            !_runState.TryConsumeReroll())
         {
-            GameFlowManager.Instance.ExitLevelUpPause();
+            return;
+        }
+
+        _banishMode = false;
+        RefreshCandidatesOrComplete();
+    }
+
+    /// <summary>消耗一次跳过，放弃本次奖励并继续处理升级队列。</summary>
+    public void SkipCurrentChoice()
+    {
+        if (_runState == null || levelUpPanel == null || !levelUpPanel.activeSelf ||
+            !_runState.TryConsumeSkip())
+        {
+            return;
+        }
+
+        CompleteCurrentChoice();
+    }
+
+    /// <summary>在存在放逐次数时切换候选点击的放逐模式。</summary>
+    public void ToggleBanishMode()
+    {
+        if (_runState == null || _runState.RemainingBanishes <= 0 ||
+            levelUpPanel == null || !levelUpPanel.activeSelf)
+        {
+            _banishMode = false;
         }
         else
         {
-            Time.timeScale = 1f;
+            _banishMode = !_banishMode;
         }
 
-        // 3. 通知 PlayerStats 检查是否还有排队的升级
-        playerTransform.GetComponent<PlayerStats>().CheckLevelUpQueue();
+        RefreshActionBar();
+    }
+
+    /// <summary>
+    /// 为宝箱即时抽取并授予一个合法升级，不占用玩家升级队列。
+    /// </summary>
+    /// <returns>成功授予的升级数据；候选为空或奖励无效时返回 null。</returns>
+    public UpgradeDataSO GrantRandomChestReward()
+    {
+        if (!ResolvePlayerReferences())
+        {
+            return null;
+        }
+
+        List<UpgradeDataSO> selectablePool = BuildSelectableUpgradePool();
+        var weaponPool = new List<UpgradeDataSO>(selectablePool.Count);
+        for (int index = 0; index < selectablePool.Count; index++)
+        {
+            UpgradeDataSO candidate = selectablePool[index];
+            if (candidate != null && candidate.weaponToGrant != null)
+            {
+                weaponPool.Add(candidate);
+            }
+        }
+
+        List<UpgradeDataSO> reward = UpgradeCandidateResolver.SelectWeightedWithoutReplacement(
+            weaponPool,
+            1,
+            _playerStats != null ? _playerStats.Luck : 1f,
+            _randomSource);
+        if (reward.Count == 0 || reward[0] == null || reward[0].weaponToGrant == null)
+        {
+            return null;
+        }
+
+        GrantWeapon(reward[0]);
+        return reward[0];
     }
 
     /// <summary>
@@ -378,6 +455,11 @@ public class LevelUpManager : MonoBehaviour
             UpgradeDataSO upgrade = allAvailableUpgrades[i];
             if (upgrade == null) continue;
 
+            if (_runState != null && _runState.IsBanished(upgrade.GetStableId()))
+            {
+                continue;
+            }
+
             // 非武器升级直接放行
             if (upgrade.weaponToGrant == null)
             {
@@ -461,5 +543,187 @@ public class LevelUpManager : MonoBehaviour
     private void NotifyOwnedWeaponsChanged()
     {
         OwnedWeaponsChanged?.Invoke();
+    }
+
+    /// <summary>解析玩家、属性与局内状态，并建立低频状态订阅。</summary>
+    private bool ResolvePlayerReferences()
+    {
+        if (playerTransform == null)
+        {
+            GameObject playerObject = GameObject.FindWithTag("Player");
+            if (playerObject != null)
+            {
+                playerTransform = playerObject.transform;
+            }
+        }
+
+        if (playerTransform == null)
+        {
+            return false;
+        }
+
+        if (_playerStats == null)
+        {
+            _playerStats = playerTransform.GetComponent<PlayerStats>();
+        }
+
+        RunState resolvedState = _playerStats != null
+            ? RunState.GetOrCreate(_playerStats)
+            : null;
+        if (!ReferenceEquals(_runState, resolvedState))
+        {
+            if (_runState != null)
+            {
+                _runState.StateChanged -= RefreshActionBar;
+            }
+
+            _runState = resolvedState;
+            if (_runState != null)
+            {
+                _runState.StateChanged += RefreshActionBar;
+            }
+        }
+
+        // 轻量测试或未来非标准玩家可以只登记武器；Luck 使用中性值，局内次数按钮保持禁用。
+        return playerTransform != null;
+    }
+
+    /// <summary>生成当前候选快照，返回是否至少存在一个可用候选。</summary>
+    private bool TryBuildCurrentCandidates()
+    {
+        List<UpgradeDataSO> pool = BuildSelectableUpgradePool();
+        List<UpgradeDataSO> selected = UpgradeCandidateResolver.SelectWeightedWithoutReplacement(
+            pool,
+            upgradeChoiceCount,
+            _playerStats != null ? _playerStats.Luck : 1f,
+            _randomSource);
+
+        _currentCandidates.Clear();
+        _currentCandidates.AddRange(selected);
+        return _currentCandidates.Count > 0;
+    }
+
+    /// <summary>清理旧卡片并按当前候选快照生成新按钮。</summary>
+    private void RebuildCandidateButtons()
+    {
+        ClearCandidateButtons();
+        if (upgradeButtonPrefab == null || buttonContainer == null)
+        {
+            Debug.LogError("[LevelUpManager] 升级按钮 Prefab 或容器未配置。", this);
+            return;
+        }
+
+        for (int index = 0; index < _currentCandidates.Count; index++)
+        {
+            GameObject buttonObject = Instantiate(upgradeButtonPrefab, buttonContainer);
+            if (buttonObject.TryGetComponent(out UpgradeUIItem uiItem))
+            {
+                uiItem.Setup(_currentCandidates[index]);
+                activeButtons.Add(uiItem);
+            }
+        }
+    }
+
+    /// <summary>销毁上一次面板创建的低频候选按钮。</summary>
+    private void ClearCandidateButtons()
+    {
+        for (int index = 0; index < activeButtons.Count; index++)
+        {
+            if (activeButtons[index] != null)
+            {
+                Destroy(activeButtons[index].gameObject);
+            }
+        }
+
+        activeButtons.Clear();
+    }
+
+    /// <summary>创建一次运行时操作栏并绑定重掷、跳过和放逐行为。</summary>
+    private void EnsureActionBar()
+    {
+        if (_actionBar != null || levelUpPanel == null)
+        {
+            return;
+        }
+
+        _actionBar = LevelUpActionBarUI.Create(levelUpPanel.transform);
+        _actionBar.Bind(RerollCurrentChoices, SkipCurrentChoice, ToggleBanishMode);
+    }
+
+    /// <summary>把当前剩余次数与放逐模式同步到操作栏。</summary>
+    private void RefreshActionBar()
+    {
+        if (_actionBar == null)
+        {
+            return;
+        }
+
+        _actionBar.Refresh(
+            _runState != null ? _runState.RemainingRerolls : 0,
+            _runState != null ? _runState.RemainingSkips : 0,
+            _runState != null ? _runState.RemainingBanishes : 0,
+            _banishMode);
+    }
+
+    /// <summary>消费放逐次数并记录稳定 ID；放逐本身占用并结束当前升级机会。</summary>
+    private void TryBanishCandidate(UpgradeDataSO selectedData)
+    {
+        if (_runState == null || selectedData == null ||
+            _runState.IsBanished(selectedData.GetStableId()) ||
+            !_runState.TryConsumeBanish())
+        {
+            _banishMode = false;
+            RefreshActionBar();
+            return;
+        }
+
+        _runState.BanishUpgrade(selectedData.GetStableId());
+        _banishMode = false;
+        CompleteCurrentChoice();
+    }
+
+    /// <summary>重建候选；重掷后候选池耗尽时安全结束当前升级机会。</summary>
+    private void RefreshCandidatesOrComplete()
+    {
+        if (!TryBuildCurrentCandidates())
+        {
+            CompleteCurrentChoice();
+            return;
+        }
+
+        RebuildCandidateButtons();
+        RefreshActionBar();
+    }
+
+    /// <summary>关闭当前升级面板、释放暂停并继续处理剩余升级队列。</summary>
+    private void CompleteCurrentChoice()
+    {
+        _banishMode = false;
+        _currentCandidates.Clear();
+        ClearCandidateButtons();
+        if (levelUpPanel != null)
+        {
+            levelUpPanel.SetActive(false);
+        }
+
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.ExitLevelUpPause();
+        }
+        else
+        {
+            Time.timeScale = 1f;
+        }
+
+        ContinueLevelQueue();
+    }
+
+    /// <summary>通知玩家属性继续兑现可能排队的升级机会。</summary>
+    private void ContinueLevelQueue()
+    {
+        if (_playerStats != null)
+        {
+            _playerStats.CheckLevelUpQueue();
+        }
     }
 }

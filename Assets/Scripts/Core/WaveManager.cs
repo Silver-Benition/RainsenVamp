@@ -31,12 +31,17 @@ public class WaveManager : MonoBehaviour
 
     // 每条规则一个在场计数（可用于 maxAlive 闸门）
     private readonly List<int> aliveCounts = new List<int>();
+    private readonly Dictionary<GameObject, EnemyDataSO> _enemyDataCache =
+        new Dictionary<GameObject, EnemyDataSO>();
+    private PlayerStats _playerStats;
 
+    /// <summary>初始化每条刷怪规则的运行时计数槽位。</summary>
     private void Awake()
     {
         EnsureCapacity();
     }
 
+    /// <summary>组件启用时重新绑定玩家并清空本轮波次状态。</summary>
     private void OnEnable()
     {
         elapsed = 0f;
@@ -44,6 +49,7 @@ public class WaveManager : MonoBehaviour
         ResetRuntimeState();
     }
 
+    /// <summary>按规则时间窗、属性倍率和并发上限推进刷怪积分。</summary>
     private void Update()
     {
         if (waveConfig == null) return;
@@ -66,16 +72,26 @@ public class WaveManager : MonoBehaviour
             var rule = rules[i];
             if (rule == null) continue;
             if (rule.enemyPrefab == null) continue;
-            if (rule.spawnsPerSecond <= 0f) continue;
+            float curse = _playerStats != null ? _playerStats.Curse : 1f;
+            float charm = _playerStats != null ? _playerStats.Charm : 0f;
+            float effectiveSpawnRate = EnemySpawnSnapshotFactory.GetEffectiveSpawnRate(
+                rule.spawnsPerSecond,
+                curse,
+                charm);
+            int effectiveMaxAlive = EnemySpawnSnapshotFactory.GetEffectiveMaxAlive(
+                rule.maxAlive,
+                curse,
+                charm);
+            if (effectiveSpawnRate <= 0f) continue;
 
             // 时间窗判断
             if (elapsed < rule.startTime) continue;
             if (rule.endTime > 0f && elapsed > rule.endTime) continue;
 
             // 并发上限闸门
-            if (rule.maxAlive > 0 && aliveCounts[i] >= rule.maxAlive) continue;
+            if (effectiveMaxAlive > 0 && aliveCounts[i] >= effectiveMaxAlive) continue;
 
-            spawnAccumulators[i] += rule.spawnsPerSecond * Time.deltaTime;
+            spawnAccumulators[i] += effectiveSpawnRate * Time.deltaTime;
 
             // 允许一帧刷多只（例如高压波次），但可通过上限保护瞬时性能
             int spawnedThisFrame = 0;
@@ -87,7 +103,7 @@ public class WaveManager : MonoBehaviour
                     break;
                 }
 
-                if (rule.maxAlive > 0 && aliveCounts[i] >= rule.maxAlive)
+                if (effectiveMaxAlive > 0 && aliveCounts[i] >= effectiveMaxAlive)
                 {
                     // 如果在 while 中触顶，清空积分，避免并发闸门打开后出现“欠账爆发”。
                     spawnAccumulators[i] = 0f;
@@ -101,11 +117,22 @@ public class WaveManager : MonoBehaviour
         }
     }
 
+    /// <summary>从指定规则生成一名敌人，并应用本次出生快照。</summary>
     private void SpawnFromRule(int ruleIndex, WaveConfigSO.SpawnRule rule)
     {
         Vector3 spawnPos = GetSpawnPositionAroundPlayer(rule.spawnRadiusMin, rule.spawnRadiusMax);
 
         GameObject enemyObj = PoolManager.Instance.Spawn(rule.enemyPrefab, spawnPos, Quaternion.identity);
+
+        EnemyBase enemyBase = enemyObj != null ? enemyObj.GetComponent<EnemyBase>() : null;
+        EnemyDataSO enemyData = GetEnemyData(rule.enemyPrefab);
+        if (enemyBase != null)
+        {
+            enemyBase.ApplySpawnSnapshot(EnemySpawnSnapshotFactory.Create(
+                enemyData,
+                _playerStats,
+                Random.value));
+        }
 
         // 计数 + 回调绑定（通过 OnDisable 减计数）
         aliveCounts[ruleIndex]++;
@@ -123,6 +150,7 @@ public class WaveManager : MonoBehaviour
         notifier.EnableTracking(this, ruleIndex);
     }
 
+    /// <summary>取得玩家周围指定环形范围内的随机出生点。</summary>
     private Vector3 GetSpawnPositionAroundPlayer(float radiusMin, float radiusMax)
     {
         float min = Mathf.Max(0f, radiusMin);
@@ -136,13 +164,22 @@ public class WaveManager : MonoBehaviour
         return center + new Vector3(dir.x, dir.y, 0f) * radius;
     }
 
+    /// <summary>确保玩家 Transform 与属性组件引用可用。</summary>
     private void EnsurePlayer()
     {
-        if (playerTransform != null) return;
-        GameObject player = GameObject.FindWithTag("Player");
-        if (player != null) playerTransform = player.transform;
+        if (playerTransform == null)
+        {
+            GameObject player = GameObject.FindWithTag("Player");
+            if (player != null) playerTransform = player.transform;
+        }
+
+        if (_playerStats == null && playerTransform != null)
+        {
+            _playerStats = playerTransform.GetComponent<PlayerStats>();
+        }
     }
 
+    /// <summary>确保积分器和在场计数与刷怪规则数量一致。</summary>
     private void EnsureCapacity()
     {
         if (waveConfig == null) return;
@@ -152,6 +189,7 @@ public class WaveManager : MonoBehaviour
         while (aliveCounts.Count < count) aliveCounts.Add(0);
     }
 
+    /// <summary>清空本轮所有规则的累计积分与在场计数。</summary>
     private void ResetRuntimeState()
     {
         for (int i = 0; i < spawnAccumulators.Count; i++) spawnAccumulators[i] = 0f;
@@ -167,6 +205,7 @@ public class WaveManager : MonoBehaviour
         aliveCounts[ruleIndex] = Mathf.Max(0, aliveCounts[ruleIndex] - 1);
     }
 
+    /// <summary>在场景视图中绘制首条规则的刷怪半径参考线。</summary>
     private void OnDrawGizmosSelected()
     {
         if (!drawGizmos) return;
@@ -182,5 +221,23 @@ public class WaveManager : MonoBehaviour
         Gizmos.DrawWireSphere(playerTransform.position, rule.spawnRadiusMin);
         Gizmos.DrawWireSphere(playerTransform.position, rule.spawnRadiusMax);
     }
-}
 
+    /// <summary>缓存每种敌人 Prefab 的数据引用，避免连续生成时重复查询资产组件。</summary>
+    private EnemyDataSO GetEnemyData(GameObject enemyPrefab)
+    {
+        if (enemyPrefab == null)
+        {
+            return null;
+        }
+
+        if (_enemyDataCache.TryGetValue(enemyPrefab, out EnemyDataSO cachedData))
+        {
+            return cachedData;
+        }
+
+        EnemyBase templateEnemy = enemyPrefab.GetComponent<EnemyBase>();
+        EnemyDataSO resolvedData = templateEnemy != null ? templateEnemy.enemyData : null;
+        _enemyDataCache[enemyPrefab] = resolvedData;
+        return resolvedData;
+    }
+}

@@ -12,6 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
   m_Name: Aura_Upgrade
   m_EditorClassIdentifier: 
+  upgradeID: upgrade_aura
+  baseWeight: 40
+  luckInfluence: 1
   upgradeName: "\u5B88\u62A4\u5149\u73AF"
   description: "\u6301\u7EED\u4F24\u5BB3\u9760\u8FD1\u73A9\u5BB6\u7684\u654C\u4EBA"
   icon: {fileID: 21300000, guid: 110539cc35d06664baff8ef0c4e8a49a, type: 3}

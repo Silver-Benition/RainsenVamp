@@ -12,6 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
   m_Name: Axe_Upgrade
   m_EditorClassIdentifier: 
+  upgradeID: upgrade_axe
+  baseWeight: 70
+  luckInfluence: 0.5
   upgradeName: "\u98DE\u65A7"
   description: "\u6295\u51FA\u65CB\u8F6C\u5E76\u7A7F\u900F\u654C\u4EBA\u7684\u98DE\u65A7"
   icon: {fileID: 21300000, guid: 42c14ac6ea4d177439104bb284b3f831, type: 3}

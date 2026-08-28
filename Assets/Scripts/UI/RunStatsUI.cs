@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 显示并维护本局击杀数与金币数。
-/// 击杀由 EnemyBase 在确认死亡时登记；金币暂时不由敌人掉落，但保留 AddGold 接口供拾取系统接入。
+/// 显示本局击杀数与金币数。
+/// RunState 存在时只订阅权威数据；独立 UI 测试场景缺少玩家时保留本地后备计数。
 /// </summary>
 public sealed class RunStatsUI : MonoBehaviour
 {
@@ -26,12 +26,13 @@ public sealed class RunStatsUI : MonoBehaviour
 
     private int killCount;
     private int goldCount;
+    private RunState _runState;
 
     /// <summary>本局已击杀单位数量。</summary>
-    public int KillCount => killCount;
+    public int KillCount => _runState != null ? _runState.KillCount : killCount;
 
     /// <summary>本局持有金币数量。</summary>
-    public int GoldCount => goldCount;
+    public int GoldCount => _runState != null ? _runState.GoldCount : goldCount;
 
     /// <summary>注册本局统计实例，并从零开始显示当前场景的数据。</summary>
     private void Awake()
@@ -50,9 +51,20 @@ public sealed class RunStatsUI : MonoBehaviour
         RefreshText();
     }
 
+    /// <summary>在玩家组件完成 Awake 后绑定本局状态，避免依赖场景对象初始化顺序。</summary>
+    private void Start()
+    {
+        BindRunState();
+    }
+
     /// <summary>场景卸载时清理静态实例，避免下一局引用已销毁对象。</summary>
     private void OnDestroy()
     {
+        if (_runState != null)
+        {
+            _runState.StateChanged -= RefreshText;
+        }
+
         if (Instance == this)
         {
             Instance = null;
@@ -62,6 +74,12 @@ public sealed class RunStatsUI : MonoBehaviour
     /// <summary>登记一个已确认死亡的敌人，并立即刷新击杀数字。</summary>
     public void RegisterKill()
     {
+        if (_runState != null)
+        {
+            _runState.RegisterKill();
+            return;
+        }
+
         if (killCount < int.MaxValue)
         {
             killCount++;
@@ -70,7 +88,7 @@ public sealed class RunStatsUI : MonoBehaviour
         RefreshText();
     }
 
-    /// <summary>增加金币；当前版本尚未有掉落和拾取逻辑，因此暂不主动调用。</summary>
+    /// <summary>增加金币；存在 RunState 时转发给权威局内状态，否则更新独立测试后备值。</summary>
     /// <param name="amount">要增加的正整数金币数量。</param>
     public void AddGold(int amount)
     {
@@ -79,13 +97,26 @@ public sealed class RunStatsUI : MonoBehaviour
             return;
         }
 
-        goldCount = Mathf.Clamp(goldCount + amount, 0, int.MaxValue);
+        if (_runState != null)
+        {
+            _runState.AddGold(amount);
+            return;
+        }
+
+        long total = (long)goldCount + amount;
+        goldCount = total >= int.MaxValue ? int.MaxValue : (int)total;
         RefreshText();
     }
 
     /// <summary>把本局统计重置为零，供重新开始或测试流程调用。</summary>
     public void ResetRunStats()
     {
+        if (_runState != null)
+        {
+            _runState.ResetRun();
+            return;
+        }
+
         killCount = 0;
         goldCount = 0;
         RefreshText();
@@ -96,12 +127,12 @@ public sealed class RunStatsUI : MonoBehaviour
     {
         if (killCountText != null)
         {
-            killCountText.text = killCount.ToString();
+            killCountText.text = KillCount.ToString();
         }
 
         if (goldCountText != null)
         {
-            goldCountText.text = goldCount.ToString();
+            goldCountText.text = GoldCount.ToString();
         }
     }
 
@@ -132,5 +163,35 @@ public sealed class RunStatsUI : MonoBehaviour
         {
             textMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth, outlineWidth);
         }
+    }
+
+    /// <summary>查找或建立玩家的 RunState，并切换为事件驱动显示。</summary>
+    private void BindRunState()
+    {
+        RunState resolvedState = RunState.Instance;
+        if (resolvedState == null)
+        {
+            GameObject player = GameObject.FindWithTag("Player");
+            PlayerStats playerStats = player != null ? player.GetComponent<PlayerStats>() : null;
+            resolvedState = RunState.GetOrCreate(playerStats);
+        }
+
+        if (ReferenceEquals(_runState, resolvedState))
+        {
+            return;
+        }
+
+        if (_runState != null)
+        {
+            _runState.StateChanged -= RefreshText;
+        }
+
+        _runState = resolvedState;
+        if (_runState != null)
+        {
+            _runState.StateChanged += RefreshText;
+        }
+
+        RefreshText();
     }
 }

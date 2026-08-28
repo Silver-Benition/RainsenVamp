@@ -10,6 +10,7 @@ public class WorldEnemySimulation : MonoBehaviour
     private sealed class TrackedEnemy
     {
         public GameObject instance;
+        public EnemyBase enemyBase;
         public Collider2D[] colliders;
         public Renderer[] renderers;
     }
@@ -57,7 +58,12 @@ public class WorldEnemySimulation : MonoBehaviour
     /// 从对象池生成并注册一个敌人。
     /// 只在生成时执行组件缓存和回收通知绑定，不进入每帧热路径。
     /// </summary>
-    public GameObject SpawnEnemy(GameObject prefab, Vector3 position, WorldWaveManager owner, int ruleIndex)
+    public GameObject SpawnEnemy(
+        GameObject prefab,
+        Vector3 position,
+        WorldWaveManager owner,
+        int ruleIndex,
+        EnemySpawnSnapshot snapshot)
     {
         if (prefab == null || owner == null || PoolManager.Instance == null) return null;
 
@@ -71,10 +77,16 @@ public class WorldEnemySimulation : MonoBehaviour
             tracked = new TrackedEnemy
             {
                 instance = enemy,
+                enemyBase = enemy.GetComponent<EnemyBase>(),
                 colliders = enemy.GetComponentsInChildren<Collider2D>(true),
                 renderers = enemy.GetComponentsInChildren<Renderer>(true)
             };
             trackedEnemies.Add(tracked);
+        }
+
+        if (tracked.enemyBase != null)
+        {
+            tracked.enemyBase.ApplySpawnSnapshot(snapshot);
         }
 
         WaveSpawnedNotifier notifier = enemy.GetComponent<WaveSpawnedNotifier>();

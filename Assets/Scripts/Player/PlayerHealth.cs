@@ -45,6 +45,9 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
     /// <summary>生命首次归零时触发；正式 Game Over 流程将在后续系统中订阅。</summary>
     public event Action Died;
 
+    /// <summary>从死亡状态成功复活时触发，参数依次为当前生命和最大生命。</summary>
+    public event Action<float, float> Revived;
+
     /// <summary>解析属性来源，并以角色最终最大生命初始化本局生命状态。</summary>
     private void Awake()
     {
@@ -150,6 +153,29 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         {
             HealthChanged?.Invoke(_currentHealth, maxHealth);
         }
+    }
+
+    /// <summary>
+    /// 从死亡状态按最大生命比例复活，并获得指定秒数的受击保护。
+    /// 只有已经死亡的玩家可调用；成功时会发布生命变化与复活事件。
+    /// </summary>
+    /// <param name="normalizedHealth">复活生命比例，自动限制在 0 到 1，并保证至少为正数。</param>
+    /// <param name="protectionDuration">从当前缩放时间起计算的无敌秒数。</param>
+    /// <returns>本次确实从死亡状态恢复时返回 true。</returns>
+    public bool Revive(float normalizedHealth, float protectionDuration)
+    {
+        if (!_isDead)
+        {
+            return false;
+        }
+
+        float safeRatio = Mathf.Clamp01(normalizedHealth);
+        _currentHealth = Mathf.Clamp(maxHealth * safeRatio, 0.01f, maxHealth);
+        _isDead = false;
+        _nextDamageAllowedTime = Time.time + Mathf.Max(0f, protectionDuration);
+        HealthChanged?.Invoke(_currentHealth, maxHealth);
+        Revived?.Invoke(_currentHealth, maxHealth);
+        return true;
     }
 
     /// <summary>缓存同对象上的权威玩家属性组件；独立测试对象允许缺失。</summary>

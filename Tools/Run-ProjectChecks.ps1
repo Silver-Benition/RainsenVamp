@@ -161,11 +161,30 @@ function Invoke-UnityTestRun {
             ($logContent -match 'Scripts have compiler errors')
     }
 
-    # Unity 2022 的命令行测试可能在进程返回后才完成结果文件的磁盘刷新。
-    # 这里等待有限时间，避免把“报告正在落盘”误判成“测试没有生成报告”。
-    $resultDeadline = (Get-Date).AddSeconds(60)
-    while (-not (Test-Path -LiteralPath $resultPath -PathType Leaf) -and (Get-Date) -lt $resultDeadline) {
-        Start-Sleep -Milliseconds 500
+    # Unity 2022 的命令行测试可能在启动器进程返回后才完成结果文件的磁盘刷新。
+    # 这里同时等待文件出现和 XML 完整可解析，避免读取到正在写入的半成品报告。
+    # 全新隔离工程首次导入中文字体等大型资产可能超过一分钟，最多等待五分钟。
+    $resultDeadline = (Get-Date).AddMinutes(5)
+    $testRun = $null
+    $parseError = $null
+    while ($null -eq $testRun -and (Get-Date) -lt $resultDeadline) {
+        if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
+            try {
+                [xml]$xml = Get-Content -LiteralPath $resultPath -Raw
+                $testRun = $xml.SelectSingleNode('//test-run')
+                if ($null -eq $testRun) {
+                    $parseError = '测试结果 XML 中没有找到 test-run 节点。'
+                }
+            }
+            catch {
+                $parseError = $_.Exception.Message
+                $testRun = $null
+            }
+        }
+
+        if ($null -eq $testRun) {
+            Start-Sleep -Milliseconds 500
+        }
     }
 
     if (-not (Test-Path -LiteralPath $resultPath -PathType Leaf)) {
@@ -173,26 +192,18 @@ function Invoke-UnityTestRun {
         return [pscustomobject]$result
     }
 
-    try {
-        [xml]$xml = Get-Content -LiteralPath $resultPath -Raw
-        $testRun = $xml.SelectSingleNode('//test-run')
-        if ($null -eq $testRun) {
-            $result.failureReason = '测试结果 XML 中没有找到 test-run 节点。'
-            return [pscustomobject]$result
-        }
-
-        $result.result = $testRun.GetAttribute('result')
-        $result.total = Get-XmlIntAttribute -Node $testRun -Name 'total'
-        $result.passed = Get-XmlIntAttribute -Node $testRun -Name 'passed'
-        $result.failed = Get-XmlIntAttribute -Node $testRun -Name 'failed'
-        $result.errors = Get-XmlIntAttribute -Node $testRun -Name 'errors'
-        $result.inconclusive = Get-XmlIntAttribute -Node $testRun -Name 'inconclusive'
-        $result.skipped = Get-XmlIntAttribute -Node $testRun -Name 'skipped'
-    }
-    catch {
-        $result.failureReason = "无法解析测试结果 XML：$($_.Exception.Message)"
+    if ($null -eq $testRun) {
+        $result.failureReason = "测试结果 XML 在等待期限内未写入完成：$parseError"
         return [pscustomobject]$result
     }
+
+    $result.result = $testRun.GetAttribute('result')
+    $result.total = Get-XmlIntAttribute -Node $testRun -Name 'total'
+    $result.passed = Get-XmlIntAttribute -Node $testRun -Name 'passed'
+    $result.failed = Get-XmlIntAttribute -Node $testRun -Name 'failed'
+    $result.errors = Get-XmlIntAttribute -Node $testRun -Name 'errors'
+    $result.inconclusive = Get-XmlIntAttribute -Node $testRun -Name 'inconclusive'
+    $result.skipped = Get-XmlIntAttribute -Node $testRun -Name 'skipped'
 
     $qualityGatePassed =
         ($processExitCode -eq 0) -and

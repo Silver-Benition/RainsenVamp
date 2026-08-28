@@ -14,7 +14,10 @@ public class WorldWaveManager : MonoBehaviour
 
     private readonly List<float> spawnAccumulators = new List<float>();
     private readonly List<int> aliveCounts = new List<int>();
+    private readonly Dictionary<GameObject, EnemyDataSO> _enemyDataCache =
+        new Dictionary<GameObject, EnemyDataSO>();
     private float elapsed;
+    private PlayerStats _playerStats;
 
     /// <summary>当前世界累计运行时间。</summary>
     public float Elapsed => elapsed;
@@ -37,6 +40,11 @@ public class WorldWaveManager : MonoBehaviour
         {
             GameObject player = GameObject.FindWithTag("Player");
             if (player != null) playerTransform = player.transform;
+        }
+
+        if (playerTransform != null)
+        {
+            _playerStats = playerTransform.GetComponent<PlayerStats>();
         }
 
         if (enemySimulation == null) enemySimulation = GetComponent<WorldEnemySimulation>();
@@ -65,16 +73,28 @@ public class WorldWaveManager : MonoBehaviour
         for (int i = 0; i < config.rules.Count; i++)
         {
             WaveConfigSO.SpawnRule rule = config.rules[i];
-            if (rule == null || rule.enemyPrefab == null || rule.spawnsPerSecond <= 0f) continue;
+            if (rule == null || rule.enemyPrefab == null) continue;
             if (elapsed < rule.startTime || (rule.endTime > 0f && elapsed > rule.endTime)) continue;
-            if (rule.maxAlive > 0 && aliveCounts[i] >= rule.maxAlive) continue;
 
-            spawnAccumulators[i] += rule.spawnsPerSecond * Time.deltaTime;
+            float curse = _playerStats != null ? _playerStats.Curse : 1f;
+            float charm = _playerStats != null ? _playerStats.Charm : 0f;
+            float effectiveSpawnRate = EnemySpawnSnapshotFactory.GetEffectiveSpawnRate(
+                rule.spawnsPerSecond,
+                curse,
+                charm);
+            int effectiveMaxAlive = EnemySpawnSnapshotFactory.GetEffectiveMaxAlive(
+                rule.maxAlive,
+                curse,
+                charm);
+            if (effectiveSpawnRate <= 0f) continue;
+            if (effectiveMaxAlive > 0 && aliveCounts[i] >= effectiveMaxAlive) continue;
+
+            spawnAccumulators[i] += effectiveSpawnRate * Time.deltaTime;
             int spawned = 0;
             while (spawnAccumulators[i] >= 1f)
             {
                 if (maxSpawnPerRulePerFrame > 0 && spawned >= maxSpawnPerRulePerFrame) break;
-                if (rule.maxAlive > 0 && aliveCounts[i] >= rule.maxAlive)
+                if (effectiveMaxAlive > 0 && aliveCounts[i] >= effectiveMaxAlive)
                 {
                     spawnAccumulators[i] = 0f;
                     break;
@@ -95,7 +115,17 @@ public class WorldWaveManager : MonoBehaviour
         Vector2 direction = Random.insideUnitCircle.normalized;
         if (direction.sqrMagnitude < 0.0001f) direction = Vector2.right;
         Vector3 position = playerTransform.position + (Vector3)(direction * Random.Range(min, max));
-        GameObject enemy = enemySimulation.SpawnEnemy(rule.enemyPrefab, position, this, ruleIndex);
+        EnemyDataSO enemyData = GetEnemyData(rule.enemyPrefab);
+        EnemySpawnSnapshot snapshot = EnemySpawnSnapshotFactory.Create(
+            enemyData,
+            _playerStats,
+            Random.value);
+        GameObject enemy = enemySimulation.SpawnEnemy(
+            rule.enemyPrefab,
+            position,
+            this,
+            ruleIndex,
+            snapshot);
         if (enemy != null) aliveCounts[ruleIndex]++;
     }
 
@@ -119,5 +149,26 @@ public class WorldWaveManager : MonoBehaviour
     {
         for (int i = 0; i < spawnAccumulators.Count; i++) spawnAccumulators[i] = 0f;
         for (int i = 0; i < aliveCounts.Count; i++) aliveCounts[i] = 0;
+    }
+
+    /// <summary>
+    /// 按 Prefab 缓存敌人静态数据，避免海量生成时反复在资产对象上执行 GetComponent。
+    /// </summary>
+    private EnemyDataSO GetEnemyData(GameObject enemyPrefab)
+    {
+        if (enemyPrefab == null)
+        {
+            return null;
+        }
+
+        if (_enemyDataCache.TryGetValue(enemyPrefab, out EnemyDataSO cachedData))
+        {
+            return cachedData;
+        }
+
+        EnemyBase templateEnemy = enemyPrefab.GetComponent<EnemyBase>();
+        EnemyDataSO resolvedData = templateEnemy != null ? templateEnemy.enemyData : null;
+        _enemyDataCache[enemyPrefab] = resolvedData;
+        return resolvedData;
     }
 }

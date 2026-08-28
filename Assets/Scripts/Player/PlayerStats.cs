@@ -83,6 +83,33 @@ public class PlayerStats : MonoBehaviour
     /// <summary>最终拾取触发半径，单位为 Unity 世界单位。</summary>
     public float Magnet => GetFinalStat(PlayerStatType.Magnet);
 
+    /// <summary>最终幸运倍率；1 表示基础候选权重与基础掉率。</summary>
+    public float Luck => GetFinalStat(PlayerStatType.Luck);
+
+    /// <summary>最终金币收益倍率；1 表示拾取物基础价值。</summary>
+    public float Greed => GetFinalStat(PlayerStatType.Greed);
+
+    /// <summary>最终诅咒倍率；1 表示敌人基础属性与基础生成压力。</summary>
+    public float Curse => GetFinalStat(PlayerStatType.Curse);
+
+    /// <summary>本局可获得的复活次数容量；消费端按向下取整转换为整数。</summary>
+    public float Revival => GetFinalStat(PlayerStatType.Revival);
+
+    /// <summary>本局可获得的重掷次数容量；消费端按向下取整转换为整数。</summary>
+    public float Reroll => GetFinalStat(PlayerStatType.Reroll);
+
+    /// <summary>本局可获得的跳过次数容量；消费端按向下取整转换为整数。</summary>
+    public float Skip => GetFinalStat(PlayerStatType.Skip);
+
+    /// <summary>本局可获得的放逐次数容量；消费端按向下取整转换为整数。</summary>
+    public float Banish => GetFinalStat(PlayerStatType.Banish);
+
+    /// <summary>最终魅惑等级，用于提高生成速率与敌人容量。</summary>
+    public float Charm => GetFinalStat(PlayerStatType.Charm);
+
+    /// <summary>敌人生成时成为无害单位的最终概率，范围为 0 到 1。</summary>
+    public float Defang => GetFinalStat(PlayerStatType.Defang);
+
     /// <summary>初始化角色属性缓存与当前等级经验需求。</summary>
     private void Awake()
     {
