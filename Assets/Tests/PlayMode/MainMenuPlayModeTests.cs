@@ -56,6 +56,8 @@ namespace RainsenVampSur.Tests.PlayMode
             bool selectionControlsLocked = false;
             bool reachedGameplayScene = false;
             bool selectedCharacterApplied = false;
+            bool selectedFinalStatsApplied = false;
+            bool selectedHealthInitialized = false;
             float timeScaleAfterSubmit = -1f;
 
             if (controllerFound && startButtonFound && quitButtonFound)
@@ -164,6 +166,45 @@ namespace RainsenVampSur.Tests.PlayMode
                             .GetField("characterID")
                             ?.GetValue(characterData) as string;
                         selectedCharacterApplied = characterId == "character_blue_warrior";
+
+                        float maxHealth = RuntimeComponentTestUtility.GetProperty<float>(
+                            playerStats,
+                            "MaxHealth");
+                        float recovery = RuntimeComponentTestUtility.GetProperty<float>(
+                            playerStats,
+                            "Recovery");
+                        float armor = RuntimeComponentTestUtility.GetProperty<float>(
+                            playerStats,
+                            "Armor");
+                        float might = RuntimeComponentTestUtility.GetProperty<float>(
+                            playerStats,
+                            "Might");
+                        float moveSpeed = RuntimeComponentTestUtility.GetProperty<float>(
+                            playerStats,
+                            "FinalMoveSpeed");
+                        selectedFinalStatsApplied =
+                            Mathf.Approximately(maxHealth, 140f) &&
+                            Mathf.Approximately(recovery, 0.25f) &&
+                            Mathf.Approximately(armor, 2f) &&
+                            Mathf.Approximately(might, 1.25f) &&
+                            Mathf.Approximately(moveSpeed, 2.6f);
+
+                        Type playerHealthType = RuntimeComponentTestUtility.RequireRuntimeType(
+                            "PlayerHealth");
+                        Component playerHealth = UnityEngine.Object.FindObjectOfType(playerHealthType)
+                            as Component;
+                        if (playerHealth != null)
+                        {
+                            float currentHealth = RuntimeComponentTestUtility.GetProperty<float>(
+                                playerHealth,
+                                "CurrentHealth");
+                            float runtimeMaxHealth = RuntimeComponentTestUtility.GetProperty<float>(
+                                playerHealth,
+                                "MaxHealth");
+                            selectedHealthInitialized =
+                                Mathf.Approximately(currentHealth, 140f) &&
+                                Mathf.Approximately(runtimeMaxHealth, 140f);
+                        }
                     }
                 }
             }
@@ -206,6 +247,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(selectionControlsLocked, "场景加载期间角色选择控件仍可交互。");
             Assert.IsTrue(reachedGameplayScene, "开始按钮未能在等待上限内进入 MainLevel。");
             Assert.IsTrue(selectedCharacterApplied, "MainLevel 的 PlayerStats 未采用菜单确认的角色。");
+            Assert.IsTrue(selectedFinalStatsApplied, "蓝衣战士角色引用已应用，但最终属性缓存仍是默认值。");
+            Assert.IsTrue(selectedHealthInitialized, "蓝衣战士进入 MainLevel 后没有以 140/140 满血开局。");
         }
     }
 }

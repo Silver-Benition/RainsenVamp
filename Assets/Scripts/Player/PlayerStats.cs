@@ -38,6 +38,7 @@ public class PlayerStats : MonoBehaviour
     private readonly float[] _additivePercentTotals = new float[StatCount];
     private readonly float[] _multiplicativeTotals = new float[StatCount];
     private bool _statsInitialized;
+    private bool _sessionCharacterResolved;
     private int _levelUpQueue;
 
     /// <summary>任一最终属性重算完成后触发；监听者应只刷新自己消费的低频状态。</summary>
@@ -85,12 +86,6 @@ public class PlayerStats : MonoBehaviour
     /// <summary>初始化角色属性缓存与当前等级经验需求。</summary>
     private void Awake()
     {
-        CharacterDataSO selectedCharacter = CharacterSelectionSession.SelectedCharacter;
-        if (selectedCharacter != null)
-        {
-            characterData = selectedCharacter;
-        }
-
         EnsureStatsInitialized();
         currentLevel = Mathf.Max(1, currentLevel);
         expToNextLevel = GetExperienceRequiredForLevel(currentLevel);
@@ -102,6 +97,9 @@ public class PlayerStats : MonoBehaviour
     /// </summary>
     public void SetCharacterData(CharacterDataSO newCharacterData)
     {
+        // 显式切换角色优先于菜单会话，防止测试、重开或未来局内切换流程
+        // 在重建缓存时又被仍然存活的静态选择覆盖。
+        _sessionCharacterResolved = true;
         characterData = newCharacterData;
         _statsInitialized = false;
         EnsureStatsInitialized();
@@ -222,12 +220,44 @@ public class PlayerStats : MonoBehaviour
         }
     }
 
-    /// <summary>确保最终属性数组至少构建一次，供同一对象上的其他 Awake 安全读取。</summary>
+    /// <summary>
+    /// 确保最终属性数组至少构建一次。
+    /// 角色选择必须在任何组件首次读取属性前解析，避免子物体或同物体组件的 Awake
+    /// 先触发惰性初始化后，PlayerStats.Awake 只替换角色引用却遗留旧缓存。
+    /// </summary>
     private void EnsureStatsInitialized()
     {
+        ResolveSessionCharacterOnce();
         if (_statsInitialized) return;
         _statsInitialized = true;
         RecalculateFinalStats();
+    }
+
+    /// <summary>
+    /// 消费主菜单确认的本局角色，并在角色发生变化时使旧属性快照失效。
+    /// 没有菜单选择时保持场景序列化角色作为安全默认值；成功消费后不再读取静态会话。
+    /// </summary>
+    private void ResolveSessionCharacterOnce()
+    {
+        if (_sessionCharacterResolved)
+        {
+            return;
+        }
+
+        CharacterDataSO selectedCharacter = CharacterSelectionSession.SelectedCharacter;
+        if (selectedCharacter == null)
+        {
+            return;
+        }
+
+        _sessionCharacterResolved = true;
+        if (ReferenceEquals(characterData, selectedCharacter))
+        {
+            return;
+        }
+
+        characterData = selectedCharacter;
+        _statsInitialized = false;
     }
 
     /// <summary>

@@ -73,13 +73,21 @@ namespace RainsenVampSur.Tests
                 Assert.IsTrue(CharacterSelectionSession.Select(confirmedCharacter));
 
                 GameObject playerObject = CreateTrackedGameObject("AutomationTest_SelectedPlayer");
+                playerObject.SetActive(false);
                 PlayerStats stats = playerObject.AddComponent<PlayerStats>();
+
+                // 故意让生命组件先读取属性，复现真实场景中父子物体与同物体组件
+                // Awake 顺序不稳定时，属性缓存可能早于 PlayerStats.Awake 建立的情况。
+                PlayerHealth health = playerObject.AddComponent<PlayerHealth>();
+                TestObjectUtility.InvokeNonPublicMethod(health, "Awake");
                 TestObjectUtility.InvokeNonPublicMethod(stats, "Awake");
 
                 Assert.That(stats.CharacterData, Is.SameAs(character));
                 Assert.That(stats.MaxHealth, Is.EqualTo(88f).Within(FloatTolerance));
                 Assert.That(stats.Might, Is.EqualTo(1.4f).Within(FloatTolerance));
                 Assert.That(stats.FinalMoveSpeed, Is.EqualTo(5.25f).Within(FloatTolerance));
+                Assert.That(health.MaxHealth, Is.EqualTo(88f).Within(FloatTolerance));
+                Assert.That(health.CurrentHealth, Is.EqualTo(88f).Within(FloatTolerance));
             }
             finally
             {
