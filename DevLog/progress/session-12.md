@@ -1,7 +1,7 @@
 # Session 12 进度归档：角色选择、统一属性系统与初始化竞态修复
 
 - 日期：2026-08-27 至 2026-08-28
-- 状态：角色选择、属性框架、局内消费链路与自动化回归已完成；Windows 64 位独立构建成功。角色初始武器、固有能力和部分属性的实际规则仍待后续实现。
+- 状态：角色选择、属性框架、局内消费链路、自动化回归与 Windows 64 位独立构建图形验收均已完成。角色初始武器、固有能力和部分属性的实际规则仍待后续实现。
 - 归档范围：角色数据资产、主菜单角色选择、跨场景选择会话、21 项玩家属性、武器/生命/磁吸消费、属性面板、调试工具、自动化测试，以及蓝衣战士属性缓存修复。
 
 ## 已完成
@@ -17,7 +17,7 @@
 | 武器快照 | 五类武器通过 WeaponBase 统一读取玩家战斗属性；投射物与环绕物保存本次生成使用的范围/持续时间快照，池化回收时恢复初始尺寸。 |
 | 属性 UI | 暂停菜单右侧新增 21 行最终属性看板；F9 属性调试面板通过独立调试来源设置和清除修改器。 |
 | 初始化竞态修复 | PlayerStats 在任何组件首次读取最终属性前解析一次角色选择，避免 PlayerHealth 或子物体先触发惰性缓存后仍保留默认角色数值。 |
-| 自动化与构建 | 最新质量门禁 EditMode 40/40、PlayMode 16/16 通过；Windows 64 位构建成功，并完成 8 秒无窗口启动冒烟测试。 |
+| 自动化与构建 | 最新质量门禁 EditMode 40/40、PlayMode 16/16 通过；Windows 64 位构建成功，并完成 1280×720、1024×768 正常 DX11 图形验收与退出按钮验证。 |
 
 ## 当前运行链路
 
@@ -87,7 +87,7 @@ PlayerStats 原实现只在 Awake 中直接替换 characterData。Unity 不保�
 - PlayMode：16/16 通过，0 失败，0 错误。
 - compileErrorDetected：false。
 - passedQualityGate：true。
-- 报告：Logs/Automation/20260828-095917/summary.json。
+- 报告：Logs/Automation/20260828-103057-standalone-snapshot/summary.json。
 - 真实 MainMenu → 蓝衣战士 → MainLevel 用例验证：
   - CharacterData 为 character_blue_warrior；
   - 最大生命 140、恢复 0.25、护甲 2、力量 1.25、移速 2.6；
@@ -96,27 +96,27 @@ PlayerStats 原实现只在 Awake 中直接替换 characterData。Unity 不保�
 ### 独立构建
 
 - 平台：Windows 64 位。
-- 输出：Build/RainsenVamp.exe。
-- 构建日志：Logs/Build/Windows64-20260828-100035.log。
+- 输出：Build/Windows64-P0-20260828-1032/RainsenVamp.exe。
+- 构建日志：Logs/Build/Windows64-P0-20260828-1032.log。
 - Unity 结果：Build Finished, Result: Success。
-- Assembly-CSharp.dll、MainMenu 和 MainLevel 场景数据均更新于 2026-08-28。
-- 无窗口启动 8 秒保持运行且未崩溃；测试结束后主动关闭进程。
+- 使用 NVIDIA GeForce RTX 4070 SUPER 与 Direct3D 11.0 正常启动，不再使用 Null GPU 代替图形验收。
+- 1280×720 与 1024×768 下完成 MainMenu、蓝衣战士选择、MainLevel HUD 和暂停属性板截图检查；未见裁切、重叠、黑屏或缺字。
+- 蓝衣战士暂停属性板显示最大生命 140、恢复 0.25/秒、护甲 2、移速 2.6、力量 +25%。
+- 主菜单“退出游戏”经键盘选择后使进程自行以退出码 0 结束。
+- 图形验收证据：Logs/Standalone/Windows64-P0-20260828-1032/。
 
-### 未验证与已知限制
+### 已知限制
 
-- 修复后的蓝衣战士仍需老大再进行一次带画面的实际游玩确认，重点观察满血值、暂停属性面板、移动速度和武器伤害手感。
-- 无图形冒烟测试使用 Null GPU，URP/TMP Shader 不支持日志属于该模式限制，不能替代真实 GPU 画面验收。
-- msyh SDF 缺少 U+00B7“·”，MainMenu 的 InputHint/Tagline 中该字符会被替换为空格。
 - 选择角色目前改变角色属性与选择页表现，不会替换 MainLevel 中玩家的战斗 Sprite、Animator、碰撞体或角色 Prefab。
 - 角色初始武器和固有能力仍显示“待配置”。
 
 ## 下一步 Todo
 
-### P0 回归
+### P0 回归（已完成）
 
-- 老大在 Unity 或最新独立构建中重新选择蓝衣战士，确认 140/140 生命、2 护甲、0.25/秒恢复、125% 力量和 2.6 移速。
-- 使用正常图形模式检查最新独立构建的主菜单、角色选择页、HUD 与不同分辨率表现。
-- 为 msyh SDF 补充“·”字形，或把对应文案改为字体已覆盖的分隔符。
+- 老大已在 Unity 中复测蓝衣战士，属性行为正常。
+- msyh SDF 已补充 U+00B7“·”与常用中文标点；字符表新增 319 项，原有字符 0 丢失。
+- 最新 Windows 64 位独立构建已完成双分辨率真实 GPU 图形验收、蓝衣战士属性板核对和退出按钮验证。
 
 ### P1 功能补全
 
