@@ -1,6 +1,7 @@
 # Sol 规划、Luna 执行与 Worktree 集成工作流
 
 - 建立日期：2026-08-29
+- 最后修订：2026-08-29
 - 状态：作为后续开发 Session 的讨论与执行基线；每个具体 Session 仍需先由老大确认范围。
 - 适用项目：RainsenVampSur
 
@@ -9,31 +10,44 @@
 长会话中直接切换模型，虽然不会主动删除历史消息，但不同模型对长上下文、压缩信息和执行重点的利用可能出现差异。本项目因此把“项目开发阶段”和“Codex 会话”分开：
 
 - 项目 Session：一个完整、可归档的开发阶段，例如 Session 15。
-- Codex 会话：承担规划、执行或审查职责的独立任务。
-- Worktree：执行会话使用的隔离检出目录，不等同于分支。
+- Codex 会话：侧边栏中真实存在、可独立选择模型和推理强度的任务；规划、执行和审查默认不得共用同一任务。
+- Worktree：由独立 Codex 任务使用的隔离检出目录，不等同于分支，也不会自动生成侧边栏任务。
 - 短期分支：保存 Worktree 提交、供审查和合入 `main` 的 Git 锚点。
+- 角色名称：Sol/Luna 只有在任务创建时显式选择了对应模型才成立，不能只把阶段标题写成“Sol”或“Luna”。
 
 一个项目 Session 可以包含以下会话：
 
 ```text
 Session X
-├─ Session X / Plan    —— Sol 负责方案与验收标准
-├─ Session X / Execute —— Luna 在 Worktree 中实现与验证
-└─ Session X / Review  —— Sol 独立审查并决定是否准入 main
+├─ Session X / Plan    —— gpt-5.6-sol / xhigh，负责方案、协调与最终集成
+├─ Session X / Execute —— gpt-5.6-luna / max，在独立 Worktree 中实现与验证
+└─ Session X / Review  —— gpt-5.6-sol / xhigh，在独立任务中审查并决定是否准入 main
 ```
 
 目标不是依赖多个模型共享隐式记忆，而是通过冻结方案、Git 提交、测试证据和偏差记录完成可验证交接。
 
+以下情况不符合本工作流：
+
+- 在 Plan 任务中手动执行 `git worktree add`，随后仍由 Plan 任务完成实现。
+- 只创建 Git Worktree，但侧边栏没有独立的 `Session X / Execute` 任务。
+- 没有显式指定模型和推理强度，却在交付中自称 Sol 或 Luna。
+- Execute 或 Review 任务没有核对准确基线/最终提交就开始工作。
+
 ## 2. 角色职责
 
-| 阶段 | 默认模型 | 主要职责 | 默认写入权限 |
-| --- | --- | --- | --- |
-| 规划 | Sol | 读取规范与源码、界定范围、设计架构、制定验收与停止条件 | 只读；方案经确认后可按授权落盘 |
-| 执行 | Luna | 在独立 Worktree 中按批准方案实现、测试、记录偏差并提交短期分支 | 仅批准范围 |
-| 审查 | Sol | 对基线到最终提交的真实 Diff 做独立审查，复核测试和偏差 | 默认只读；修正退回执行会话 |
-| 集成 | Sol 或核心会话 | 完成最终回归、fast-forward 合入 `main`、推送和归档 | 仅集成与批准的文档 |
+| 阶段 | 固定模型 | 推理强度 | 主要职责 | 默认写入权限 |
+| --- | --- | --- | --- | --- |
+| 规划 | `gpt-5.6-sol` | `xhigh` | 读取规范与源码、界定范围、设计架构、制定验收与停止条件 | 只读；方案经确认后可按授权落盘 |
+| 执行 | `gpt-5.6-luna` | `max` | 在独立 Worktree 中按批准方案实现、测试、记录偏差并提交短期分支 | 仅批准范围 |
+| 审查 | `gpt-5.6-sol` | `xhigh` | 在新的独立任务中对基线到最终提交的真实 Diff 做审查，复核测试和偏差 | 默认只读；修正退回执行任务 |
+| 集成 | 原 Plan 任务（`gpt-5.6-sol`） | `xhigh` | 汇总审查结论、完成最终回归、fast-forward 合入 `main`、推送和归档 | 仅集成与批准的文档 |
 
 Sol 负责复杂推理和最终准入，不应替 Luna 默默补写大量实现；Luna 负责明确范围内的高频执行，不应自行改变策划、存档或总体架构。
+
+模型 ID 和推理强度必须在创建任务时显式设置。官方 GPT-5.6 模型说明确认 `gpt-5.6-sol` 与 `gpt-5.6-luna` 均支持 `xhigh` 和 `max`：
+
+- https://developers.openai.com/api/docs/models/gpt-5.6-sol
+- https://developers.openai.com/api/docs/models/gpt-5.6-luna
 
 ## 3. 标准生命周期
 
@@ -68,9 +82,41 @@ Luna 可自主调整的边界：
 
 方案只有在老大明确确认后才能进入执行。确认后的方案应保持版本稳定；执行期间发现新事实时，通过“偏差编号”补充，不直接改写原始预期。
 
+确认后，Plan 任务必须停止实现工作并创建独立 Execute 任务。冻结契约应保存为可读取的项目文件；若本 Session 不允许新增方案文件，则必须把完整契约逐字放入 Execute 任务的初始提示，不能只写“按刚才讨论执行”。
+
+#### 3.1.1 创建 Execute 任务
+
+Plan 任务按以下顺序创建执行任务：
+
+1. 记录 `git rev-parse HEAD`，将该提交冻结为本 Session 的准确基线。
+2. 确认原始工作区干净，且基线与冻结契约一致。
+3. 使用 Codex 的“创建新任务”能力（当前工具名为 `create_thread`，或由老大在 UI 中等价创建），而不是只运行 `git worktree add`。
+4. 创建参数必须为：
+
+| 参数 | 固定值 |
+| --- | --- |
+| 标题 | `Session X / Execute` |
+| 项目 | 当前 Git 项目 |
+| 环境 | Worktree |
+| 起始状态 | 冻结契约中的准确基线提交 |
+| 模型 | `gpt-5.6-luna` |
+| 推理强度 | `max` |
+| 初始提示 | 完整冻结契约、规范路径、批准/禁止范围、验证与停止条件 |
+
+5. 新任务创建是异步过程；Plan 任务必须等待 Worktree 准备完成，不得把“已请求创建”当成“已创建成功”。若创建结果只有 `clientThreadId` 而没有可用 `threadId`，表示 Worktree 仍在准备，必须继续等待；不得在 Plan 任务中降级执行。
+6. Execute 开始写代码前必须完成以下创建门禁：
+
+- 侧边栏真实出现 `Session X / Execute` 独立任务。
+- 任务配置显示模型为 `gpt-5.6-luna`、推理强度为 `max`。
+- 任务工作目录是独立 Worktree，不是原始项目检出目录。
+- Execute 任务中的 `git rev-parse HEAD` 与冻结基线完全一致。
+- 原始 `main` 工作区仍然干净。
+
+任一条件无法验证时立即停止并通知老大。Plan 任务不得自行接管实现，也不得把手工 Worktree 当作降级替代。
+
 ### 3.2 Luna 在 Worktree 执行
 
-执行会话应从实施契约指定的准确基线创建 Worktree，并在行动前重新读取规范、方案和目标文件。推荐在开始正式提交前建立：
+只有 3.1.1 的创建门禁全部通过后，Luna Execute 任务才开始执行。执行任务应从实施契约指定的准确基线启动，并在行动前重新读取规范、方案和目标文件。推荐在开始正式提交前建立：
 
 ```text
 codex/session-X-简短主题
@@ -83,8 +129,35 @@ codex/session-X-简短主题
 3. 对实现变化按第 4 节分类。
 4. 运行要求的 EditMode、PlayMode、静态检查和人工可复测清单。
 5. 工作完成后提交短期分支，并输出第 5 节审查包。
+6. 交付中同时报告任务标题、实际模型、推理强度、Worktree 路径和最终提交；无法读取实际模型时不得声称自己是 Luna。
 
 ### 3.3 Sol 独立审查
+
+默认必须新开 `Session X / Review` 独立任务，而不是回到 Plan 任务直接审查。
+
+选择独立审查任务的原因：
+
+- 审查上下文只包含冻结契约、真实 Diff 和测试证据，减少规划阶段先入结论造成的确认偏差。
+- Plan、Execute、Review 在侧边栏留下清晰记录，能证明实际使用了指定模型和职责边界。
+- Review 不继承 Luna 的隐式推理，也不会把 Luna 的成功描述误当成源码证据。
+- Plan 任务保持协调者身份，审查退回、老大决策和最终集成都有稳定入口。
+
+Review 任务创建参数：
+
+| 参数 | 固定值 |
+| --- | --- |
+| 标题 | `Session X / Review` |
+| 项目 | 当前 Git 项目 |
+| 环境 | 独立 Worktree |
+| 起始状态 | Luna 报告的准确最终提交 |
+| 模型 | `gpt-5.6-sol` |
+| 推理强度 | `xhigh` |
+| 默认权限 | 只读审查；不得直接修正生产代码 |
+| 初始提示 | 冻结契约路径/全文、基线、最终提交、Luna 审查包、验证命令 |
+
+若执行分支仍被 Execute Worktree 检出，Review 不得在第二个 Worktree 强行检出同一分支。应从最终提交创建独立的 detached Worktree 或临时 Review ref；无论采用哪种方式，Review 必须验证 `HEAD` 等于 Luna 的最终提交且不得改写执行分支。
+
+只有老大明确批准例外时，才允许原 Plan 任务兼任 Review。该例外适合纯文档、极小风险或 Codex 无法创建独立任务的情况，必须在审查结论中登记；默认流程仍是新开 Review 任务。
 
 Sol 不以 Luna 的总结代替源码审查。审查依据固定为：
 
@@ -104,9 +177,11 @@ Git Diff：实际上做了什么
 5. 独立复跑项目门禁，不只接受执行会话的成功描述。
 6. 输出 `APPROVED`、`CHANGES_REQUESTED` 或 `BLOCKED_BY_DECISION`。
 
-若需修正，优先把明确问题退回原 Luna Worktree 和同一短期分支；架构或策划目标变化则先回到 Sol 与老大重新确认。
+若需修正，Review 任务只输出证据和明确修改要求，由原 Plan 任务把问题退回原 Luna Execute 任务和同一短期分支。架构或策划目标变化则由 Plan 任务与老大重新确认。修正完成后，优先复用原 Review 任务审查新提交，保留同一审查上下文和历史。
 
 ### 3.4 集成与归档
+
+Review 输出 `APPROVED` 后回到原 Plan 任务执行集成。Review 任务不合并、不推送，Execute 任务也不自行合入 `main`。
 
 仅在以下条件全部满足后合入：
 
@@ -219,6 +294,8 @@ Luna 的最终回复是审查索引，不是正确性的唯一证明。必须使
 
 ## 6. Worktree、分支与 Handoff 边界
 
+- Codex 独立任务与 Git Worktree 是两层隔离：必须先有侧边栏独立任务，再由该任务使用独立 Worktree。
+- 手动创建 Git Worktree 不会创建 Codex 任务，也不能证明实际使用了 Luna。
 - Worktree 隔离工作目录；短期分支为提交提供名称和恢复锚点。
 - `main` 在功能审查通过前保持稳定，最终通过 fast-forward 赶上执行分支。
 - 当前只有单一开发方时，可以不走 Pull Request，但仍保留分支审查边界。
@@ -230,17 +307,25 @@ Luna 的最终回复是审查索引，不是正确性的唯一证明。必须使
 
 ### Sol 规划会话
 
+创建设置：`gpt-5.6-sol`、`xhigh`、原始项目检出目录。
+
 ```text
 请先完整读取项目规范、上一 Session 三份归档、当前源码和 Git 状态。
 本会话只负责 Session X 的规划与验收设计，不修改项目文件。
 请按 DevLog/plans/sol-luna-worktree-session-workflow.md 输出冻结实施契约，
 并明确 Luna 可自主调整的边界与必须暂停确认的条件。
+方案经老大确认后，停止在本任务中实现；创建 gpt-5.6-luna / max 的
+Session X / Execute 独立 Worktree 任务，并完成工作流 3.1.1 的创建门禁。
 ```
 
 ### Luna 执行会话
 
+创建设置：`gpt-5.6-luna`、`max`、从冻结基线启动的独立 Worktree。
+
 ```text
 请完整读取项目规范、已确认的 Session X 实施契约和目标文件。
+先报告任务标题、实际模型、推理强度、Worktree 路径和 HEAD；
+任一项与冻结契约不一致时停止，不得开始实现。
 从指定基线在独立 Worktree 执行，只修改批准范围；发现 C 级偏差立即暂停。
 完成后运行全部要求的验证、提交 codex/session-X-* 短期分支，
 并严格按工作流第 5 节输出审查包，供 Sol 独立审查。
@@ -248,12 +333,41 @@ Luna 的最终回复是审查索引，不是正确性的唯一证明。必须使
 
 ### Sol 审查会话
 
+创建设置：`gpt-5.6-sol`、`xhigh`、从 Luna 最终提交启动的独立只读 Worktree。
+
 ```text
 请读取 Session X 冻结方案、Luna 审查包，并独立检查基线提交到最终提交的完整 Diff。
+先报告任务标题、实际模型、推理强度、Worktree 路径和 HEAD；
+HEAD 必须等于 Luna 报告的最终提交，否则停止审查。
 不要依据 Luna 的总结直接批准；逐项核对验收标准、偏差、Unity 资源和测试证据，
 必要时复跑门禁，最终输出 APPROVED、CHANGES_REQUESTED 或 BLOCKED_BY_DECISION。
+默认只读；发现问题时给出证据和修改要求，由 Plan 任务退回原 Luna Execute 任务。
 ```
 
-## 8. Session 14 的处理
+## 8. 会话创建与交接检查清单
+
+每次进入下一阶段前逐项确认：
+
+- [ ] Plan 是侧边栏独立任务，创建配置为 `gpt-5.6-sol` / `xhigh`。
+- [ ] 老大已明确确认冻结契约，基线提交已记录。
+- [ ] Execute 是侧边栏新任务，而非 Plan 任务手工切换目录。
+- [ ] Execute 为 `gpt-5.6-luna` / `max`，Worktree 与 HEAD 均已核对。
+- [ ] Luna 已提交短期分支，并提供完整审查包与最终提交。
+- [ ] Review 是侧边栏新任务，配置为 `gpt-5.6-sol` / `xhigh`。
+- [ ] Review Worktree 的 HEAD 等于 Luna 最终提交，且审查默认只读。
+- [ ] `CHANGES_REQUESTED` 已退回原 Execute；`APPROVED` 已回到原 Plan 等待集成。
+- [ ] 任何任务都没有用角色标题冒充实际模型选择。
+
+## 9. Session 14 的处理
 
 Session 14 已在单一 Worktree 会话中完成实现、反馈修正、自动化测试和人工复测，不为套用新流程而重新拆分。其收尾继续采用：短期分支承载提交、fast-forward 合入 `main`、推送并归档。上述 Sol/Luna 分工从后续 Session 的规划阶段开始使用。
+
+## 10. Session 15 首次流程校准
+
+Session 15 的首次执行曾由 Plan 任务手动创建 Git Worktree，并在同一 Codex 任务中完成实现、测试和提交。该提交具备 Git 隔离与测试证据，但因为没有侧边栏独立 Execute 任务，也没有显式使用 `gpt-5.6-luna` / `max`，不算通过本工作流验证。
+
+该事件形成以下永久校准：
+
+- “有 Git Worktree”不等于“有独立 Codex Worktree 任务”。
+- “输出 Luna 审查包”不等于实际使用了 Luna 模型。
+- 新流程是否成功必须由第 8 节检查清单验证，不能根据文件路径、分支名或角色标题推断。
