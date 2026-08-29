@@ -16,6 +16,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     private GameObject _prefabReference;
     private HitFlash _hitFlash;
     private EnemySpawnSnapshot _spawnSnapshot;
+    private WorldEnemySimulation _worldSimulation;
     private SpriteRenderer[] _spriteRenderers;
     private Color[] _baseRendererColors;
 
@@ -31,8 +32,12 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     /// <summary>当前敌人是否被 Defang。</summary>
     public bool IsDefanged => _spawnSnapshot.IsDefanged;
 
+    /// <summary>当前敌人绑定的世界是否允许它与玩家交互。</summary>
+    public bool IsWorldInteractionEnabled =>
+        _worldSimulation == null || _worldSimulation.IsWorldActive;
+
     /// <summary>缓存刚体、受击表现和 SpriteRenderer 原色，避免战斗热路径重复查找。</summary>
-    private void Awake()
+    protected virtual void Awake()
     {
         _rigidbody = GetComponent<Rigidbody2D>();
         _hitFlash = GetComponent<HitFlash>();
@@ -55,8 +60,14 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         _prefabReference = prefab;
     }
 
+    /// <summary>绑定敌人的世界模拟器，防止跨世界池复用后产生伤害串线。</summary>
+    public void SetWorldSimulation(WorldEnemySimulation simulation)
+    {
+        _worldSimulation = simulation;
+    }
+
     /// <summary>对象池取出时恢复基础快照、动量、朝向和玩家目标。</summary>
-    private void OnEnable()
+    protected virtual void OnEnable()
     {
         ResetRuntimeSnapshot();
         if (_rigidbody != null)
@@ -66,19 +77,11 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
 
         transform.localScale = Vector3.one;
-        if (_playerTransform == null)
-        {
-            GameObject player = GameObject.FindWithTag("Player");
-            if (player != null)
-            {
-                _playerTransform = player.transform;
-                _playerStats = player.GetComponent<PlayerStats>();
-            }
-        }
+        ResolvePlayerTarget();
     }
 
     /// <summary>对象池回收时清空动量，并进入不可造成伤害的停用状态。</summary>
-    private void OnDisable()
+    protected virtual void OnDisable()
     {
         if (_rigidbody != null)
         {
@@ -87,13 +90,14 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
 
         EnterInactivePoolState();
+        _worldSimulation = null;
     }
 
     /// <summary>
     /// 注入本次生成的不可变属性快照。
     /// WorldWaveManager 或其他生成器应在 PoolManager.Spawn 返回后立即调用。
     /// </summary>
-    public void ApplySpawnSnapshot(EnemySpawnSnapshot snapshot)
+    public virtual void ApplySpawnSnapshot(EnemySpawnSnapshot snapshot)
     {
         _spawnSnapshot = snapshot;
         _currentHealth = snapshot.MaxHealth;
@@ -113,15 +117,20 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     /// 计算朝向玩家的期望速度并交给 Dynamic Rigidbody2D。
     /// Physics2D 随后求解 Enemy 间实体接触，使敌群保持追踪的同时互相滑开。
     /// </summary>
-    private void FixedUpdate()
+    protected virtual void FixedUpdate()
     {
-        if (_rigidbody == null || _playerTransform == null)
+        if (_rigidbody == null)
         {
-            if (_rigidbody != null) _rigidbody.velocity = Vector2.zero;
             return;
         }
 
-        Vector2 direction = (_playerTransform.position - transform.position).normalized;
+        Vector2 direction = GetMovementDirection();
+        if (direction.sqrMagnitude <= Mathf.Epsilon)
+        {
+            _rigidbody.velocity = Vector2.zero;
+            return;
+        }
+
         _rigidbody.velocity = direction * _spawnSnapshot.MoveSpeed;
 
         if (direction.x != 0f)
@@ -130,12 +139,44 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         }
     }
 
+    /// <summary>获取普通敌人朝向玩家的移动意图。</summary>
+    protected virtual Vector2 GetMovementDirection()
+    {
+        if (_playerTransform == null)
+        {
+            return Vector2.zero;
+        }
+
+        return (_playerTransform.position - transform.position).normalized;
+    }
+
+    /// <summary>确保敌人已经缓存当前玩家目标。</summary>
+    protected void ResolvePlayerTarget()
+    {
+        if (_playerTransform != null)
+        {
+            return;
+        }
+
+        GameObject player = GameObject.FindWithTag("Player");
+        if (player == null)
+        {
+            return;
+        }
+
+        _playerTransform = player.transform;
+        _playerStats = player.GetComponent<PlayerStats>();
+    }
+
+    /// <summary>获取当前缓存的玩家目标。</summary>
+    protected Transform PlayerTransform => _playerTransform;
+
     /// <summary>持续接触玩家时请求当前快照伤害；Defang 敌人的值固定为零。</summary>
     private void OnCollisionStay2D(Collision2D collision)
     {
         // Unity 可能在同一物理步内把碰撞消息送达刚回池的组件。
         // 同时检查组件状态与快照，防止停用对象读取下一生命周期的基础伤害。
-        if (!isActiveAndEnabled || _spawnSnapshot.IsDefanged ||
+        if (!isActiveAndEnabled || !IsWorldInteractionEnabled || _spawnSnapshot.IsDefanged ||
             _spawnSnapshot.CollisionDamage <= 0f)
         {
             return;

@@ -21,3 +21,10 @@ MonoBehaviour:
     maxAlive: 10
     spawnRadiusMin: 6
     spawnRadiusMax: 10
+  - enemyPrefab: {fileID: 366242633661983014, guid: c3f701b56d9e48aabe4f32d815b79206, type: 3}
+    startTime: 8
+    endTime: -1
+    spawnsPerSecond: 0.15
+    maxAlive: 3
+    spawnRadiusMin: 7
+    spawnRadiusMax: 10
