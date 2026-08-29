@@ -41,3 +41,19 @@ MonoBehaviour:
     banish: 0
     charm: 0
     defang: 0
+  startingWeapon: {fileID: 11400000, guid: 7f9c4488bc7eae54cabb2e1298db4f47, type: 2}
+  passive:
+    passiveID: passive_unyielding
+    passiveNameKey: passive.unyielding.name
+    passiveDisplayName: "\u4E0D\u5C48"
+    descriptionKey: passive.unyielding.description
+    description: "\u6BCF\u5C40\u5F00\u59CB\u65F6\u83B7\u5F97 1 \u6B21\u989D\u5916\u590D\u6D3B\u673A\u4F1A\u3002"
+    modifiers:
+    - statType: 15
+      mode: 0
+      value: 1
+  unlock:
+    conditionType: 1
+    requiredAmount: 100
+    descriptionKey: character.blue_warrior.unlock
+    description: "\u8D26\u53F7\u7D2F\u8BA1\u51FB\u6740 100 \u4E2A\u654C\u4EBA"

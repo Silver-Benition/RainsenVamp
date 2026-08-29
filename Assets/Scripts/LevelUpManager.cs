@@ -80,6 +80,7 @@ public class LevelUpManager : MonoBehaviour
         // 扫描玩家身上已有的武器（场景预置的默认武器），注册进 ownedWeapons
         // 这样升级系统才能感知到默认武器的存在，避免重复发放 / 正确处理升级等级
         RegisterDefaultWeapons();
+        EnsureCharacterStartingWeapon();
     }
 
     /// <summary>销毁时释放单例引用，避免场景重载后其他系统取得失效管理器。</summary>
@@ -129,6 +130,7 @@ public class LevelUpManager : MonoBehaviour
                 ownedWeapons[weaponId] = weapon;
                 _ownedWeaponOrder.Add(weapon);
                 inventoryChanged = true;
+                AccountProgressService.Current.DiscoverWeapon(weaponId);
                 Debug.Log($"[LevelUpManager] 注册默认武器: {weapon.weaponData.weaponNameKey} (ID: {weaponId}) Lv.{weapon.CurrentLevel}");
             }
         }
@@ -319,6 +321,7 @@ public class LevelUpManager : MonoBehaviour
         // 已拥有 → 升级等级
         if (ownedWeapons.TryGetValue(weaponId, out var existingWeapon))
         {
+            AccountProgressService.Current.DiscoverWeapon(weaponId);
             if (existingWeapon != null && existingWeapon.TryLevelUp())
             {
                 Debug.Log($"武器升级成功: {weaponData.weaponNameKey} Lv.{existingWeapon.CurrentLevel}/{existingWeapon.MaxLevel}");
@@ -339,18 +342,77 @@ public class LevelUpManager : MonoBehaviour
             return null;
         }
 
-        // 未拥有 → 动态挂载武器脚本
-        GameObject newWeaponObj = new GameObject($"Weapon_{weaponData.weaponID}");
-        newWeaponObj.transform.SetParent(playerTransform);
-        newWeaponObj.transform.localPosition = Vector3.zero;
+        WeaponBase weaponBase = CreateNewWeapon(weaponData, weaponId);
+        if (weaponBase == null)
+        {
+            return null;
+        }
 
-        WeaponBase weaponBase = CreateWeaponRuntime(newWeaponObj, weaponData.runtimeType);
-        weaponBase.weaponData = weaponData;
-
-        ownedWeapons[weaponId] = weaponBase;
-        _ownedWeaponOrder.Add(weaponBase);
         NotifyOwnedWeaponsChanged();
         Debug.Log($"获得新武器: {weaponData.weaponNameKey} Lv.{weaponBase.CurrentLevel}/{weaponBase.MaxLevel}");
+        return weaponBase;
+    }
+
+    /// <summary>
+    /// 确保当前角色的起始武器以 Lv.1 存在。
+    /// 已登记同 ID 武器时不会调用升级，防止兼容场景或测试夹具从 Lv.1 误升到 Lv.2。
+    /// </summary>
+    private void EnsureCharacterStartingWeapon()
+    {
+        WeaponDataSO startingWeapon = _playerStats != null && _playerStats.CharacterData != null
+            ? _playerStats.CharacterData.startingWeapon
+            : null;
+        if (startingWeapon == null || playerTransform == null)
+        {
+            return;
+        }
+
+        string weaponId = GetWeaponId(startingWeapon);
+        if (string.IsNullOrWhiteSpace(weaponId))
+        {
+            Debug.LogError("[LevelUpManager] 当前角色的起始武器缺少稳定 ID。", startingWeapon);
+            return;
+        }
+
+        if (ownedWeapons.ContainsKey(weaponId))
+        {
+            AccountProgressService.Current.DiscoverWeapon(weaponId);
+            return;
+        }
+
+        if (OwnedWeaponCount >= PlayerLoadoutRules.MaxWeaponCount)
+        {
+            Debug.LogError(
+                $"[LevelUpManager] 武器栏已满，无法建立角色起始武器：{startingWeapon.weaponNameKey}",
+                this);
+            return;
+        }
+
+        WeaponBase created = CreateNewWeapon(startingWeapon, weaponId);
+        if (created != null)
+        {
+            NotifyOwnedWeaponsChanged();
+            Debug.Log($"[LevelUpManager] 建立角色起始武器：{startingWeapon.weaponNameKey} Lv.1");
+        }
+    }
+
+    /// <summary>动态创建一把 Lv.1 武器并登记稳定 ID；调用方负责容量与重复检查。</summary>
+    private WeaponBase CreateNewWeapon(WeaponDataSO weaponData, string weaponId)
+    {
+        if (weaponData == null || playerTransform == null || string.IsNullOrWhiteSpace(weaponId))
+        {
+            return null;
+        }
+
+        GameObject newWeaponObject = new GameObject($"Weapon_{weaponId}");
+        newWeaponObject.transform.SetParent(playerTransform);
+        newWeaponObject.transform.localPosition = Vector3.zero;
+
+        WeaponBase weaponBase = CreateWeaponRuntime(newWeaponObject, weaponData.runtimeType);
+        weaponBase.weaponData = weaponData;
+        ownedWeapons[weaponId] = weaponBase;
+        _ownedWeaponOrder.Add(weaponBase);
+        AccountProgressService.Current.DiscoverWeapon(weaponId);
         return weaponBase;
     }
 
@@ -454,6 +516,11 @@ public class LevelUpManager : MonoBehaviour
         {
             UpgradeDataSO upgrade = allAvailableUpgrades[i];
             if (upgrade == null) continue;
+
+            if (AccountProgressService.Current.IsUpgradeSealed(upgrade.GetStableId()))
+            {
+                continue;
+            }
 
             if (_runState != null && _runState.IsBanished(upgrade.GetStableId()))
             {
@@ -600,6 +667,14 @@ public class LevelUpManager : MonoBehaviour
 
         _currentCandidates.Clear();
         _currentCandidates.AddRange(selected);
+        for (int index = 0; index < _currentCandidates.Count; index++)
+        {
+            UpgradeDataSO candidate = _currentCandidates[index];
+            if (candidate != null)
+            {
+                AccountProgressService.Current.DiscoverUpgrade(candidate.GetStableId());
+            }
+        }
         return _currentCandidates.Count > 0;
     }
 

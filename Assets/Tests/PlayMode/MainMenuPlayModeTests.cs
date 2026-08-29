@@ -20,6 +20,7 @@ namespace RainsenVampSur.Tests.PlayMode
         [UnityTest]
         public IEnumerator StartButton_打开角色选择并确认_携带角色进入游戏场景()
         {
+            PrepareIsolatedAccount(100, 0);
             yield return SceneManager.LoadSceneAsync(MainMenuSceneName, LoadSceneMode.Single);
             yield return null;
 
@@ -58,6 +59,8 @@ namespace RainsenVampSur.Tests.PlayMode
             bool selectedCharacterApplied = false;
             bool selectedFinalStatsApplied = false;
             bool selectedHealthInitialized = false;
+            bool selectedStartingWeaponApplied = false;
+            bool selectedPassiveApplied = false;
             float timeScaleAfterSubmit = -1f;
 
             if (controllerFound && startButtonFound && quitButtonFound)
@@ -205,6 +208,37 @@ namespace RainsenVampSur.Tests.PlayMode
                                 Mathf.Approximately(currentHealth, 140f) &&
                                 Mathf.Approximately(runtimeMaxHealth, 140f);
                         }
+
+                        Type levelUpManagerType = RuntimeComponentTestUtility.RequireRuntimeType(
+                            "LevelUpManager");
+                        Component levelUpManager = UnityEngine.Object.FindObjectOfType(
+                            levelUpManagerType) as Component;
+                        object ownedWeapons = levelUpManager != null
+                            ? RuntimeComponentTestUtility.GetProperty<object>(
+                                levelUpManager,
+                                "OwnedWeapons")
+                            : null;
+                        if (ownedWeapons is System.Collections.IEnumerable enumerable)
+                        {
+                            foreach (object weapon in enumerable)
+                            {
+                                object weaponData = weapon?.GetType()
+                                    .GetField("weaponData")
+                                    ?.GetValue(weapon);
+                                string weaponId = weaponData?.GetType()
+                                    .GetField("weaponID")
+                                    ?.GetValue(weaponData) as string;
+                                selectedStartingWeaponApplied = weaponId == "throwing_axe";
+                                break;
+                            }
+                        }
+
+                        Type runStateType = RuntimeComponentTestUtility.RequireRuntimeType("RunState");
+                        Component runState = UnityEngine.Object.FindObjectOfType(runStateType) as Component;
+                        selectedPassiveApplied = runState != null &&
+                            RuntimeComponentTestUtility.GetProperty<int>(
+                                runState,
+                                "RemainingRevivals") == 1;
                     }
                 }
             }
@@ -249,6 +283,90 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(selectedCharacterApplied, "MainLevel 的 PlayerStats 未采用菜单确认的角色。");
             Assert.IsTrue(selectedFinalStatsApplied, "蓝衣战士角色引用已应用，但最终属性缓存仍是默认值。");
             Assert.IsTrue(selectedHealthInitialized, "蓝衣战士进入 MainLevel 后没有以 140/140 满血开局。");
+            Assert.IsTrue(selectedStartingWeaponApplied, "蓝衣战士没有以飞斧作为唯一 Lv.1 起始武器。");
+            Assert.IsTrue(selectedPassiveApplied, "蓝衣战士的“不屈”被动没有提供 1 次 Revival。");
+        }
+
+        /// <summary>新账号应看到蓝衣战士黑影与击杀条件，且收藏入口默认展示两名角色。</summary>
+        [UnityTest]
+        public IEnumerator NewAccount_收藏可打开且蓝衣战士保持锁定黑影()
+        {
+            PrepareIsolatedAccount(0, 0);
+            yield return SceneManager.LoadSceneAsync(MainMenuSceneName, LoadSceneMode.Single);
+            yield return null;
+
+            Type controllerType = RuntimeComponentTestUtility.RequireRuntimeType("MainMenuController");
+            Component controller = UnityEngine.Object.FindObjectOfType(controllerType) as Component;
+            Button collectionButton = GameObject.Find("CollectionButton")?.GetComponent<Button>();
+            Assert.IsNotNull(collectionButton, "主菜单没有创建收藏按钮。");
+
+            collectionButton.onClick.Invoke();
+            yield return null;
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(controller, "IsCollectionVisible"),
+                "收藏按钮没有打开收藏页。");
+            Transform collectionContent = GameObject.Find("CollectionPanel")?.transform
+                .Find("CollectionContent");
+            Assert.IsNotNull(collectionContent, "收藏页缺少内容网格。");
+            Assert.That(collectionContent.childCount, Is.EqualTo(2));
+
+            Button collectionBack = GameObject.Find("CollectionBackButton")?.GetComponent<Button>();
+            Assert.IsNotNull(collectionBack);
+            collectionBack.onClick.Invoke();
+
+            Button startButton = GameObject.Find("StartButton")?.GetComponent<Button>();
+            startButton.onClick.Invoke();
+            yield return null;
+
+            GameObject warriorSlot = GameObject.Find("CharacterSlot_02");
+            Assert.IsNotNull(warriorSlot);
+            ExecuteEvents.Execute(
+                warriorSlot,
+                new PointerEventData(EventSystem.current),
+                ExecuteEvents.pointerEnterHandler);
+
+            Image slotPortrait = warriorSlot.transform.Find("Portrait")?.GetComponent<Image>();
+            GameObject unlockOverlay = GameObject.Find("CharacterUnlockOverlay");
+            GameObject purchaseButton = unlockOverlay?.transform
+                .Find("CharacterUnlockPurchaseButton")
+                ?.gameObject;
+            Component selector = UnityEngine.Object.FindObjectOfType(
+                RuntimeComponentTestUtility.RequireRuntimeType("CharacterSelectionUI")) as Component;
+            string statsText = RuntimeComponentTestUtility.GetProperty<string>(selector, "StatsText");
+            string conditionText = RuntimeComponentTestUtility.GetProperty<string>(
+                selector,
+                "UnlockConditionText");
+
+            Assert.IsNotNull(slotPortrait);
+            Assert.That(slotPortrait.color, Is.EqualTo(Color.black));
+            Assert.IsNotNull(unlockOverlay);
+            Assert.IsTrue(unlockOverlay.activeInHierarchy);
+            Assert.That(statsText, Is.Empty);
+            StringAssert.Contains("0 / 100", conditionText);
+            Assert.IsNotNull(purchaseButton);
+            Assert.IsFalse(purchaseButton.activeSelf, "累计击杀条件不应显示金币购买按钮。");
+
+            Scene cleanupScene = SceneManager.CreateScene("PlayModeTest_PhaseThreeMenuCleanup");
+            SceneManager.SetActiveScene(cleanupScene);
+            Scene menuScene = SceneManager.GetSceneByName(MainMenuSceneName);
+            if (menuScene.IsValid() && menuScene.isLoaded)
+            {
+                yield return SceneManager.UnloadSceneAsync(menuScene);
+            }
+        }
+
+        /// <summary>为主菜单流程注入隔离账号，并按需预置累计击杀与金币。</summary>
+        private static void PrepareIsolatedAccount(int lifetimeKills, int gold)
+        {
+            Type serviceType = RuntimeComponentTestUtility.RequireRuntimeType("AccountProgressService");
+            Type storageType = RuntimeComponentTestUtility.RequireRuntimeType(
+                "InMemoryAccountProgressStorage");
+            object storage = Activator.CreateInstance(storageType);
+            serviceType.GetMethod("SetStorageForTests")?.Invoke(null, new[] { storage });
+            object service = serviceType.GetProperty("Current")?.GetValue(null);
+            serviceType.GetMethod("RecordRunResults")?.Invoke(
+                service,
+                new object[] { gold, lifetimeKills });
         }
     }
 }

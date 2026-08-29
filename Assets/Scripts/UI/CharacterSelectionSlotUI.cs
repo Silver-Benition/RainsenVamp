@@ -11,6 +11,7 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
     private static readonly Color NormalFrameColor = new Color32(82, 126, 166, 255);
     private static readonly Color SelectedFrameColor = new Color32(255, 157, 47, 255);
     private static readonly Color EmptyFrameColor = new Color32(56, 76, 102, 220);
+    private static readonly Color LockedFrameColor = new Color32(92, 99, 113, 255);
 
     private CharacterSelectionUI _owner;
     private CharacterDataSO _character;
@@ -19,12 +20,16 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
     private TMP_Text _label;
     private Button _button;
     private Outline _outline;
+    private bool _isUnlocked;
 
     /// <summary>槽位在固定 4×3 网格中的从零开始索引。</summary>
     public int SlotIndex { get; private set; }
 
     /// <summary>槽位是否持有可以被确认的角色。</summary>
     public bool IsAvailable => _character != null;
+
+    /// <summary>槽位角色是否已经满足账号解锁规则。</summary>
+    public bool IsUnlocked => IsAvailable && _isUnlocked;
 
     /// <summary>槽位当前绑定的角色；空位返回 null。</summary>
     public CharacterDataSO Character => _character;
@@ -38,7 +43,8 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
         Image portrait,
         TMP_Text label,
         Button button,
-        Outline outline)
+        Outline outline,
+        bool isUnlocked)
     {
         _owner = owner;
         SlotIndex = slotIndex;
@@ -48,6 +54,7 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
         _label = label;
         _button = button;
         _outline = outline;
+        _isUnlocked = isUnlocked;
 
         bool isAvailable = character != null;
         _button.interactable = isAvailable;
@@ -59,7 +66,7 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
 
         _portrait.sprite = isAvailable ? character.GetSelectionIcon() : null;
         _portrait.enabled = _portrait.sprite != null;
-        _label.text = isAvailable ? character.GetDisplayName() : "空位";
+        RefreshUnlockPresentation();
         _background.color = isAvailable
             ? new Color32(18, 43, 72, 245)
             : new Color32(10, 25, 45, 210);
@@ -67,6 +74,14 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
             ? Color.white
             : new Color32(102, 125, 150, 255);
         SetSelected(false);
+    }
+
+    /// <summary>账号进度变化后刷新同一槽位的锁定状态与黑影表现。</summary>
+    public void SetUnlocked(bool unlocked)
+    {
+        _isUnlocked = IsAvailable && unlocked;
+        RefreshUnlockPresentation();
+        SetSelected(_owner != null && _owner.SelectedCharacter == _character);
     }
 
     /// <summary>切换橙色选中描边；空槽位始终保持弱化边框。</summary>
@@ -79,7 +94,7 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
 
         _outline.effectColor = !IsAvailable
             ? EmptyFrameColor
-            : selected ? SelectedFrameColor : NormalFrameColor;
+            : selected ? SelectedFrameColor : IsUnlocked ? NormalFrameColor : LockedFrameColor;
         _outline.effectDistance = selected
             ? new Vector2(4f, -4f)
             : new Vector2(2f, -2f);
@@ -109,5 +124,19 @@ public sealed class CharacterSelectionSlotUI : MonoBehaviour, IPointerEnterHandl
         {
             _owner.HandleSlotClick(this);
         }
+    }
+
+    /// <summary>已锁定角色保留头像轮廓，但使用纯黑剪影并隐藏姓名。</summary>
+    private void RefreshUnlockPresentation()
+    {
+        if (!IsAvailable)
+        {
+            _portrait.color = Color.white;
+            _label.text = "空位";
+            return;
+        }
+
+        _portrait.color = IsUnlocked ? Color.white : Color.black;
+        _label.text = IsUnlocked ? _character.GetDisplayName() : "未解锁";
     }
 }

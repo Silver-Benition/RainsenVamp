@@ -33,6 +33,14 @@ public sealed class CharacterSelectionUI : MonoBehaviour
     private Image _previewImage;
     private TMP_Text _characterNameText;
     private TMP_Text _statsText;
+    private TMP_Text _starterWeaponNameText;
+    private TMP_Text _starterWeaponDescriptionText;
+    private TMP_Text _passiveNameText;
+    private TMP_Text _passiveDescriptionText;
+    private GameObject _unlockOverlay;
+    private TMP_Text _unlockConditionText;
+    private Button _unlockPurchaseButton;
+    private TMP_Text _unlockPurchaseButtonLabel;
     private Button _confirmButton;
     private Button _backButton;
     private TMP_FontAsset _font;
@@ -42,6 +50,7 @@ public sealed class CharacterSelectionUI : MonoBehaviour
     private float _previewElapsed;
     private int _previewFrameIndex;
     private bool _interactionLocked;
+    private AccountProgressService _accountProgress;
 
     private const float LeftPortraitTargetX = -700f;
     private const float RightPortraitTargetX = 700f;
@@ -93,11 +102,45 @@ public sealed class CharacterSelectionUI : MonoBehaviour
     /// <summary>确认按钮引用，供键盘焦点和自动化流程读取。</summary>
     public Button ConfirmButton => _confirmButton;
 
+    /// <summary>锁定角色信息浮层当前是否显示。</summary>
+    public bool IsUnlockOverlayVisible => _unlockOverlay != null && _unlockOverlay.activeSelf;
+
+    /// <summary>当前锁定角色的解锁条件文本。</summary>
+    public string UnlockConditionText => _unlockConditionText != null
+        ? _unlockConditionText.text
+        : string.Empty;
+
+    /// <summary>金币购买按钮；非金币条件下保持隐藏。</summary>
+    public Button UnlockPurchaseButton => _unlockPurchaseButton;
+
     private void Awake()
     {
+        EnsureAccountProgress();
+        _accountProgress.EvaluateAutomaticUnlocks(availableCharacters);
         _font = GetComponentInChildren<TMP_Text>(true)?.font;
         BuildInterface();
         Hide();
+    }
+
+    /// <summary>启用时订阅账号进度，保证金币、解锁和重置后页面立即刷新。</summary>
+    private void OnEnable()
+    {
+        if (_accountProgress == null)
+        {
+            _accountProgress = AccountProgressService.Current;
+        }
+
+        _accountProgress.Changed -= HandleAccountProgressChanged;
+        _accountProgress.Changed += HandleAccountProgressChanged;
+    }
+
+    /// <summary>停用时解除账号事件，防止场景重载后旧页面继续响应。</summary>
+    private void OnDisable()
+    {
+        if (_accountProgress != null)
+        {
+            _accountProgress.Changed -= HandleAccountProgressChanged;
+        }
     }
 
     private void Update()
@@ -119,22 +162,42 @@ public sealed class CharacterSelectionUI : MonoBehaviour
     /// <summary>打开页面并默认展示首个有效角色。</summary>
     public void Show()
     {
+        EnsureAccountProgress();
         if (_panelRoot == null)
         {
             BuildInterface();
         }
 
         _interactionLocked = false;
+        _accountProgress.EvaluateAutomaticUnlocks(availableCharacters);
+        RefreshSlotUnlockStates();
         _panelRoot.gameObject.SetActive(true);
         _panelRoot.SetAsLastSibling();
 
         CharacterSelectionSlotUI firstAvailable = null;
         for (int index = 0; index < _slots.Count; index++)
         {
-            if (_slots[index].IsAvailable)
+            CharacterSelectionSlotUI slot = _slots[index];
+            if (slot.IsUnlocked && slot.Character != null &&
+                string.Equals(
+                    slot.Character.characterID,
+                    _accountProgress.LastSelectedCharacterId,
+                    StringComparison.Ordinal))
             {
-                firstAvailable = _slots[index];
+                firstAvailable = slot;
                 break;
+            }
+        }
+
+        if (firstAvailable == null)
+        {
+            for (int index = 0; index < _slots.Count; index++)
+            {
+                if (_slots[index].IsUnlocked)
+                {
+                    firstAvailable = _slots[index];
+                    break;
+                }
             }
         }
 
@@ -171,13 +234,15 @@ public sealed class CharacterSelectionUI : MonoBehaviour
 
         if (_confirmButton != null)
         {
-            _confirmButton.interactable = enabled && _selectedCharacter != null;
+            _confirmButton.interactable = enabled && _selectedSlot != null && _selectedSlot.IsUnlocked;
         }
 
         if (_backButton != null)
         {
             _backButton.interactable = enabled;
         }
+
+        RefreshUnlockOverlay();
     }
 
     /// <summary>有效槽位被鼠标悬停或导航选中时刷新展示。</summary>
@@ -197,7 +262,7 @@ public sealed class CharacterSelectionUI : MonoBehaviour
             return;
         }
 
-        if (_selectedSlot == slot)
+        if (_selectedSlot == slot && slot.IsUnlocked)
         {
             Confirm();
             return;
@@ -324,7 +389,9 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         label.raycastTarget = false;
 
         CharacterSelectionSlotUI slot = slotRect.gameObject.AddComponent<CharacterSelectionSlotUI>();
-        slot.Bind(this, index, character, background, portrait, label, button, outline);
+        bool isUnlocked = character != null &&
+            _accountProgress.IsCharacterUnlocked(character.characterID);
+        slot.Bind(this, index, character, background, portrait, label, button, outline, isUnlocked);
         _slots.Add(slot);
     }
 
@@ -346,18 +413,23 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         RectTransform right = CreateSection("SignatureAbility", infoRect, 0.67f, 1f);
 
         BuildCharacterSummary(left);
-        BuildPlaceholderSection(
+        BuildDetailSection(
             middle,
             "初始武器",
             "待配置",
             "角色基础武器将在后续版本接入角色配置。",
-            Orange);
-        BuildPlaceholderSection(
+            Orange,
+            out _starterWeaponNameText,
+            out _starterWeaponDescriptionText);
+        BuildDetailSection(
             right,
             "角色能力",
             "待配置",
             "固有能力将在后续版本接入，且不占用局内能力／属性栏位。",
-            Cyan);
+            Cyan,
+            out _passiveNameText,
+            out _passiveDescriptionText);
+        CreateUnlockOverlay(infoRect);
     }
 
     private void BuildCharacterSummary(RectTransform section)
@@ -394,12 +466,14 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         _statsText.lineSpacing = 18f;
     }
 
-    private void BuildPlaceholderSection(
+    private void BuildDetailSection(
         RectTransform section,
         string heading,
         string itemName,
         string description,
-        Color accent)
+        Color accent,
+        out TMP_Text itemText,
+        out TMP_Text descriptionText)
     {
         TMP_Text headingText = CreateText("Heading", section, heading, 28f, TextAlignmentOptions.Center);
         RectTransform headingRect = headingText.rectTransform;
@@ -410,14 +484,14 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         headingText.color = accent;
         headingText.fontStyle = FontStyles.Bold;
 
-        TMP_Text itemText = CreateText("ItemName", section, itemName, 24f, TextAlignmentOptions.Center);
+        itemText = CreateText("ItemName", section, itemName, 24f, TextAlignmentOptions.Center);
         RectTransform itemRect = itemText.rectTransform;
         itemRect.anchorMin = new Vector2(0.08f, 0.57f);
         itemRect.anchorMax = new Vector2(0.92f, 0.76f);
         itemRect.offsetMin = Vector2.zero;
         itemRect.offsetMax = Vector2.zero;
 
-        TMP_Text descriptionText = CreateText(
+        descriptionText = CreateText(
             "Description",
             section,
             description,
@@ -430,6 +504,54 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         descriptionRect.offsetMax = Vector2.zero;
         descriptionText.color = new Color32(207, 221, 233, 255);
         descriptionText.enableWordWrapping = true;
+    }
+
+    /// <summary>在整个角色信息栏上方建立锁定浮层，避免泄露任何未解锁角色资料。</summary>
+    private void CreateUnlockOverlay(RectTransform infoRect)
+    {
+        RectTransform overlayRect = CreateRect("CharacterUnlockOverlay", infoRect);
+        Stretch(overlayRect);
+        Image background = overlayRect.gameObject.AddComponent<Image>();
+        background.color = new Color32(5, 15, 28, 252);
+
+        TMP_Text title = CreateText(
+            "UnlockTitle",
+            overlayRect,
+            "角色尚未解锁",
+            34f,
+            TextAlignmentOptions.Center);
+        title.rectTransform.anchorMin = new Vector2(0.12f, 0.68f);
+        title.rectTransform.anchorMax = new Vector2(0.88f, 0.94f);
+        title.rectTransform.offsetMin = Vector2.zero;
+        title.rectTransform.offsetMax = Vector2.zero;
+        title.fontStyle = FontStyles.Bold;
+        title.color = Orange;
+
+        _unlockConditionText = CreateText(
+            "UnlockCondition",
+            overlayRect,
+            string.Empty,
+            25f,
+            TextAlignmentOptions.Center);
+        _unlockConditionText.rectTransform.anchorMin = new Vector2(0.12f, 0.30f);
+        _unlockConditionText.rectTransform.anchorMax = new Vector2(0.88f, 0.70f);
+        _unlockConditionText.rectTransform.offsetMin = Vector2.zero;
+        _unlockConditionText.rectTransform.offsetMax = Vector2.zero;
+        _unlockConditionText.enableWordWrapping = true;
+
+        _unlockPurchaseButton = CreateButton(
+            "CharacterUnlockPurchaseButton",
+            overlayRect,
+            "解锁角色",
+            new Vector2(0.5f, 0f),
+            new Vector2(0.5f, 0f),
+            new Vector2(0f, 22f),
+            new Vector2(360f, 58f));
+        _unlockPurchaseButton.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+        _unlockPurchaseButtonLabel = _unlockPurchaseButton.GetComponentInChildren<TMP_Text>(true);
+        _unlockPurchaseButton.onClick.AddListener(PurchaseSelectedCharacter);
+        _unlockOverlay = overlayRect.gameObject;
+        _unlockOverlay.SetActive(false);
     }
 
     private void CreateFooterButtons()
@@ -471,13 +593,36 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         {
             _characterNameText.text = "暂无可选角色";
             _statsText.text = string.Empty;
+            _starterWeaponNameText.text = string.Empty;
+            _starterWeaponDescriptionText.text = string.Empty;
+            _passiveNameText.text = string.Empty;
+            _passiveDescriptionText.text = string.Empty;
             _previewImage.enabled = false;
             _leftPortrait.enabled = false;
             _rightPortrait.enabled = false;
             _confirmButton.interactable = false;
+            RefreshUnlockOverlay();
             return;
         }
 
+        if (_selectedSlot == null || !_selectedSlot.IsUnlocked)
+        {
+            // 锁定角色只允许查看解锁目标；姓名、属性、立绘、起始武器和被动全部隐藏。
+            _characterNameText.text = string.Empty;
+            _statsText.text = string.Empty;
+            _starterWeaponNameText.text = string.Empty;
+            _starterWeaponDescriptionText.text = string.Empty;
+            _passiveNameText.text = string.Empty;
+            _passiveDescriptionText.text = string.Empty;
+            _previewImage.enabled = false;
+            _leftPortrait.enabled = false;
+            _rightPortrait.enabled = false;
+            _confirmButton.interactable = false;
+            RefreshUnlockOverlay();
+            return;
+        }
+
+        RefreshUnlockOverlay();
         Sprite portrait = _selectedCharacter.GetPortraitSprite();
         _leftPortrait.sprite = portrait;
         _rightPortrait.sprite = portrait;
@@ -485,10 +630,22 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         _rightPortrait.enabled = portrait != null;
         _characterNameText.text = _selectedCharacter.GetDisplayName();
         _statsText.text = BuildStatsText(_selectedCharacter);
+        WeaponDataSO startingWeapon = _selectedCharacter.startingWeapon;
+        _starterWeaponNameText.text = startingWeapon != null
+            ? startingWeapon.GetDisplayName()
+            : "未配置";
+        _starterWeaponDescriptionText.text = startingWeapon != null
+            ? startingWeapon.GetDisplayDescription()
+            : "该角色尚未配置起始武器。";
+        CharacterPassiveDefinition passive = _selectedCharacter.passive;
+        _passiveNameText.text = passive != null ? passive.GetDisplayName() : "无固有被动";
+        _passiveDescriptionText.text = passive != null
+            ? passive.GetDisplayDescription()
+            : "该角色当前没有额外的固有属性效果。";
         _previewFrameIndex = 0;
         _previewElapsed = 0f;
         RefreshPreviewFrame();
-        _confirmButton.interactable = !_interactionLocked;
+        _confirmButton.interactable = !_interactionLocked && _selectedSlot.IsUnlocked;
 
         if (restartPortraitAnimation)
         {
@@ -536,7 +693,7 @@ public sealed class CharacterSelectionUI : MonoBehaviour
 
     private void TickPreviewAnimation()
     {
-        if (_selectedCharacter == null)
+        if (_selectedCharacter == null || _selectedSlot == null || !_selectedSlot.IsUnlocked)
         {
             return;
         }
@@ -554,16 +711,126 @@ public sealed class CharacterSelectionUI : MonoBehaviour
 
     private void RefreshPreviewFrame()
     {
-        Sprite frame = _selectedCharacter != null
+        Sprite frame = _selectedCharacter != null && _selectedSlot != null && _selectedSlot.IsUnlocked
             ? _selectedCharacter.GetPreviewFrame(_previewFrameIndex)
             : null;
         _previewImage.sprite = frame;
         _previewImage.enabled = frame != null;
     }
 
+    /// <summary>按账号权威状态刷新全部已占用角色槽位的锁定表现。</summary>
+    private void RefreshSlotUnlockStates()
+    {
+        if (_accountProgress == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < _slots.Count; index++)
+        {
+            CharacterSelectionSlotUI slot = _slots[index];
+            CharacterDataSO character = slot != null ? slot.Character : null;
+            slot?.SetUnlocked(
+                character != null && _accountProgress.IsCharacterUnlocked(character.characterID));
+        }
+    }
+
+    /// <summary>惰性解析账号服务，兼容 EditMode 中不会自动执行 Awake 的轻量组件夹具。</summary>
+    private void EnsureAccountProgress()
+    {
+        if (_accountProgress == null)
+        {
+            _accountProgress = AccountProgressService.Current;
+        }
+    }
+
+    /// <summary>账号变化后重新评估自动条件，并刷新当前选择而不泄露锁定资料。</summary>
+    private void HandleAccountProgressChanged()
+    {
+        _accountProgress.EvaluateAutomaticUnlocks(availableCharacters);
+        RefreshSlotUnlockStates();
+        if (_selectedSlot != null)
+        {
+            SelectSlot(_selectedSlot, _selectedSlot.IsUnlocked);
+        }
+    }
+
+    /// <summary>根据当前锁定角色展示累计击杀进度或金币购买按钮。</summary>
+    private void RefreshUnlockOverlay()
+    {
+        if (_unlockOverlay == null)
+        {
+            return;
+        }
+
+        bool lockedCharacterSelected = _selectedCharacter != null &&
+            (_selectedSlot == null || !_selectedSlot.IsUnlocked);
+        _unlockOverlay.SetActive(lockedCharacterSelected);
+        if (!lockedCharacterSelected)
+        {
+            return;
+        }
+
+        CharacterUnlockDefinition unlock = _selectedCharacter.unlock;
+        if (unlock == null)
+        {
+            _unlockConditionText.text = "解锁条件尚未配置";
+            _unlockPurchaseButton.gameObject.SetActive(false);
+            return;
+        }
+
+        int required = Mathf.Max(0, unlock.requiredAmount);
+        switch (unlock.conditionType)
+        {
+            case CharacterUnlockConditionType.LifetimeKills:
+                _unlockConditionText.text =
+                    $"解锁条件\n账号累计击杀 {_accountProgress.LifetimeKills} / {required}";
+                _unlockPurchaseButton.gameObject.SetActive(false);
+                break;
+            case CharacterUnlockConditionType.GoldPurchase:
+                _unlockConditionText.text =
+                    $"解锁条件\n{unlock.GetDisplayDescription()}\n当前账号金币：{_accountProgress.Gold}";
+                _unlockPurchaseButton.gameObject.SetActive(true);
+                _unlockPurchaseButton.interactable =
+                    !_interactionLocked && _accountProgress.Gold >= required;
+                if (_unlockPurchaseButtonLabel != null)
+                {
+                    _unlockPurchaseButtonLabel.text = _accountProgress.Gold >= required
+                        ? $"花费 {required} 金币解锁"
+                        : $"金币不足（需要 {required}）";
+                }
+                break;
+            default:
+                _unlockConditionText.text = $"解锁条件\n{unlock.GetDisplayDescription()}";
+                _unlockPurchaseButton.gameObject.SetActive(false);
+                break;
+        }
+    }
+
+    /// <summary>点击浮层按钮时请求账号服务扣除金币并永久解锁当前角色。</summary>
+    private void PurchaseSelectedCharacter()
+    {
+        if (_interactionLocked || _selectedCharacter == null || _selectedSlot == null ||
+            _selectedSlot.IsUnlocked)
+        {
+            return;
+        }
+
+        if (_accountProgress.TryPurchaseCharacter(_selectedCharacter))
+        {
+            // 购买入口自身也刷新一次，避免 EditMode 夹具或临时禁用状态尚未订阅 Changed 时残留旧浮层。
+            RefreshSlotUnlockStates();
+            SelectSlot(_selectedSlot, true);
+            return;
+        }
+
+        RefreshUnlockOverlay();
+    }
+
     private void Confirm()
     {
-        if (_interactionLocked || _selectedCharacter == null)
+        if (_interactionLocked || _selectedCharacter == null ||
+            _selectedSlot == null || !_selectedSlot.IsUnlocked)
         {
             return;
         }

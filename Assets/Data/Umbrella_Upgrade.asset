@@ -15,6 +15,8 @@ MonoBehaviour:
   upgradeID: upgrade_umbrella
   baseWeight: 70
   luckInfluence: 0.5
+  upgradeNameKey: upgrade.umbrella.name
+  descriptionKey: upgrade.umbrella.description
   upgradeName: "\u96E8\u4F1E\u6325\u51FB"
   description: "\u6325\u52A8\u96E8\u4F1E\u6A2A\u626B\u9762\u524D\u654C\u4EBA"
   icon: {fileID: 21300000, guid: d72beab121f2d504f9de797279ed60d8, type: 3}

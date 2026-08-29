@@ -108,6 +108,10 @@ public sealed class WeaponDataSO : ScriptableObject
     public string weaponID;
     public string weaponNameKey;
     [TextArea] public string descriptionKey;
+    [Tooltip("本地化系统接入前使用的直接显示名称；为空时回退到资产名。")]
+    public string weaponDisplayName;
+    [TextArea, Tooltip("本地化系统接入前使用的直接显示描述。")]
+    public string displayDescription;
     public WeaponRuntimeType runtimeType = WeaponRuntimeType.Projectile;
 
     [Header("UI 表现")]
@@ -158,5 +162,21 @@ public sealed class WeaponDataSO : ScriptableObject
     public bool IgnoresPlayerStat(IgnoredPlayerWeaponStats stat)
     {
         return (ignoredPlayerStats & stat) != 0;
+    }
+
+    /// <summary>返回当前可直接展示的武器名。</summary>
+    public string GetDisplayName()
+    {
+        return !string.IsNullOrWhiteSpace(weaponDisplayName)
+            ? weaponDisplayName
+            : name;
+    }
+
+    /// <summary>返回当前可直接展示的武器描述。</summary>
+    public string GetDisplayDescription()
+    {
+        return !string.IsNullOrWhiteSpace(displayDescription)
+            ? displayDescription
+            : descriptionKey;
     }
 }

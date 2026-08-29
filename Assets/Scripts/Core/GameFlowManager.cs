@@ -54,6 +54,7 @@ public sealed class GameFlowManager : MonoBehaviour
     private bool _playerDeathSubscribed;
     private bool _isLoadingMainMenu;
     private bool _isReviving;
+    private bool _runProgressCommitted;
     private RunState _runState;
     private Button _reviveButton;
     private TMP_Text _reviveButtonLabel;
@@ -190,6 +191,7 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>恢复正常时间流速并重新加载当前关卡。</summary>
     public void RestartGame()
     {
+        CommitRunProgressIfNeeded();
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
@@ -222,6 +224,7 @@ public sealed class GameFlowManager : MonoBehaviour
             LoadSceneMode.Single);
         if (loadOperation != null)
         {
+            CommitRunProgressIfNeeded();
             return;
         }
 
@@ -230,6 +233,33 @@ public sealed class GameFlowManager : MonoBehaviour
         SetPauseControlsInteractable(true);
         ApplyPauseState();
         Debug.LogError($"主菜单场景“{mainMenuSceneName}”未能创建加载任务。", this);
+    }
+
+    /// <summary>应用正常退出时结算尚未提交的本局统计。</summary>
+    private void OnApplicationQuit()
+    {
+        CommitRunProgressIfNeeded();
+    }
+
+    /// <summary>
+    /// 将当前 RunState 的金币和击杀一次性写入账号进度。
+    /// Revival 触发的临时死亡不会调用本方法；同一场景生命周期重复入口也不会重复入账。
+    /// </summary>
+    private void CommitRunProgressIfNeeded()
+    {
+        if (_runProgressCommitted)
+        {
+            return;
+        }
+
+        _runProgressCommitted = true;
+        ResolvePlayerReferences();
+        if (_runState != null)
+        {
+            AccountProgressService.Current.RecordRunResults(
+                _runState.GoldCount,
+                _runState.KillCount);
+        }
     }
 
     /// <summary>解析玩家生命、控制器与刚体引用，允许场景未手动绑定时安全回退。</summary>

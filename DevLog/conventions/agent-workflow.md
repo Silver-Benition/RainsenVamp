@@ -166,3 +166,10 @@ Task ID：唯一且简短的任务标识
 - 无法确认属于本次会话的既有无关改动必须保留；无法安全区分时，暂停并请求明确提交范围。
 - 只执行普通 commit 和 push，不执行 force push、历史重写或破坏性清理。
 - push 失败时必须报告具体原因，并明确标记为“已提交但未上传”或“未提交”。
+
+## 6. 项目推荐的 Sol/Luna Worktree 流程
+
+当后续开发采用 Sol 规划与审查、Luna 在独立 Worktree 执行时，应同时读取
+`DevLog/plans/sol-luna-worktree-session-workflow.md`。该文档规定短期分支、实施契约、
+执行偏差、Luna 审查包、Sol 独立复核和 fast-forward 集成方式；本文件中的执行确认门槛、
+批准范围和三份 Session 归档要求仍然优先适用。

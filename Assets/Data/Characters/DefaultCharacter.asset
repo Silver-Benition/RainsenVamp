@@ -42,3 +42,19 @@ MonoBehaviour:
     banish: 0
     charm: 0
     defang: 0
+  startingWeapon: {fileID: 11400000, guid: 2285ad58e73c87f419e0f64a3b0b0ee7, type: 2}
+  passive:
+    passiveID: passive_traveler_instinct
+    passiveNameKey: passive.traveler_instinct.name
+    passiveDisplayName: "\u65C5\u8005\u76F4\u89C9"
+    descriptionKey: passive.traveler_instinct.description
+    description: "\u6BCF\u5C40\u5F00\u59CB\u65F6\u83B7\u5F97 1 \u6B21\u989D\u5916\u91CD\u63B7\u673A\u4F1A\u3002"
+    modifiers:
+    - statType: 16
+      mode: 0
+      value: 1
+  unlock:
+    conditionType: 0
+    requiredAmount: 0
+    descriptionKey: character.default.unlock
+    description: "\u9ED8\u8BA4\u89E3\u9501"

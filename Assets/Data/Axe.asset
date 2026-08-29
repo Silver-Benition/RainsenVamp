@@ -15,6 +15,8 @@ MonoBehaviour:
   weaponID: throwing_axe
   weaponNameKey: weapon.throwing_axe.name
   descriptionKey: weapon.throwing_axe.description
+  weaponDisplayName: "\u98DE\u65A7"
+  displayDescription: "\u6295\u51FA\u65CB\u8F6C\u5E76\u7A7F\u900F\u654C\u4EBA\u7684\u98DE\u65A7\u3002"
   runtimeType: 3
   icon: {fileID: 21300000, guid: 42c14ac6ea4d177439104bb284b3f831, type: 3}
   loadoutIconScale: 1.05

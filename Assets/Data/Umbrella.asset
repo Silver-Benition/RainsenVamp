@@ -15,6 +15,8 @@ MonoBehaviour:
   weaponID: umbrella_sweep
   weaponNameKey: weapon.umbrella_sweep.name
   descriptionKey: weapon.umbrella_sweep.description
+  weaponDisplayName: "\u96E8\u4F1E\u6325\u51FB"
+  displayDescription: "\u6325\u52A8\u96E8\u4F1E\u6A2A\u626B\u9762\u524D\u654C\u4EBA\u3002"
   runtimeType: 4
   icon: {fileID: 21300000, guid: d72beab121f2d504f9de797279ed60d8, type: 3}
   loadoutIconScale: 1.88

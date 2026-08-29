@@ -29,6 +29,10 @@ public sealed class UpgradeDataSO : ScriptableObject
     public float luckInfluence;
 
     [Header("UI 表现")]
+    [Tooltip("升级名称的本地化键。")]
+    public string upgradeNameKey;
+    [Tooltip("升级描述的本地化键。")]
+    public string descriptionKey;
     public string upgradeName;
     [TextArea] public string description;
     public Sprite icon;
@@ -44,5 +48,17 @@ public sealed class UpgradeDataSO : ScriptableObject
     public string GetStableId()
     {
         return !string.IsNullOrWhiteSpace(upgradeID) ? upgradeID : name;
+    }
+
+    /// <summary>返回升级项目的直接显示名称。</summary>
+    public string GetDisplayName()
+    {
+        return !string.IsNullOrWhiteSpace(upgradeName) ? upgradeName : name;
+    }
+
+    /// <summary>返回升级项目的直接显示描述。</summary>
+    public string GetDisplayDescription()
+    {
+        return !string.IsNullOrWhiteSpace(description) ? description : descriptionKey;
     }
 }

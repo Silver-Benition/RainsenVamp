@@ -71,6 +71,81 @@ public sealed class CharacterBaseStats
     }
 }
 
+/// <summary>Session 14 首版支持的角色解锁条件。</summary>
+public enum CharacterUnlockConditionType
+{
+    None = 0,
+    LifetimeKills = 1,
+    GoldPurchase = 2
+}
+
+/// <summary>角色解锁规则与本地化展示数据。</summary>
+[Serializable]
+public sealed class CharacterUnlockDefinition
+{
+    [Tooltip("None 表示新账号默认解锁；首版另支持累计击杀和金币购买。")]
+    public CharacterUnlockConditionType conditionType;
+    [Min(0), Tooltip("累计击杀目标或金币价格。")]
+    public int requiredAmount;
+    [Tooltip("解锁条件文本的本地化键。")]
+    public string descriptionKey;
+    [TextArea, Tooltip("本地化系统接入前使用的直接显示文本。")]
+    public string description;
+
+    /// <summary>返回配置文本；为空时根据首版条件生成安全后备描述。</summary>
+    public string GetDisplayDescription()
+    {
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            return description;
+        }
+
+        switch (conditionType)
+        {
+            case CharacterUnlockConditionType.LifetimeKills:
+                return $"账号累计击杀 {Mathf.Max(0, requiredAmount)} 个敌人";
+            case CharacterUnlockConditionType.GoldPurchase:
+                return $"消耗 {Mathf.Max(0, requiredAmount)} 账号金币";
+            default:
+                return "默认解锁";
+        }
+    }
+}
+
+/// <summary>角色不占用能力槽的固有属性型被动。</summary>
+[Serializable]
+public sealed class CharacterPassiveDefinition
+{
+    [Tooltip("稳定且唯一的被动 ID，用于 PlayerStats 修改器来源。")]
+    public string passiveID;
+    [Tooltip("被动名称的本地化键。")]
+    public string passiveNameKey;
+    [Tooltip("本地化系统接入前使用的直接显示名称。")]
+    public string passiveDisplayName;
+    [Tooltip("被动描述的本地化键。")]
+    public string descriptionKey;
+    [TextArea, Tooltip("本地化系统接入前使用的直接显示描述。")]
+    public string description;
+    [Tooltip("首版只支持通过稳定 sourceId 注入的属性修改器。")]
+    public List<PlayerStatModifier> modifiers = new List<PlayerStatModifier>();
+
+    /// <summary>返回被动显示名称；未配置时使用通用后备文本。</summary>
+    public string GetDisplayName()
+    {
+        return !string.IsNullOrWhiteSpace(passiveDisplayName)
+            ? passiveDisplayName
+            : "无固有被动";
+    }
+
+    /// <summary>返回被动直接描述；未配置时给出明确的无效果说明。</summary>
+    public string GetDisplayDescription()
+    {
+        return !string.IsNullOrWhiteSpace(description)
+            ? description
+            : "该角色当前没有额外的固有属性效果。";
+    }
+}
+
 /// <summary>
 /// 角色静态配置资产。
 /// 只保存跨局不变的身份与基础属性，运行时绝不修改该资产。
@@ -96,6 +171,15 @@ public sealed class CharacterDataSO : ScriptableObject
 
     [Header("基础属性")]
     public CharacterBaseStats baseStats = new CharacterBaseStats();
+
+    [Header("角色内容")]
+    [Tooltip("开局以 Lv.1 授予且计入六格武器容量的起始武器。")]
+    public WeaponDataSO startingWeapon;
+    [Tooltip("不占用能力槽的角色固有属性型被动。")]
+    public CharacterPassiveDefinition passive = new CharacterPassiveDefinition();
+
+    [Header("账号解锁")]
+    public CharacterUnlockDefinition unlock = new CharacterUnlockDefinition();
 
     /// <summary>安全读取指定基础属性；缺失数据块时使用系统默认角色数值。</summary>
     public float GetBaseValue(PlayerStatType statType)
@@ -145,5 +229,15 @@ public sealed class CharacterDataSO : ScriptableObject
         return previewFrames[normalizedIndex] != null
             ? previewFrames[normalizedIndex]
             : GetSelectionIcon();
+    }
+
+    /// <summary>返回固有被动稳定来源 ID；被动未配置 ID 时使用角色 ID 安全回退。</summary>
+    public string GetPassiveSourceId()
+    {
+        string passiveId = passive != null ? passive.passiveID : string.Empty;
+        string stableId = !string.IsNullOrWhiteSpace(passiveId) ? passiveId : characterID;
+        return !string.IsNullOrWhiteSpace(stableId)
+            ? $"character.passive:{stableId}"
+            : string.Empty;
     }
 }

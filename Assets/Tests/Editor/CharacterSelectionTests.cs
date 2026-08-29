@@ -10,6 +10,13 @@ namespace RainsenVampSur.Tests
     {
         private const float FloatTolerance = 0.0001f;
 
+        /// <summary>每项选择页测试使用独立默认账号，避免静态解锁状态影响断言。</summary>
+        [SetUp]
+        public void ResetAccountProgress()
+        {
+            AccountProgressService.SetStorageForTests(new InMemoryAccountProgressStorage());
+        }
+
         /// <summary>本期配置一个角色时仍应生成 12 个槽位，并正确展示三项角色属性。</summary>
         [Test]
         public void Show_单角色配置_创建十二槽并展示角色信息()
@@ -93,6 +100,97 @@ namespace RainsenVampSur.Tests
             {
                 CharacterSelectionSession.Clear();
                 Object.DestroyImmediate(character);
+            }
+        }
+
+        /// <summary>锁定角色槽位应显示黑影，选中后只显示解锁浮层而不泄露角色资料。</summary>
+        [Test]
+        public void Hover_累计击杀锁定角色_显示黑影与条件浮层()
+        {
+            CharacterDataSO defaultCharacter = CreateCharacter("默认测试角色", 100f, 1f, 3f);
+            defaultCharacter.characterID = AccountProgressData.DefaultCharacterId;
+            CharacterDataSO lockedCharacter = CreateCharacter("秘密角色", 999f, 9f, 9f);
+            lockedCharacter.characterID = "character_locked_test";
+            lockedCharacter.unlock.conditionType = CharacterUnlockConditionType.LifetimeKills;
+            lockedCharacter.unlock.requiredAmount = 100;
+
+            try
+            {
+                GameObject canvasObject = CreateTrackedGameObject("AutomationTest_LockedCharacterSelection");
+                canvasObject.SetActive(false);
+                canvasObject.AddComponent<Canvas>();
+                CharacterSelectionUI selector = canvasObject.AddComponent<CharacterSelectionUI>();
+                TestObjectUtility.SetPrivateField(
+                    selector,
+                    "availableCharacters",
+                    new List<CharacterDataSO> { defaultCharacter, lockedCharacter });
+                canvasObject.SetActive(true);
+                selector.Show();
+
+                Transform lockedSlotTransform = selector.PanelRoot.transform
+                    .Find("CharacterSlotGrid/CharacterSlot_02");
+                CharacterSelectionSlotUI lockedSlot = lockedSlotTransform
+                    .GetComponent<CharacterSelectionSlotUI>();
+                selector.HandleSlotHover(lockedSlot);
+
+                Image portrait = lockedSlotTransform.Find("Portrait").GetComponent<Image>();
+                Assert.That(portrait.color, Is.EqualTo(Color.black));
+                Assert.IsTrue(selector.IsUnlockOverlayVisible);
+                Assert.That(selector.StatsText, Is.Empty);
+                StringAssert.Contains("0 / 100", selector.UnlockConditionText);
+                Assert.IsFalse(selector.UnlockPurchaseButton.gameObject.activeSelf);
+                Assert.IsFalse(selector.ConfirmButton.interactable);
+            }
+            finally
+            {
+                Object.DestroyImmediate(defaultCharacter);
+                Object.DestroyImmediate(lockedCharacter);
+            }
+        }
+
+        /// <summary>金币条件浮层按钮应扣除账号金币、解锁角色并立即恢复完整详情。</summary>
+        [Test]
+        public void Purchase_金币锁定角色_扣款并立即解锁()
+        {
+            AccountProgressService.Current.RecordRunResults(50, 0);
+            CharacterDataSO defaultCharacter = CreateCharacter("默认测试角色", 100f, 1f, 3f);
+            defaultCharacter.characterID = AccountProgressData.DefaultCharacterId;
+            CharacterDataSO purchasable = CreateCharacter("金币角色", 120f, 1.2f, 3.2f);
+            purchasable.characterID = "character_gold_test";
+            purchasable.unlock.conditionType = CharacterUnlockConditionType.GoldPurchase;
+            purchasable.unlock.requiredAmount = 40;
+
+            try
+            {
+                GameObject canvasObject = CreateTrackedGameObject("AutomationTest_GoldCharacterSelection");
+                canvasObject.SetActive(false);
+                canvasObject.AddComponent<Canvas>();
+                CharacterSelectionUI selector = canvasObject.AddComponent<CharacterSelectionUI>();
+                TestObjectUtility.SetPrivateField(
+                    selector,
+                    "availableCharacters",
+                    new List<CharacterDataSO> { defaultCharacter, purchasable });
+                canvasObject.SetActive(true);
+                selector.Show();
+
+                CharacterSelectionSlotUI goldSlot = selector.PanelRoot.transform
+                    .Find("CharacterSlotGrid/CharacterSlot_02")
+                    .GetComponent<CharacterSelectionSlotUI>();
+                selector.HandleSlotHover(goldSlot);
+                Assert.IsTrue(selector.UnlockPurchaseButton.gameObject.activeSelf);
+
+                selector.UnlockPurchaseButton.onClick.Invoke();
+
+                Assert.That(AccountProgressService.Current.Gold, Is.EqualTo(10));
+                Assert.IsTrue(AccountProgressService.Current.IsCharacterUnlocked(purchasable.characterID));
+                Assert.IsFalse(selector.IsUnlockOverlayVisible);
+                Assert.IsTrue(selector.ConfirmButton.interactable);
+                StringAssert.Contains("生命  120", selector.StatsText);
+            }
+            finally
+            {
+                Object.DestroyImmediate(defaultCharacter);
+                Object.DestroyImmediate(purchasable);
             }
         }
 

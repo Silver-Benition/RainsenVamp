@@ -39,6 +39,8 @@ public class PlayerStats : MonoBehaviour
     private readonly float[] _multiplicativeTotals = new float[StatCount];
     private bool _statsInitialized;
     private bool _sessionCharacterResolved;
+    private CharacterDataSO _passiveCharacter;
+    private string _characterPassiveSourceId;
     private int _levelUpQueue;
 
     /// <summary>任一最终属性重算完成后触发；监听者应只刷新自己消费的低频状态。</summary>
@@ -128,6 +130,7 @@ public class PlayerStats : MonoBehaviour
         // 在重建缓存时又被仍然存活的静态选择覆盖。
         _sessionCharacterResolved = true;
         characterData = newCharacterData;
+        SynchronizeCharacterPassiveSource();
         _statsInitialized = false;
         EnsureStatsInitialized();
         StatsChanged?.Invoke();
@@ -255,6 +258,7 @@ public class PlayerStats : MonoBehaviour
     private void EnsureStatsInitialized()
     {
         ResolveSessionCharacterOnce();
+        SynchronizeCharacterPassiveSource();
         if (_statsInitialized) return;
         _statsInitialized = true;
         RecalculateFinalStats();
@@ -285,6 +289,45 @@ public class PlayerStats : MonoBehaviour
 
         characterData = selectedCharacter;
         _statsInitialized = false;
+    }
+
+    /// <summary>
+    /// 把当前角色固有被动同步为唯一稳定修改器来源。
+    /// 同一角色重复读取不会分配或重建列表，切换角色时则先移除旧来源，防止效果叠加泄漏。
+    /// </summary>
+    private void SynchronizeCharacterPassiveSource()
+    {
+        if (ReferenceEquals(_passiveCharacter, characterData))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_characterPassiveSourceId))
+        {
+            _modifierSources.Remove(_characterPassiveSourceId);
+        }
+
+        _passiveCharacter = characterData;
+        _characterPassiveSourceId = characterData != null
+            ? characterData.GetPassiveSourceId()
+            : string.Empty;
+
+        CharacterPassiveDefinition passive = characterData != null
+            ? characterData.passive
+            : null;
+        if (string.IsNullOrWhiteSpace(_characterPassiveSourceId) ||
+            passive == null || passive.modifiers == null || passive.modifiers.Count == 0)
+        {
+            return;
+        }
+
+        var sourceCopy = new List<PlayerStatModifier>(passive.modifiers.Count);
+        for (int index = 0; index < passive.modifiers.Count; index++)
+        {
+            sourceCopy.Add(passive.modifiers[index]);
+        }
+
+        _modifierSources[_characterPassiveSourceId] = sourceCopy;
     }
 
     /// <summary>

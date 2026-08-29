@@ -10,6 +10,13 @@ namespace RainsenVampSur.Tests
     {
         private readonly List<ScriptableObject> _createdData = new List<ScriptableObject>();
 
+        /// <summary>每项装载测试使用独立账号，隔离起始武器收藏发现状态。</summary>
+        [SetUp]
+        public void ResetAccountProgress()
+        {
+            AccountProgressService.SetStorageForTests(new InMemoryAccountProgressStorage());
+        }
+
         /// <summary>销毁测试创建的数据资产替身，避免内存对象残留到下一项测试。</summary>
         [TearDown]
         public void CleanUpLoadoutData()
@@ -111,6 +118,30 @@ namespace RainsenVampSur.Tests
 
             Assert.That(manager.OwnedWeaponCount, Is.EqualTo(1));
             Assert.AreSame(duplicatedData, manager.OwnedWeapons[0].weaponData);
+        }
+
+        /// <summary>角色起始武器应只确保 Lv.1 存在，重复初始化不能把它当成普通升级。</summary>
+        [Test]
+        public void EnsureCharacterStartingWeapon_重复调用_只创建一把一级武器()
+        {
+            GameObject player = CreateTrackedGameObject("AutomationTest_StartingWeaponPlayer");
+            CharacterDataSO character = ScriptableObject.CreateInstance<CharacterDataSO>();
+            WeaponDataSO startingWeapon = CreateWeaponData("starter_weapon", true);
+            character.characterID = "character_starter_test";
+            character.startingWeapon = startingWeapon;
+            _createdData.Add(character);
+
+            PlayerStats stats = player.AddComponent<PlayerStats>();
+            stats.SetCharacterData(character);
+            LevelUpManager manager = CreateManager(player.transform);
+            TestObjectUtility.SetPrivateField(manager, "_playerStats", stats);
+
+            TestObjectUtility.InvokeNonPublicMethod(manager, "EnsureCharacterStartingWeapon");
+            TestObjectUtility.InvokeNonPublicMethod(manager, "EnsureCharacterStartingWeapon");
+
+            Assert.That(manager.OwnedWeaponCount, Is.EqualTo(1));
+            Assert.That(manager.OwnedWeapons[0].weaponData, Is.SameAs(startingWeapon));
+            Assert.That(manager.OwnedWeapons[0].CurrentLevel, Is.EqualTo(1));
         }
 
         /// <summary>创建指定数量的场景预置武器，并执行管理器的实际登记逻辑。</summary>

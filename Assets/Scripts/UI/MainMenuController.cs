@@ -16,8 +16,10 @@ public sealed class MainMenuController : MonoBehaviour
 
     [Header("Controls")]
     [SerializeField] private Button startButton;
+    [SerializeField] private Button collectionButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private CharacterSelectionUI characterSelectionUI;
+    [SerializeField] private CollectionUI collectionUI;
 
     [Header("Version")]
     [SerializeField] private TMP_Text versionText;
@@ -36,6 +38,9 @@ public sealed class MainMenuController : MonoBehaviour
     public bool IsCharacterSelectionVisible =>
         characterSelectionUI != null && characterSelectionUI.IsVisible;
 
+    /// <summary>收藏页面当前是否打开。</summary>
+    public bool IsCollectionVisible => collectionUI != null && collectionUI.IsVisible;
+
     /// <summary>校验必要引用，并确保从暂停状态返回主菜单时恢复正常时间流速。</summary>
     private void Awake()
     {
@@ -47,7 +52,8 @@ public sealed class MainMenuController : MonoBehaviour
             characterSelectionUI = FindObjectOfType<CharacterSelectionUI>(true);
         }
 
-        if (startButton != null && quitButton != null && versionText != null)
+        if (startButton != null && collectionButton != null && quitButton != null &&
+            characterSelectionUI != null && collectionUI != null && versionText != null)
         {
             return;
         }
@@ -62,11 +68,16 @@ public sealed class MainMenuController : MonoBehaviour
     private void OnEnable()
     {
         startButton.onClick.AddListener(StartGame);
+        collectionButton.onClick.AddListener(OpenCollection);
         quitButton.onClick.AddListener(QuitGame);
         if (characterSelectionUI != null)
         {
             characterSelectionUI.CharacterConfirmed += BeginGameLoad;
             characterSelectionUI.Closed += HandleCharacterSelectionClosed;
+        }
+        if (collectionUI != null)
+        {
+            collectionUI.Closed += HandleCollectionClosed;
         }
         versionText.text = string.Format(versionFormat, Application.version);
 
@@ -86,10 +97,19 @@ public sealed class MainMenuController : MonoBehaviour
             quitButton.onClick.RemoveListener(QuitGame);
         }
 
+        if (collectionButton != null)
+        {
+            collectionButton.onClick.RemoveListener(OpenCollection);
+        }
+
         if (characterSelectionUI != null)
         {
             characterSelectionUI.CharacterConfirmed -= BeginGameLoad;
             characterSelectionUI.Closed -= HandleCharacterSelectionClosed;
+        }
+        if (collectionUI != null)
+        {
+            collectionUI.Closed -= HandleCollectionClosed;
         }
 
         if (_selectionCoroutine != null)
@@ -147,6 +167,7 @@ public sealed class MainMenuController : MonoBehaviour
 
         if (character != null)
         {
+            AccountProgressService.Current.SetLastSelectedCharacter(character.characterID);
             CharacterSelectionSession.Select(character);
         }
 
@@ -194,6 +215,35 @@ public sealed class MainMenuController : MonoBehaviour
         _selectionCoroutine = StartCoroutine(SelectDefaultButtonNextFrame());
     }
 
+    /// <summary>锁定主菜单按钮并打开收藏页面。</summary>
+    private void OpenCollection()
+    {
+        if (_isLoading || collectionUI == null)
+        {
+            return;
+        }
+
+        SetControlsInteractable(false);
+        collectionUI.Show();
+    }
+
+    /// <summary>收藏页返回后恢复主菜单按钮和默认焦点。</summary>
+    private void HandleCollectionClosed()
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        SetControlsInteractable(true);
+        if (_selectionCoroutine != null)
+        {
+            StopCoroutine(_selectionCoroutine);
+        }
+
+        _selectionCoroutine = StartCoroutine(SelectDefaultButtonNextFrame());
+    }
+
     /// <summary>在正式构建中退出应用；Editor 内保持运行，避免误关编辑器或测试进程。</summary>
     private void QuitGame()
     {
@@ -202,11 +252,15 @@ public sealed class MainMenuController : MonoBehaviour
 #endif
     }
 
-    /// <summary>统一控制两个按钮的可交互状态，确保场景加载期间不再接受输入。</summary>
+    /// <summary>统一控制三个主菜单按钮的可交互状态，确保子页面或场景加载期间不再接受输入。</summary>
     /// <param name="interactable">按钮是否允许交互。</param>
     private void SetControlsInteractable(bool interactable)
     {
         startButton.interactable = interactable;
+        if (collectionButton != null)
+        {
+            collectionButton.interactable = interactable;
+        }
         quitButton.interactable = interactable;
     }
 
