@@ -123,6 +123,12 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
             return;
         }
 
+        // Player 下的 MagnetRadius 等辅助 Trigger 不是受击体，不能沿刚体根节点解析成 PlayerHealth。
+        if (collision == null || collision.isTrigger)
+        {
+            return;
+        }
+
         if (!DamageTargetFilter.TryGetPlayerDamageable(collision, out IDamageable player))
         {
             return;

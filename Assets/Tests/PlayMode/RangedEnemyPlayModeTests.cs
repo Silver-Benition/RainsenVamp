@@ -121,6 +121,50 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsFalse(projectile.activeSelf);
         }
 
+        /// <summary>玩家的辅助 Trigger 不应扩大远程弹体的实际受击范围。</summary>
+        [UnityTest]
+        public IEnumerator EnemyProjectile_玩家辅助Trigger_不会扩大受击范围()
+        {
+            GameObject player = CreatePlayer(Vector3.zero, out Component playerHealth);
+            GameObject magnetRadius = CreateTrackedGameObject(
+                "PlayModeTest_PlayerMagnetRadius",
+                false);
+            magnetRadius.transform.SetParent(player.transform, false);
+            magnetRadius.layer = RequireLayer("Player");
+            CircleCollider2D magnetCollider = magnetRadius.AddComponent<CircleCollider2D>();
+            magnetCollider.isTrigger = true;
+            magnetCollider.radius = 3f;
+            magnetRadius.SetActive(true);
+
+            CreatePoolManager();
+            GameObject projectileTemplate = CreateProjectileTemplate();
+            Component simulation = CreateWorldSimulation(player, projectileTemplate);
+            RuntimeComponentTestUtility.Invoke(simulation, "SetWorldActive", true);
+
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
+            GameObject projectile = SpawnProjectile(
+                simulation,
+                projectileTemplate,
+                null,
+                new Vector3(-4f, 0f, 0f));
+
+            yield return new WaitForSeconds(0.25f);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth"),
+                Is.EqualTo(100f).Within(FloatTolerance),
+                "弹体进入 Player 辅助 Trigger 后仍不应造成伤害。");
+
+            yield return WaitUntil(
+                () => RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth") < 100f,
+                HealthTimeoutSeconds);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth"),
+                Is.EqualTo(88f).Within(FloatTolerance));
+            Assert.IsFalse(projectile.activeSelf);
+        }
+
         /// <summary>Defang 来源的弹体必须零伤害，命中回池后再次取出仍不能继承旧伤害。</summary>
         [UnityTest]
         public IEnumerator EnemyProjectile_Defang来源与池复用_伤害始终为零()
@@ -325,6 +369,7 @@ namespace RainsenVampSur.Tests.PlayMode
             projectile.AddComponent<SpriteRenderer>();
             CircleCollider2D collider = projectile.AddComponent<CircleCollider2D>();
             collider.isTrigger = true;
+            collider.radius = 0.12f;
             RuntimeComponentTestUtility.AddRuntimeComponent(projectile, "EnemyProjectile");
             return projectile;
         }
