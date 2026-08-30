@@ -17,7 +17,7 @@ namespace RainsenVampSur.Tests.PlayMode
         private const float FloatTolerance = 0.0001f;
         private const float HealthTimeoutSeconds = 1.5f;
 
-        /// <summary>从生成时就在射程内按首发延迟和冷却发射，并验证回池复用会重新计时。</summary>
+        /// <summary>从生成时就在射程内按首发延迟和冷却发射，并验证回池复用和最大射程限制。</summary>
         [UnityTest]
         public IEnumerator RangedEnemyController_首发冷却与回池复用_按实际发射数量计时()
         {
@@ -140,6 +140,22 @@ namespace RainsenVampSur.Tests.PlayMode
                 Is.EqualTo(2));
 
             ReleaseActiveProjectiles(poolManager, projectileTemplate);
+            Assert.IsTrue(secondEnemy.activeSelf, "最大射程复测必须保留同一活跃敌人。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveEnemyCount"),
+                Is.EqualTo(1),
+                "最大射程复测前敌人不能因清理弹体而失活。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.Zero,
+                "最大射程复测前必须确认当前池计数没有残留弹体。");
+            player.GetComponent<Collider2D>().enabled = true;
+            player.transform.position = new Vector3(20f, 0f, 0f);
+            yield return new WaitForSeconds(2.2f);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.Zero,
+                "即使首发/冷却计时已满足，玩家超过 MaxRange=8 时也不得发射。");
             Assert.IsNotNull(playerHealth);
         }
 
