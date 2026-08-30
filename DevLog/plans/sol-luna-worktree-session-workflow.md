@@ -242,6 +242,14 @@ Plan 任务按以下顺序创建 Execute：
 
 任一条件无法验证时立即停止。Plan 不得在未告知老大的情况下自行接管实现，也不得用角色标题冒充模型配置。
 
+5. Plan 必须持有 Execute 的真实任务 ID，并负责完成状态接回：
+
+- Execute 仍在运行时，Plan 使用 Codex 的任务等待能力持续等待 `completed` 或 `needs attention`，不能只确认启动门禁后就结束自己的回合。
+- `needs attention` 时由 Plan 汇总阻塞并向老大请求必要决策；普通进度不要求老大手动转述。
+- `completed` 时由 Plan 自动读取最终交付包，进入本路线规定的 Review；桌面通知只作为辅助提示，不能替代任务状态接回。
+- 用户消息或应用事件中断一次等待后，Plan 处理完新输入应继续等待原 Execute，除非老大明确取消或替换任务。
+- 只有 Execute 已完成、已明确阻塞或老大要求暂停时，Plan 才结束该协调阶段。
+
 ### 5.3 Execute 要求
 
 1. 复述 Task ID、基线、批准文件和验收标准。
@@ -450,6 +458,7 @@ Execute 分支提交
 - [ ] 老大已明确选择路线、Execute 模型和冻结契约。
 - [ ] main 与统一 QA 在写入前均干净，QA HEAD 等于冻结基线。
 - [ ] 路线 B/C 的 Execute 是侧边栏真实任务，模型、推理强度和 QA 路径已核对。
+- [ ] Plan 已持有 Execute 任务 ID，并持续等待完成或需关注状态，不依赖老大手动提醒。
 - [ ] Execute 已提交短期分支并提供可验证证据。
 - [ ] 路线 A 已完成真实 Diff 自审；路线 B 已回原 Plan 审查；路线 C 才创建独立 Review。
 - [ ] Review 已区分真实缺陷和测试覆盖缺口，并说明是否必须阻断。
@@ -490,6 +499,7 @@ Session 16 在统一 QA 检出中执行一个受控的物理契约修正：玩�
 - 本次 Execute 继续使用长期 `RainsenVampSur-QA` Local 检出和 `codex/session-16-qa-hurtbox`
   短期分支；不新增 Layer，不修改全局物理设置、玩家数值、对象池、武器、账号、波次或 Session
   归档文件。
+- Plan 在 Execute 启动门禁后过早结束，导致完成状态最初需要老大提醒；现已把“持有真实任务 ID、持续等待并自动接回最终交付”写入路线 B/C 的固定步骤。
 - 验证必须同时覆盖正式身体、无标记 Collider/Trigger、标记子级 Trigger 的根节点生命解析、近战接触、
   远程弹体穿过 MagnetRadius 后命中正式身体，以及 MainLevel 场景组件绑定；Execute 只提交当前短期
   分支，不合入 main、不 push、不停泊 QA。
