@@ -49,6 +49,7 @@ namespace RainsenVampSur.Tests.PlayMode
             body.bodyType = RigidbodyType2D.Kinematic;
             body.gravityScale = 0f;
             player.AddComponent<BoxCollider2D>().size = Vector2.one;
+            RuntimeComponentTestUtility.AddRuntimeComponent(player, "PlayerHurtbox");
 
             Component playerHealth = RuntimeComponentTestUtility.AddRuntimeComponent(
                 player,

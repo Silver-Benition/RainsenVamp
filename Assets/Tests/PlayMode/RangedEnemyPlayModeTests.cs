@@ -213,6 +213,10 @@ namespace RainsenVampSur.Tests.PlayMode
             magnetCollider.isTrigger = true;
             magnetCollider.radius = 3f;
             magnetRadius.SetActive(true);
+            Assert.IsNull(
+                magnetRadius.GetComponent(
+                    RuntimeComponentTestUtility.RequireRuntimeType("PlayerHurtbox")),
+                "MagnetRadius 只能作为辅助 Trigger，不能带正式 PlayerHurtbox 标记。");
 
             CreatePoolManager();
             GameObject projectileTemplate = CreateProjectileTemplate();
@@ -237,6 +241,54 @@ namespace RainsenVampSur.Tests.PlayMode
             yield return WaitUntil(
                 () => RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth") < 100f,
                 HealthTimeoutSeconds);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth"),
+                Is.EqualTo(88f).Within(FloatTolerance));
+            Assert.IsFalse(projectile.activeSelf);
+        }
+
+        /// <summary>标记的正式子级 Trigger 应沿 attachedRigidbody 找到根节点 PlayerHealth 并造成伤害。</summary>
+        [UnityTest]
+        public IEnumerator EnemyProjectile_标记子级Trigger_解析刚体根节点PlayerHealth()
+        {
+            GameObject player = CreatePlayer(Vector3.zero, out Component playerHealth);
+            Collider2D bodyCollider = player.GetComponent<Collider2D>();
+            bodyCollider.enabled = false;
+
+            GameObject hurtboxObject = CreateTrackedGameObject(
+                "PlayModeTest_PlayerHurtboxTrigger",
+                false);
+            hurtboxObject.transform.SetParent(player.transform, false);
+            hurtboxObject.layer = RequireLayer("Player");
+            CircleCollider2D hurtboxCollider = hurtboxObject.AddComponent<CircleCollider2D>();
+            hurtboxCollider.isTrigger = true;
+            hurtboxCollider.radius = 0.5f;
+            RuntimeComponentTestUtility.AddRuntimeComponent(hurtboxObject, "PlayerHurtbox");
+            hurtboxObject.SetActive(true);
+            Physics2D.SyncTransforms();
+
+            CreatePoolManager();
+            GameObject projectileTemplate = CreateProjectileTemplate();
+            Component simulation = CreateWorldSimulation(player, projectileTemplate);
+            RuntimeComponentTestUtility.Invoke(simulation, "SetWorldActive", true);
+
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
+            GameObject projectile = SpawnProjectile(
+                simulation,
+                projectileTemplate,
+                null,
+                new Vector3(-2f, 0f, 0f));
+
+            Assert.AreSame(
+                player.GetComponent<Rigidbody2D>(),
+                hurtboxCollider.attachedRigidbody,
+                "正式子级 Hurtbox 必须挂在玩家刚体下，才能解析根节点 PlayerHealth。");
+            yield return WaitUntil(
+                () => RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth") < 100f,
+                HealthTimeoutSeconds);
+
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth"),
                 Is.EqualTo(88f).Within(FloatTolerance));
@@ -513,6 +565,7 @@ namespace RainsenVampSur.Tests.PlayMode
             body.gravityScale = 0f;
             body.constraints = RigidbodyConstraints2D.FreezeAll;
             player.AddComponent<BoxCollider2D>().size = Vector2.one;
+            RuntimeComponentTestUtility.AddRuntimeComponent(player, "PlayerHurtbox");
 
             playerHealth = RuntimeComponentTestUtility.AddRuntimeComponent(player, "PlayerHealth");
             RuntimeComponentTestUtility.SetField(playerHealth, "maxHealth", 100f);

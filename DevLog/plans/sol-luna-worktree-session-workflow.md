@@ -477,3 +477,19 @@ Session 15 同时验证了多任务隔离的价值与成本：
 - 普通串行 Session 复用统一 QA 检出，只有高风险独立审查和并行任务使用临时 Worktree。
 
 永久结论：任务流服务于风险控制，不能让流程成本超过功能本身。
+
+### Session 16
+
+Session 16 在统一 QA 检出中执行一个受控的物理契约修正：玩家正式受击 Collider 通过同对象的
+`PlayerHurtbox` 显式标记识别，替代“Player Layer 上的非 Trigger Collider”隐式约定。
+
+- `DamageTargetFilter` 仍先按 Player Layer 过滤，再通过 `attachedRigidbody` 解析根节点的
+  `IDamageable`；未标记的 `MagnetRadius` 等辅助 Trigger 必须被拒绝，带标记的正式 Trigger
+  允许进入同一解析链路。
+- `EnemyProjectile` 不再自行拒绝全部 Player Trigger，Trigger 是否为正式受击框完全交给显式过滤器。
+- 本次 Execute 继续使用长期 `RainsenVampSur-QA` Local 检出和 `codex/session-16-qa-hurtbox`
+  短期分支；不新增 Layer，不修改全局物理设置、玩家数值、对象池、武器、账号、波次或 Session
+  归档文件。
+- 验证必须同时覆盖正式身体、无标记 Collider/Trigger、标记子级 Trigger 的根节点生命解析、近战接触、
+  远程弹体穿过 MagnetRadius 后命中正式身体，以及 MainLevel 场景组件绑定；Execute 只提交当前短期
+  分支，不合入 main、不 push、不停泊 QA。

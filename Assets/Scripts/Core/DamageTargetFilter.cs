@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// 集中执行玩家与敌人的 Layer 过滤，避免玩家实现 IDamageable 后被己方武器误伤。
-/// 同时兼容碰撞体位于刚体子节点、IDamageable 位于刚体根节点的 Prefab。
+/// 玩家正式受击体必须显式挂载 PlayerHurtbox，并兼容碰撞体位于刚体子节点、
+/// IDamageable 位于刚体根节点的 Prefab。
 /// </summary>
 public static class DamageTargetFilter
 {
@@ -18,9 +19,20 @@ public static class DamageTargetFilter
         return TryGetDamageableOnLayer(collider, EnemyLayer, out damageable);
     }
 
-    /// <summary>尝试从 Player Layer 的碰撞体或刚体根节点取得可受击接口。</summary>
+    /// <summary>
+    /// 尝试从带 PlayerHurtbox 标记的 Player Layer 碰撞体或刚体根节点取得可受击接口。
+    /// 未标记的玩家身体和 MagnetRadius 等辅助 Collider 一律拒绝。
+    /// </summary>
     public static bool TryGetPlayerDamageable(Collider2D collider, out IDamageable damageable)
     {
+        // 标记必须与命中的 Collider 位于同一 GameObject，避免把 Player 根节点上的
+        // PlayerHealth 误当成所有子级 Trigger 的受击接口。
+        if (collider == null || !collider.TryGetComponent<PlayerHurtbox>(out _))
+        {
+            damageable = null;
+            return false;
+        }
+
         return TryGetDamageableOnLayer(collider, PlayerLayer, out damageable);
     }
 

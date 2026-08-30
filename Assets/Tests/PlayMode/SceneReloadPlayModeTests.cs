@@ -230,8 +230,19 @@ namespace RainsenVampSur.Tests.PlayMode
             Transform magnetTransform = playerObject != null
                 ? playerObject.transform.Find("MagnetRadius")
                 : null;
+            Collider2D playerCollider = playerObject != null
+                ? playerObject.GetComponent<Collider2D>()
+                : null;
+            Component playerHurtbox = playerCollider != null
+                ? playerCollider.GetComponent(
+                    RuntimeComponentTestUtility.RequireRuntimeType("PlayerHurtbox"))
+                : null;
             CircleCollider2D magnetCollider = magnetTransform != null
                 ? magnetTransform.GetComponent<CircleCollider2D>()
+                : null;
+            Component magnetHurtbox = magnetTransform != null
+                ? magnetTransform.GetComponent(
+                    RuntimeComponentTestUtility.RequireRuntimeType("PlayerHurtbox"))
                 : null;
             float magnetRadius = magnetCollider != null ? magnetCollider.radius : -1f;
             Component expBarUi = expBarObject != null
@@ -464,6 +475,12 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(playerMoveSpeed, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.That(playerMagnet, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.That(magnetRadius, Is.EqualTo(3f).Within(FloatTolerance));
+            Assert.IsNotNull(
+                playerHurtbox,
+                "MainLevel Player 的正式 Collider 必须在同一 GameObject 上挂载 PlayerHurtbox。");
+            Assert.IsNull(
+                magnetHurtbox,
+                "MainLevel 的 MagnetRadius 只能作为辅助 Trigger，不能挂载 PlayerHurtbox。");
             Assert.IsFalse(debugComponentInMainScene, "MainLevel 仍然挂载双世界线调试组件。");
         }
 

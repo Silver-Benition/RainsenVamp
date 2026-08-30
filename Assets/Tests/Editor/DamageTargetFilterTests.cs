@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace RainsenVampSur.Tests
 {
-    /// <summary>验证伤害目标过滤只接受正确阵营，并兼容刚体根节点结构。</summary>
+    /// <summary>验证伤害目标过滤只接受正确阵营、显式受击标记，并兼容刚体根节点结构。</summary>
     public sealed class DamageTargetFilterTests
     {
         private readonly List<GameObject> _createdObjects = new List<GameObject>();
@@ -88,17 +88,74 @@ namespace RainsenVampSur.Tests
             Assert.AreSame(expected, actual);
         }
 
-        /// <summary>验证 Player Layer 碰撞体上的直接 IDamageable 可以被敌方伤害入口找到。</summary>
+        /// <summary>验证带 PlayerHurtbox 的 Player Layer 碰撞体可以被敌方伤害入口找到。</summary>
         [Test]
-        public void TryGetPlayerDamageable_玩家Layer且实现接口_返回目标()
+        public void TryGetPlayerDamageable_玩家Layer且带受击标记_返回目标()
         {
             GameObject target = CreateTrackedGameObject("AutomationTest_DirectPlayer");
             target.layer = RequireLayer("Player");
             TestDamageableComponent expected = target.AddComponent<TestDamageableComponent>();
             BoxCollider2D collider = target.AddComponent<BoxCollider2D>();
+            target.AddComponent<PlayerHurtbox>();
 
             bool found = DamageTargetFilter.TryGetPlayerDamageable(collider, out IDamageable actual);
 
+            Assert.IsTrue(found);
+            Assert.AreSame(expected, actual);
+        }
+
+        /// <summary>验证 Player Layer 的非 Trigger Collider 没有显式标记时会被拒绝。</summary>
+        [Test]
+        public void TryGetPlayerDamageable_玩家Layer但无受击标记_拒绝目标()
+        {
+            GameObject target = CreateTrackedGameObject("AutomationTest_UnmarkedPlayerCollider");
+            target.layer = RequireLayer("Player");
+            target.AddComponent<TestDamageableComponent>();
+            BoxCollider2D collider = target.AddComponent<BoxCollider2D>();
+
+            bool found = DamageTargetFilter.TryGetPlayerDamageable(collider, out IDamageable damageable);
+
+            Assert.IsFalse(found);
+            Assert.IsNull(damageable);
+        }
+
+        /// <summary>验证 Player Layer 的辅助 Trigger 没有显式标记时会被拒绝。</summary>
+        [Test]
+        public void TryGetPlayerDamageable_玩家Layer无标记Trigger_拒绝目标()
+        {
+            GameObject target = CreateTrackedGameObject("AutomationTest_UnmarkedPlayerTrigger");
+            target.layer = RequireLayer("Player");
+            target.AddComponent<TestDamageableComponent>();
+            CircleCollider2D collider = target.AddComponent<CircleCollider2D>();
+            collider.isTrigger = true;
+
+            bool found = DamageTargetFilter.TryGetPlayerDamageable(collider, out IDamageable damageable);
+
+            Assert.IsFalse(found);
+            Assert.IsNull(damageable);
+        }
+
+        /// <summary>验证带标记的子级 Trigger 可以沿 attachedRigidbody 找到玩家根节点受击接口。</summary>
+        [Test]
+        public void TryGetPlayerDamageable_标记子级Trigger_解析刚体根节点目标()
+        {
+            GameObject root = CreateTrackedGameObject("AutomationTest_PlayerBodyRoot");
+            root.layer = RequireLayer("Player");
+            Rigidbody2D rigidbody = root.AddComponent<Rigidbody2D>();
+            rigidbody.bodyType = RigidbodyType2D.Kinematic;
+            TestDamageableComponent expected = root.AddComponent<TestDamageableComponent>();
+
+            GameObject colliderObject = CreateTrackedGameObject("AutomationTest_PlayerHurtboxChild");
+            colliderObject.layer = RequireLayer("Player");
+            colliderObject.transform.SetParent(root.transform, false);
+            CircleCollider2D collider = colliderObject.AddComponent<CircleCollider2D>();
+            collider.isTrigger = true;
+            colliderObject.AddComponent<PlayerHurtbox>();
+            Physics2D.SyncTransforms();
+
+            bool found = DamageTargetFilter.TryGetPlayerDamageable(collider, out IDamageable actual);
+
+            Assert.AreSame(rigidbody, collider.attachedRigidbody);
             Assert.IsTrue(found);
             Assert.AreSame(expected, actual);
         }

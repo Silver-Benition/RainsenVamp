@@ -109,7 +109,10 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
         }
     }
 
-    /// <summary>碰到玩家时请求快照伤害；即使伤害为零也回收弹体。</summary>
+    /// <summary>
+    /// 碰到玩家时请求快照伤害；正式受击体由 DamageTargetFilter 的 PlayerHurtbox 标记决定，
+    /// 因此未来的正式 Trigger 受击框也能参与解析；即使伤害为零也回收弹体。
+    /// </summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (_worldSimulation != null && !_worldSimulation.IsWorldActive)
@@ -120,12 +123,6 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
         if (collision != null && _defaultLayer >= 0 && collision.gameObject.layer == _defaultLayer)
         {
             ReleaseToPool();
-            return;
-        }
-
-        // Player 下的 MagnetRadius 等辅助 Trigger 不是受击体，不能沿刚体根节点解析成 PlayerHealth。
-        if (collision == null || collision.isTrigger)
-        {
             return;
         }
 

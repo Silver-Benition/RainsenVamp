@@ -1125,6 +1125,7 @@ GameObject:
   - component: {fileID: 1127848273}
   - component: {fileID: 3100000001}
   - component: {fileID: 3100000002}
+  - component: {fileID: 3100000003}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -1300,6 +1301,18 @@ MonoBehaviour:
   spriteRenderer: {fileID: 257161340}
   damageTint: {r: 1, g: 0.35, b: 0.35, a: 1}
   tintDuration: 0.1
+--- !u!114 &3100000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1127848266}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f69a14efccd467fbb00f16f5265dac5, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!1 &1143977252
 GameObject:
   m_ObjectHideFlags: 0
