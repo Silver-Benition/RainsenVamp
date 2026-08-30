@@ -17,68 +17,130 @@ namespace RainsenVampSur.Tests.PlayMode
         private const float FloatTolerance = 0.0001f;
         private const float HealthTimeoutSeconds = 1.5f;
 
-        /// <summary>首发延迟结束后才允许发射，成功发射后按冷却阻止下一发，且超出八米不发射。</summary>
+        /// <summary>从生成时就在射程内按首发延迟和冷却发射，并验证回池复用会重新计时。</summary>
         [UnityTest]
-        public IEnumerator RangedEnemyController_首发冷却与射程_按冻结节奏发射()
+        public IEnumerator RangedEnemyController_首发冷却与回池复用_按实际发射数量计时()
         {
-            GameObject player = CreatePlayer(new Vector3(20f, 0f, 0f), out Component playerHealth);
+            GameObject player = CreatePlayer(new Vector3(6f, 0f, 0f), out Component playerHealth);
+            player.GetComponent<Collider2D>().enabled = false;
             Component poolManager = CreatePoolManager();
             GameObject projectileTemplate = CreateProjectileTemplate();
-            Component simulation = CreateWorldSimulation(player, projectileTemplate);
-            ScriptableObject enemyData = CreateEnemyData(30f, 0f, 5f);
-            ScriptableObject attackData = CreateAttackData(projectileTemplate);
-
-            GameObject enemyObject = CreateTrackedGameObject("PlayModeTest_RangedEnemy", false);
-            enemyObject.layer = RequireLayer("Enemy");
-            enemyObject.AddComponent<Rigidbody2D>().gravityScale = 0f;
-            enemyObject.AddComponent<BoxCollider2D>();
-            Component controller = RuntimeComponentTestUtility.AddRuntimeComponent(
-                enemyObject,
-                "RangedEnemyController");
-            RuntimeComponentTestUtility.SetField(controller, "enemyData", enemyData);
-            RuntimeComponentTestUtility.SetField(controller, "attackData", attackData);
-            enemyObject.SetActive(true);
-            RuntimeComponentTestUtility.Invoke(
-                controller,
-                "ApplySpawnSnapshot",
-                CreateEnemySnapshot(30f, 0f, 5f, 1f, false));
-            RuntimeComponentTestUtility.Invoke(controller, "BindWorldSimulation", simulation);
+            GameObject enemyTemplate = CreateRangedEnemyTemplate(projectileTemplate);
+            Component simulation = CreateWorldSimulation(player, enemyTemplate);
+            Component worldOwner = CreateWorldWaveOwner("PlayModeTest_RangedWorldOwner");
             RuntimeComponentTestUtility.Invoke(simulation, "SetWorldActive", true);
 
-            yield return new WaitForSeconds(1f);
+            object snapshot = CreateEnemySnapshot(30f, 0f, 5f, 1f, false);
+            ExpectRuntimePrefabWarning();
+            float firstSpawnTime = Time.realtimeSinceStartup;
+            GameObject firstEnemy = SpawnEnemy(
+                simulation,
+                enemyTemplate,
+                worldOwner,
+                Vector3.zero,
+                snapshot);
+            TrackObject(firstEnemy);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveEnemyCount"),
+                Is.EqualTo(1));
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
                 Is.Zero,
-                "玩家在射程外时不应发射。");
+                "敌人生成时已在射程内，但首发延迟未结束前不应有弹体。");
 
-            player.transform.position = new Vector3(6f, 0f, 0f);
-            LogAssert.Expect(
-                LogType.Warning,
-                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
-            yield return WaitUntil(
-                () => RuntimeComponentTestUtility.GetProperty<float>(controller, "AttackTimer") > 1.5f,
-                1f);
-
-            float firstCooldown = RuntimeComponentTestUtility.GetProperty<float>(controller, "AttackTimer");
-            Assert.That(firstCooldown, Is.GreaterThan(1.5f));
-            Assert.That(firstCooldown, Is.LessThanOrEqualTo(2f + FloatTolerance));
-            yield return new WaitForSeconds(0.5f);
-            float duringCooldown = RuntimeComponentTestUtility.GetProperty<float>(controller, "AttackTimer");
-            Assert.That(duringCooldown, Is.GreaterThan(0.8f));
-            Assert.That(duringCooldown, Is.LessThan(firstCooldown));
-
-            LogAssert.Expect(
-                LogType.Warning,
-                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
-            yield return WaitUntil(
-                () => RuntimeComponentTestUtility.GetProperty<float>(controller, "AttackTimer") > 1.5f,
-                3f);
-
+            yield return new WaitForSeconds(0.6f);
             Assert.That(
-                RuntimeComponentTestUtility.GetProperty<float>(controller, "AttackTimer"),
-                Is.GreaterThan(1.5f));
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.Zero,
+                "首发延迟 0.8 秒未到时不应发射。");
+
+            ExpectRuntimePrefabWarning();
+            yield return WaitUntil(
+                () => RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount") >= 1,
+                0.6f);
+            float firstShotElapsed = Time.realtimeSinceStartup - firstSpawnTime;
+            float firstShotTime = Time.realtimeSinceStartup;
+            Assert.That(firstShotElapsed, Is.GreaterThanOrEqualTo(0.75f));
+            Assert.That(firstShotElapsed, Is.LessThan(1.2f));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.EqualTo(1));
+
+            yield return new WaitForSeconds(0.9f);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.EqualTo(1),
+                "成功发射后的 2 秒冷却未结束前不应出现第二发。");
+
+            ExpectRuntimePrefabWarning();
+            yield return WaitUntil(
+                () => RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount") >= 2,
+                1.4f);
+            float secondShotElapsed = Time.realtimeSinceStartup - firstShotTime;
+            Assert.That(secondShotElapsed, Is.GreaterThanOrEqualTo(1.8f));
+            Assert.That(secondShotElapsed, Is.LessThan(2.5f));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.EqualTo(2));
+
+            ReleaseActiveProjectiles(poolManager, projectileTemplate);
+            RuntimeComponentTestUtility.Invoke(poolManager, "Release", enemyTemplate, firstEnemy);
+            yield return null;
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.Zero);
+
+            ExpectRuntimePrefabWarning();
+            float secondSpawnTime = Time.realtimeSinceStartup;
+            GameObject secondEnemy = SpawnEnemy(
+                simulation,
+                enemyTemplate,
+                worldOwner,
+                Vector3.zero,
+                snapshot);
+            TrackObject(secondEnemy);
+            Assert.AreSame(firstEnemy, secondEnemy, "回池后应复用同一个敌人实例。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.Zero,
+                "敌人重新取出时首发计时必须重新从 0.8 秒开始。");
+
+            yield return new WaitForSeconds(0.6f);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.Zero,
+                "回池复用后的首发延迟未结束时不应发射。");
+
+            ExpectRuntimePrefabWarning();
+            yield return WaitUntil(
+                () => RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount") >= 1,
+                0.6f);
+            float reusedFirstShotElapsed = Time.realtimeSinceStartup - secondSpawnTime;
+            float reusedFirstShotTime = Time.realtimeSinceStartup;
+            Assert.That(reusedFirstShotElapsed, Is.GreaterThanOrEqualTo(0.75f));
+            Assert.That(reusedFirstShotElapsed, Is.LessThan(1.2f));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.EqualTo(1));
+
+            yield return new WaitForSeconds(0.9f);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.EqualTo(1));
+
+            ExpectRuntimePrefabWarning();
+            yield return WaitUntil(
+                () => RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount") >= 2,
+                1.4f);
+            float reusedSecondShotElapsed = Time.realtimeSinceStartup - reusedFirstShotTime;
+            Assert.That(reusedSecondShotElapsed, Is.GreaterThanOrEqualTo(1.8f));
+            Assert.That(reusedSecondShotElapsed, Is.LessThan(2.5f));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount"),
+                Is.EqualTo(2));
+
+            ReleaseActiveProjectiles(poolManager, projectileTemplate);
             Assert.IsNotNull(playerHealth);
-            Assert.IsNotNull(poolManager);
         }
 
         /// <summary>武装来源发射的弹体应命中玩家，造成十二点伤害并回到共享对象池。</summary>
@@ -257,73 +319,169 @@ namespace RainsenVampSur.Tests.PlayMode
                 Is.EqualTo(100f).Within(FloatTolerance));
         }
 
-        /// <summary>非当前世界关闭表现和碰撞但继续运动，且旧世界不能夺回新世界拥有的池实例。</summary>
+        /// <summary>真实生成的非当前世界敌人和弹体继续模拟但不交互，且跨世界复用不被旧世界夺回。</summary>
         [UnityTest]
-        public IEnumerator WorldEnemySimulation_非当前世界与跨世界复用_归属隔离()
+        public IEnumerator WorldEnemySimulation_敌人跨世界复用与弹体寿命_归属隔离()
         {
-            GameObject player = CreatePlayer(new Vector3(5f, 0f, 0f), out Component playerHealth);
+            GameObject player = CreatePlayer(Vector3.zero, out Component playerHealth);
             Component poolManager = CreatePoolManager();
             GameObject projectileTemplate = CreateProjectileTemplate();
-            Component simulationA = CreateWorldSimulation(player, projectileTemplate);
-            Component simulationB = CreateWorldSimulation(player, projectileTemplate);
+            GameObject enemyTemplate = CreateRangedEnemyTemplate(projectileTemplate);
+            Component simulationA = CreateWorldSimulation(player, enemyTemplate);
+            Component simulationB = CreateWorldSimulation(player, enemyTemplate);
+            Component worldOwnerA = CreateWorldWaveOwner("PlayModeTest_RangedWorldOwnerA");
+            Component worldOwnerB = CreateWorldWaveOwner("PlayModeTest_RangedWorldOwnerB");
             RuntimeComponentTestUtility.Invoke(simulationA, "SetWorldActive", false);
             RuntimeComponentTestUtility.Invoke(simulationB, "SetWorldActive", true);
 
-            LogAssert.Expect(
-                LogType.Warning,
-                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
-            GameObject firstProjectile = (GameObject)RuntimeComponentTestUtility.Invoke(
+            object snapshot = CreateEnemySnapshot(30f, 1.6f, 5f, 1f, false);
+            ExpectRuntimePrefabWarning();
+            GameObject firstEnemy = SpawnEnemy(
                 simulationA,
-                "SpawnProjectile",
+                enemyTemplate,
+                worldOwnerA,
+                new Vector3(-1f, 0f, 0f),
+                snapshot);
+            TrackObject(firstEnemy);
+            Type enemyBaseType = RuntimeComponentTestUtility.RequireRuntimeType("EnemyBase");
+            Component firstEnemyBase = firstEnemy.GetComponent(enemyBaseType);
+            SpriteRenderer firstEnemyRenderer = firstEnemy.GetComponent<SpriteRenderer>();
+            Collider2D firstEnemyCollider = firstEnemy.GetComponent<Collider2D>();
+            float firstEnemyPosition = firstEnemy.transform.position.x;
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationA, "ActiveEnemyCount"),
+                Is.EqualTo(1));
+            Assert.IsFalse(firstEnemyRenderer.enabled);
+            Assert.IsFalse(firstEnemyCollider.enabled);
+            Assert.IsFalse(
+                RuntimeComponentTestUtility.GetProperty<bool>(
+                    firstEnemyBase,
+                    "IsWorldInteractionEnabled"));
+
+            yield return new WaitForSeconds(0.2f);
+            Assert.That(
+                firstEnemy.transform.position.x,
+                Is.LessThan(firstEnemyPosition),
+                "非当前世界敌人仍应按玩家距离推进后退模拟。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth"),
+                Is.EqualTo(100f).Within(FloatTolerance),
+                "非当前世界敌人不得对玩家造成接触伤害。");
+
+            ExpectRuntimePrefabWarning();
+            GameObject firstProjectile = SpawnProjectile(
+                simulationA,
                 projectileTemplate,
-                new Vector3(-10f, 0f, 0f),
-                Quaternion.identity,
-                Vector2.right * 5.5f,
-                12f,
                 null,
-                6f);
+                new Vector3(-2f, 0f, 0f));
+            TrackObject(firstProjectile);
             SpriteRenderer firstRenderer = firstProjectile.GetComponent<SpriteRenderer>();
             Collider2D firstCollider = firstProjectile.GetComponent<Collider2D>();
             float firstPosition = firstProjectile.transform.position.x;
+            Component firstProjectileComponent = firstProjectile.GetComponent(
+                RuntimeComponentTestUtility.RequireRuntimeType("EnemyProjectile"));
+            float firstLifetime = RuntimeComponentTestUtility.GetProperty<float>(
+                firstProjectileComponent,
+                "RemainingLifetime");
             Assert.IsFalse(firstRenderer.enabled);
             Assert.IsFalse(firstCollider.enabled);
-            Assert.That(
-                firstProjectile.GetComponent<Rigidbody2D>().velocity.x,
-                Is.EqualTo(5.5f).Within(FloatTolerance));
 
             yield return new WaitForSeconds(0.2f);
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(playerHealth, "CurrentHealth"),
                 Is.EqualTo(100f).Within(FloatTolerance));
             Assert.That(firstProjectile.transform.position.x, Is.GreaterThan(firstPosition));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(
+                    firstProjectileComponent,
+                    "RemainingLifetime"),
+                Is.LessThan(firstLifetime));
 
             RuntimeComponentTestUtility.Invoke(
                 poolManager,
                 "Release",
                 projectileTemplate,
                 firstProjectile);
+            RuntimeComponentTestUtility.Invoke(
+                poolManager,
+                "Release",
+                enemyTemplate,
+                firstEnemy);
+            yield return null;
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationA, "ActiveEnemyCount"),
+                Is.Zero);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationA, "ActiveProjectileCount"),
+                Is.Zero);
 
-            LogAssert.Expect(
-                LogType.Warning,
-                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
-            GameObject secondProjectile = (GameObject)RuntimeComponentTestUtility.Invoke(
+            ExpectRuntimePrefabWarning();
+            GameObject secondEnemy = SpawnEnemy(
                 simulationB,
-                "SpawnProjectile",
-                projectileTemplate,
+                enemyTemplate,
+                worldOwnerB,
                 new Vector3(-10f, 0f, 0f),
-                Quaternion.identity,
-                Vector2.right * 5.5f,
-                12f,
+                snapshot);
+            TrackObject(secondEnemy);
+            SpriteRenderer secondEnemyRenderer = secondEnemy.GetComponent<SpriteRenderer>();
+            Collider2D secondEnemyCollider = secondEnemy.GetComponent<Collider2D>();
+            Component secondEnemyBase = secondEnemy.GetComponent(enemyBaseType);
+            Assert.AreSame(firstEnemy, secondEnemy);
+            Assert.IsTrue(secondEnemyRenderer.enabled);
+            Assert.IsTrue(secondEnemyCollider.enabled);
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(
+                    secondEnemyBase,
+                    "IsWorldInteractionEnabled"));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationA, "ActiveEnemyCount"),
+                Is.Zero);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationB, "ActiveEnemyCount"),
+                Is.EqualTo(1));
+
+            ExpectRuntimePrefabWarning();
+            GameObject secondProjectile = SpawnProjectile(
+                simulationB,
+                projectileTemplate,
                 null,
-                6f);
+                new Vector3(-10f, 0f, 0f));
+            TrackObject(secondProjectile);
             Assert.AreSame(firstProjectile, secondProjectile);
             Assert.IsTrue(secondProjectile.GetComponent<SpriteRenderer>().enabled);
             Assert.IsTrue(secondProjectile.GetComponent<Collider2D>().enabled);
 
             RuntimeComponentTestUtility.Invoke(simulationA, "SetWorldActive", true);
-            RuntimeComponentTestUtility.Invoke(simulationA, "SetWorldActive", false);
+            Assert.IsTrue(secondEnemyRenderer.enabled);
+            Assert.IsTrue(secondEnemyCollider.enabled);
             Assert.IsTrue(secondProjectile.GetComponent<SpriteRenderer>().enabled);
             Assert.IsTrue(secondProjectile.GetComponent<Collider2D>().enabled);
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(
+                    secondEnemyBase,
+                    "IsWorldInteractionEnabled"));
+
+            RuntimeComponentTestUtility.Invoke(simulationA, "SetWorldActive", false);
+            Assert.IsTrue(secondEnemyRenderer.enabled);
+            Assert.IsTrue(secondEnemyCollider.enabled);
+            Assert.IsTrue(secondProjectile.GetComponent<SpriteRenderer>().enabled);
+            Assert.IsTrue(secondProjectile.GetComponent<Collider2D>().enabled);
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(
+                    secondEnemyBase,
+                    "IsWorldInteractionEnabled"));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationA, "ActiveEnemyCount"),
+                Is.Zero);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationB, "ActiveEnemyCount"),
+                Is.EqualTo(1));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationA, "ActiveProjectileCount"),
+                Is.Zero);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(simulationB, "ActiveProjectileCount"),
+                Is.EqualTo(1));
         }
 
         /// <summary>创建无外部场景依赖的玩家生命夹具。</summary>
@@ -372,6 +530,41 @@ namespace RainsenVampSur.Tests.PlayMode
             collider.radius = 0.12f;
             RuntimeComponentTestUtility.AddRuntimeComponent(projectile, "EnemyProjectile");
             return projectile;
+        }
+
+        /// <summary>创建真实 WorldWaveManager 所需的测试拥有者，供 SpawnEnemy 绑定池实例归属。</summary>
+        private Component CreateWorldWaveOwner(string name)
+        {
+            GameObject ownerObject = CreateTrackedGameObject(name, false);
+            Component owner = RuntimeComponentTestUtility.AddRuntimeComponent(
+                ownerObject,
+                "WorldWaveManager");
+            ownerObject.SetActive(true);
+            return owner;
+        }
+
+        /// <summary>创建带敌人基础能力和远程攻击配置的池化敌人模板。</summary>
+        private GameObject CreateRangedEnemyTemplate(GameObject projectileTemplate)
+        {
+            ScriptableObject enemyData = CreateEnemyData(30f, 1.6f, 5f);
+            ScriptableObject attackData = CreateAttackData(projectileTemplate);
+            GameObject enemy = CreateTrackedGameObject(
+                "PlayModeTest_RangedEnemyTemplate",
+                false);
+            enemy.layer = RequireLayer("Enemy");
+            Rigidbody2D body = enemy.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic;
+            body.gravityScale = 0f;
+            body.constraints = RigidbodyConstraints2D.FreezeRotation;
+            BoxCollider2D collider = enemy.AddComponent<BoxCollider2D>();
+            collider.size = new Vector2(0.7f, 0.9f);
+            enemy.AddComponent<SpriteRenderer>();
+            Component controller = RuntimeComponentTestUtility.AddRuntimeComponent(
+                enemy,
+                "RangedEnemyController");
+            RuntimeComponentTestUtility.SetField(controller, "enemyData", enemyData);
+            RuntimeComponentTestUtility.SetField(controller, "attackData", attackData);
+            return enemy;
         }
 
         /// <summary>创建带有效世界线配置的世界敌人模拟器，避免测试被无关校验日志干扰。</summary>
@@ -461,6 +654,24 @@ namespace RainsenVampSur.Tests.PlayMode
             return attackData;
         }
 
+        /// <summary>通过真实 WorldEnemySimulation 生成一个带快照的池化敌人。</summary>
+        private static GameObject SpawnEnemy(
+            Component simulation,
+            GameObject enemyTemplate,
+            Component worldOwner,
+            Vector3 position,
+            object snapshot)
+        {
+            return (GameObject)RuntimeComponentTestUtility.Invoke(
+                simulation,
+                "SpawnEnemy",
+                enemyTemplate,
+                position,
+                worldOwner,
+                0,
+                snapshot);
+        }
+
         /// <summary>创建并登记运行时 ScriptableObject。</summary>
         private ScriptableObject CreateRuntimeData(string typeName)
         {
@@ -502,6 +713,40 @@ namespace RainsenVampSur.Tests.PlayMode
                 12f,
                 sourceEnemy,
                 6f);
+        }
+
+        /// <summary>释放当前测试中仍激活的弹体，并登记池实例以便测试结束时清理。</summary>
+        private void ReleaseActiveProjectiles(Component poolManager, GameObject projectileTemplate)
+        {
+            Type projectileType = RuntimeComponentTestUtility.RequireRuntimeType("EnemyProjectile");
+            UnityEngine.Object[] projectiles = UnityEngine.Object.FindObjectsOfType(
+                projectileType,
+                true);
+            for (int index = 0; index < projectiles.Length; index++)
+            {
+                Component projectile = projectiles[index] as Component;
+                if (projectile == null ||
+                    !projectile.gameObject.activeSelf ||
+                    projectile.gameObject == projectileTemplate)
+                {
+                    continue;
+                }
+
+                TrackObject(projectile.gameObject);
+                RuntimeComponentTestUtility.Invoke(
+                    poolManager,
+                    "Release",
+                    projectileTemplate,
+                    projectile.gameObject);
+            }
+        }
+
+        /// <summary>声明场景模板进入对象池时预期产生的编辑器警告。</summary>
+        private static void ExpectRuntimePrefabWarning()
+        {
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex(@"PoolManager\.Spawn 收到的对象不是 Prefab 资产"));
         }
 
         /// <summary>等待条件成立或超时，避免物理回调测试无限等待。</summary>
