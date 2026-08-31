@@ -17,7 +17,7 @@ MonoBehaviour:
   descriptionKey: ability.retaliation_pulse.description
   abilityDisplayName: 反击脉冲
   displayDescription: 受到一次实际非致命伤害后，对周围敌人释放一次受伤冷却独立计算的脉冲。
-  icon: {fileID: 21300000, guid: 82abe06dfc0cabc498e8f018574a5380, type: 3}
+  icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:

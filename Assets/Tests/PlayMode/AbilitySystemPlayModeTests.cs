@@ -58,6 +58,47 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(playerHealth, "IsDead"));
         }
 
+        /// <summary>
+        /// 脉冲表现应从小尺寸扩张并淡出，结束后安全停用；再次启用时必须从初始状态重播。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator AbilityPulseVfx_播放生命周期_扩张淡出并可重复初始化()
+        {
+            GameObject vfxObject = CreateTrackedGameObject("PlayModeTest_AbilityPulseVfx", false);
+            SpriteRenderer spriteRenderer = vfxObject.AddComponent<SpriteRenderer>();
+            Component pulseVfx = RuntimeComponentTestUtility.AddRuntimeComponent(
+                vfxObject,
+                "AbilityPulseVfx");
+            RuntimeComponentTestUtility.SetField(pulseVfx, "duration", 0.16f);
+            RuntimeComponentTestUtility.SetField(pulseVfx, "startScaleRatio", 0.25f);
+            RuntimeComponentTestUtility.SetField(pulseVfx, "startColor", new Color(1f, 1f, 1f, 0.8f));
+            vfxObject.SetActive(true);
+
+            RuntimeComponentTestUtility.Invoke(pulseVfx, "Play", 2f);
+            float initialScale = vfxObject.transform.localScale.x;
+            float initialAlpha = spriteRenderer.color.a;
+            Assert.That(initialScale, Is.EqualTo(1f).Within(FloatTolerance));
+            Assert.That(initialAlpha, Is.EqualTo(0.8f).Within(FloatTolerance));
+
+            yield return new WaitForSeconds(0.08f);
+
+            float midScale = vfxObject.transform.localScale.x;
+            float midAlpha = spriteRenderer.color.a;
+            Assert.That(midScale, Is.GreaterThan(initialScale));
+            Assert.That(midScale, Is.LessThan(4f));
+            Assert.That(midAlpha, Is.GreaterThan(0f));
+            Assert.That(midAlpha, Is.LessThan(initialAlpha));
+
+            yield return new WaitForSeconds(0.12f);
+
+            Assert.IsFalse(vfxObject.activeSelf, "无对象池的独立实例应在播放结束后安全停用。");
+
+            vfxObject.SetActive(true);
+            RuntimeComponentTestUtility.Invoke(pulseVfx, "Play", 1f);
+            Assert.That(vfxObject.transform.localScale.x, Is.EqualTo(0.5f).Within(FloatTolerance));
+            Assert.That(spriteRenderer.color.a, Is.EqualTo(0.8f).Within(FloatTolerance));
+        }
+
         /// <summary>创建最小玩家，并在启用前完成正式组件与无敌时间配置。</summary>
         private void CreatePlayer(out Component playerHealth, out Component abilityManager)
         {

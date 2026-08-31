@@ -19,7 +19,7 @@ MonoBehaviour:
   descriptionKey: ability.adversity_instinct.description
   upgradeName: 逆境本能
   description: 低生命时提高伤害和移动速度。
-  icon: {fileID: 21300000, guid: 238bc5b7fb12c0349895fbf6a12f1983, type: 3}
+  icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
   customLevelDescs: []
   weaponToGrant: {fileID: 0}
   abilityToGrant: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17105, type: 2}

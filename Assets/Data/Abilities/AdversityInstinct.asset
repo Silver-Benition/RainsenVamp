@@ -17,7 +17,7 @@ MonoBehaviour:
   descriptionKey: ability.adversity_instinct.description
   abilityDisplayName: 逆境本能
   displayDescription: 生命不高于 40% 时提高武器伤害与移动速度，恢复到阈值以上后立即失效。
-  icon: {fileID: 21300000, guid: 238bc5b7fb12c0349895fbf6a12f1983, type: 3}
+  icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:

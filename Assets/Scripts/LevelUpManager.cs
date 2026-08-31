@@ -2,6 +2,35 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>一次宝箱武器奖励的只读结果，供 HUD 等表现层消费。</summary>
+public readonly struct ChestRewardResult
+{
+    /// <summary>保存奖励来源、武器、最终等级与首次获得状态。</summary>
+    public ChestRewardResult(
+        UpgradeDataSO upgradeData,
+        WeaponDataSO weaponData,
+        int currentLevel,
+        bool wasNewWeapon)
+    {
+        UpgradeData = upgradeData;
+        WeaponData = weaponData;
+        CurrentLevel = currentLevel;
+        WasNewWeapon = wasNewWeapon;
+    }
+
+    /// <summary>触发本次奖励的升级包装数据。</summary>
+    public UpgradeDataSO UpgradeData { get; }
+
+    /// <summary>本次获得或升级的权威武器数据。</summary>
+    public WeaponDataSO WeaponData { get; }
+
+    /// <summary>奖励结算完成后的武器等级。</summary>
+    public int CurrentLevel { get; }
+
+    /// <summary>本次是否为首次获得该武器。</summary>
+    public bool WasNewWeapon { get; }
+}
+
 public class LevelUpManager : MonoBehaviour
 {
     public static LevelUpManager Instance { get; private set; }
@@ -35,6 +64,9 @@ public class LevelUpManager : MonoBehaviour
 
     /// <summary>玩家持有武器的种类或等级变化时触发，供 HUD 等只读表现层刷新。</summary>
     public event Action OwnedWeaponsChanged;
+
+    /// <summary>宝箱成功授予武器后触发，供奖励横幅等表现层显示来源与最终等级。</summary>
+    public event Action<ChestRewardResult> ChestRewardGranted;
 
     /// <summary>按首次获得顺序排列的只读武器列表。</summary>
     public IReadOnlyList<WeaponBase> OwnedWeapons => _ownedWeaponOrder;
@@ -286,7 +318,19 @@ public class LevelUpManager : MonoBehaviour
             return null;
         }
 
-        GrantWeapon(reward[0]);
+        WeaponDataSO weaponData = reward[0].weaponToGrant;
+        bool wasNewWeapon = GetOwnedWeapon(weaponData) == null;
+        WeaponBase grantedWeapon = GrantOrUpgradeWeapon(weaponData);
+        if (grantedWeapon == null)
+        {
+            return null;
+        }
+
+        ChestRewardGranted?.Invoke(new ChestRewardResult(
+            reward[0],
+            weaponData,
+            grantedWeapon.CurrentLevel,
+            wasNewWeapon));
         return reward[0];
     }
 

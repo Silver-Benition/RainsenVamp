@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
@@ -177,6 +178,181 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNotNull(runState);
             Assert.That(RuntimeComponentTestUtility.GetProperty<int>(runState, "GoldCount"), Is.EqualTo(6));
             Assert.IsFalse(coin.activeSelf);
+        }
+
+        /// <summary>
+        /// 宝箱生成在玩家碰撞体内时必须先经过拾取保护，再自动发放武器并立即显示奖励来源。
+        /// 第二次奖励仍只升级同一武器，并排入 HUD 队列等待展示。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TreasureChest_出生重叠玩家_保护后发奖并显示HUD队列()
+        {
+            ScriptableObject weaponData = CreateChestWeaponData();
+            ScriptableObject upgradeData = CreateChestUpgradeData(weaponData);
+
+            GameObject player = CreateTrackedGameObject("PlayModeTest_ChestPlayer", false);
+            player.tag = "Player";
+            Rigidbody2D playerBody = player.AddComponent<Rigidbody2D>();
+            playerBody.gravityScale = 0f;
+            playerBody.constraints = RigidbodyConstraints2D.FreezeAll;
+            player.AddComponent<BoxCollider2D>();
+            RuntimeComponentTestUtility.AddRuntimeComponent(player, "PlayerStats");
+            player.SetActive(true);
+
+            GameObject managerObject = CreateTrackedGameObject(
+                "PlayModeTest_ChestLevelUpManager",
+                false);
+            Component levelUpManager = RuntimeComponentTestUtility.AddRuntimeComponent(
+                managerObject,
+                "LevelUpManager");
+            IList upgrades = CreateRuntimeList(
+                RuntimeComponentTestUtility.RequireRuntimeType("UpgradeDataSO"));
+            upgrades.Add(upgradeData);
+            RuntimeComponentTestUtility.SetField(
+                levelUpManager,
+                "allAvailableUpgrades",
+                upgrades);
+            managerObject.SetActive(true);
+
+            GameObject canvasObject = CreateTrackedGameObject("PlayModeTest_ChestHudCanvas");
+            canvasObject.AddComponent<Canvas>();
+            Component toast = RuntimeComponentTestUtility.AddRuntimeComponent(
+                canvasObject,
+                "TreasureChestRewardToastUI");
+            yield return null;
+
+            GameObject chestObject = CreateTrackedGameObject("PlayModeTest_ProtectedChest", false);
+            CircleCollider2D chestCollider = chestObject.AddComponent<CircleCollider2D>();
+            chestCollider.isTrigger = true;
+            Component chestPickup = RuntimeComponentTestUtility.AddRuntimeComponent(
+                chestObject,
+                "TreasureChestPickup");
+            RuntimeComponentTestUtility.SetField(
+                chestPickup,
+                "pickupProtectionDuration",
+                0.12f);
+            chestObject.transform.position = player.transform.position;
+            chestObject.SetActive(true);
+
+            Assert.IsFalse(RuntimeComponentTestUtility.GetProperty<bool>(chestPickup, "IsPickupArmed"));
+            yield return new WaitForSeconds(0.05f);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(levelUpManager, "OwnedWeaponCount"),
+                Is.Zero,
+                "拾取保护期间不应授予任何武器。");
+            Assert.IsTrue(chestObject.activeSelf);
+
+            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            yield return null;
+
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(levelUpManager, "OwnedWeaponCount"),
+                Is.EqualTo(1));
+            Assert.IsFalse(chestObject.activeSelf);
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(toast, "IsShowingReward"));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<string>(toast, "DisplayedRewardName"),
+                Is.EqualTo("守护光环"));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(toast, "DisplayedRewardLevel"),
+                Is.EqualTo(1));
+
+            object secondReward = RuntimeComponentTestUtility.Invoke(
+                levelUpManager,
+                "GrantRandomChestReward");
+            Assert.IsNotNull(secondReward);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(levelUpManager, "OwnedWeaponCount"),
+                Is.EqualTo(1),
+                "后续宝箱只能升级已持有武器，不能创建重复种类。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(toast, "QueuedRewardCount"),
+                Is.EqualTo(1),
+                "横幅播放期间到达的后续奖励必须排队。");
+        }
+
+        /// <summary>宝箱开启爆闪应扩张淡出、播放结束停用，并可从确定初始状态重播。</summary>
+        [UnityTest]
+        public IEnumerator TreasureChestBurstVfx_播放生命周期_扩张淡出并可重复初始化()
+        {
+            GameObject vfxObject = CreateTrackedGameObject("PlayModeTest_ChestBurst", false);
+            SpriteRenderer spriteRenderer = vfxObject.AddComponent<SpriteRenderer>();
+            Component burstVfx = RuntimeComponentTestUtility.AddRuntimeComponent(
+                vfxObject,
+                "PooledSpriteBurstVfx");
+            RuntimeComponentTestUtility.SetField(burstVfx, "duration", 0.12f);
+            RuntimeComponentTestUtility.SetField(burstVfx, "startScale", 0.25f);
+            RuntimeComponentTestUtility.SetField(burstVfx, "endScale", 1.5f);
+            RuntimeComponentTestUtility.SetField(
+                burstVfx,
+                "startColor",
+                new Color(1f, 0.8f, 0.2f, 0.9f));
+            vfxObject.SetActive(true);
+
+            RuntimeComponentTestUtility.Invoke(burstVfx, "Play");
+            float initialScale = vfxObject.transform.localScale.x;
+            float initialAlpha = spriteRenderer.color.a;
+            Assert.That(initialScale, Is.EqualTo(0.25f).Within(FloatTolerance));
+            Assert.That(initialAlpha, Is.EqualTo(0.9f).Within(FloatTolerance));
+
+            yield return new WaitForSeconds(0.05f);
+            Assert.That(vfxObject.transform.localScale.x, Is.GreaterThan(initialScale));
+            Assert.That(spriteRenderer.color.a, Is.LessThan(initialAlpha));
+
+            yield return new WaitForSeconds(0.1f);
+            Assert.IsFalse(vfxObject.activeSelf);
+
+            vfxObject.SetActive(true);
+            RuntimeComponentTestUtility.Invoke(burstVfx, "Play");
+            Assert.That(vfxObject.transform.localScale.x, Is.EqualTo(0.25f).Within(FloatTolerance));
+            Assert.That(spriteRenderer.color.a, Is.EqualTo(0.9f).Within(FloatTolerance));
+        }
+
+        /// <summary>创建两级的真实武器资产，名称用于验证奖励横幅显示权威词条。</summary>
+        private ScriptableObject CreateChestWeaponData()
+        {
+            ScriptableObject weaponData = TrackObject(
+                RuntimeComponentTestUtility.CreateRuntimeScriptableObject("WeaponDataSO"));
+            RuntimeComponentTestUtility.SetField(
+                weaponData,
+                "weaponID",
+                "playmode_chest_guardian_aura");
+            RuntimeComponentTestUtility.SetField(
+                weaponData,
+                "weaponNameKey",
+                "weapon.aura.name");
+            RuntimeComponentTestUtility.SetField(weaponData, "weaponDisplayName", "守护光环");
+
+            Type levelDataType = RuntimeComponentTestUtility.RequireRuntimeType("WeaponLevelData");
+            IList levels = CreateRuntimeList(levelDataType);
+            levels.Add(Activator.CreateInstance(levelDataType));
+            levels.Add(Activator.CreateInstance(levelDataType));
+            RuntimeComponentTestUtility.SetField(weaponData, "levelConfigs", levels);
+            return weaponData;
+        }
+
+        /// <summary>创建只包含指定武器且权重固定的真实宝箱候选。</summary>
+        private ScriptableObject CreateChestUpgradeData(ScriptableObject weaponData)
+        {
+            ScriptableObject upgradeData = TrackObject(
+                RuntimeComponentTestUtility.CreateRuntimeScriptableObject("UpgradeDataSO"));
+            RuntimeComponentTestUtility.SetField(
+                upgradeData,
+                "upgradeID",
+                "playmode_upgrade_chest_guardian_aura");
+            RuntimeComponentTestUtility.SetField(upgradeData, "baseWeight", 100f);
+            RuntimeComponentTestUtility.SetField(upgradeData, "luckInfluence", 0f);
+            RuntimeComponentTestUtility.SetField(upgradeData, "weaponToGrant", weaponData);
+            return upgradeData;
+        }
+
+        /// <summary>按运行时元素类型创建可赋给生产泛型字段的 List 实例。</summary>
+        private static IList CreateRuntimeList(Type elementType)
+        {
+            Type listType = typeof(List<>).MakeGenericType(elementType);
+            return (IList)Activator.CreateInstance(listType);
         }
 
         /// <summary>通过反射构造默认程序集中的只读 EnemySpawnSnapshot。</summary>

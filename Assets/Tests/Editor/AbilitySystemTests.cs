@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -9,6 +10,9 @@ namespace RainsenVampSur.Tests
     public sealed class AbilitySystemTests : EditModeComponentTestBase
     {
         private const float FloatTolerance = 0.0001f;
+        private const string AbilityIconDirectory = "Assets/Art/Sprites/Ability/Icons/";
+        private const string RetaliationPulseSpritePath =
+            "Assets/Art/Sprites/Ability/VFX/RetaliationPulseRing.png";
 
         /// <summary>升级应以累计快照替换稳定来源，不把 Lv.1 与 Lv.2 重复相加。</summary>
         [Test]
@@ -114,6 +118,7 @@ namespace RainsenVampSur.Tests
             };
             int[] expectedLevels = { 5, 5, 5, 5, 3, 3 };
             var stableIds = new HashSet<string>();
+            var formalIcons = new HashSet<Sprite>();
 
             for (int index = 0; index < paths.Length; index++)
             {
@@ -121,7 +126,15 @@ namespace RainsenVampSur.Tests
                 Assert.IsNotNull(ability, $"缺少正式能力资产：{paths[index]}");
                 Assert.IsTrue(stableIds.Add(ability.GetStableId()), "能力稳定 ID 重复。 ");
                 Assert.That(ability.MaxLevel, Is.EqualTo(expectedLevels[index]));
-                Assert.IsNotNull(ability.icon, $"能力 {ability.name} 缺少临时图标。");
+                Assert.IsNotNull(ability.icon, $"能力 {ability.name} 缺少正式图标。");
+                Assert.IsTrue(formalIcons.Add(ability.icon), $"能力 {ability.name} 复用了其他能力图标。");
+                AssertPixelSpriteImportContract(ability.icon, AbilityIconDirectory);
+
+                string upgradePath = paths[index].Replace(".asset", "_Upgrade.asset");
+                UpgradeDataSO upgrade = AssetDatabase.LoadAssetAtPath<UpgradeDataSO>(upgradePath);
+                Assert.IsNotNull(upgrade, $"缺少能力升级包装资产：{upgradePath}");
+                Assert.AreSame(ability, upgrade.abilityToGrant, $"{upgrade.name} 未引用对应能力资产。");
+                Assert.AreSame(ability.icon, upgrade.icon, $"{upgrade.name} 与能力正式图标不一致。");
             }
 
             AbilityDataSO adversity = AssetDatabase.LoadAssetAtPath<AbilityDataSO>(paths[4]);
@@ -131,6 +144,40 @@ namespace RainsenVampSur.Tests
             RetaliationPulseMechanicSO pulse = (RetaliationPulseMechanicSO)retaliation.mechanic;
             Assert.IsNotNull(pulse.pulseVfxPrefab);
             Assert.IsNotNull(pulse.pulseVfxPrefab.GetComponent<AbilityPulseVfx>());
+            SpriteRenderer pulseRenderer = pulse.pulseVfxPrefab.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(pulseRenderer);
+            Assert.IsNotNull(pulseRenderer.sprite, "反击脉冲 Prefab 缺少正式环形 Sprite。");
+            Assert.That(
+                AssetDatabase.GetAssetPath(pulseRenderer.sprite),
+                Is.EqualTo(RetaliationPulseSpritePath));
+            AssertPixelSpriteImportContract(pulseRenderer.sprite, "Assets/Art/Sprites/Ability/VFX/");
+        }
+
+        /// <summary>
+        /// 验证正式像素 Sprite 的目录、尺寸与导入设置，防止 Unity 重导入后出现模糊、压缩或物理形状。
+        /// </summary>
+        private static void AssertPixelSpriteImportContract(Sprite sprite, string expectedDirectory)
+        {
+            string spritePath = AssetDatabase.GetAssetPath(sprite);
+            StringAssert.StartsWith(expectedDirectory, spritePath);
+            Assert.That(sprite.rect.width, Is.EqualTo(48f).Within(FloatTolerance));
+            Assert.That(sprite.rect.height, Is.EqualTo(48f).Within(FloatTolerance));
+
+            TextureImporter importer = AssetImporter.GetAtPath(spritePath) as TextureImporter;
+            Assert.IsNotNull(importer, $"Sprite 缺少 TextureImporter：{spritePath}");
+            Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Sprite));
+            Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.IsFalse(importer.mipmapEnabled);
+            Assert.IsTrue(importer.alphaIsTransparency);
+            Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
+            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(48f).Within(FloatTolerance));
+            Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+            string importerMetadata = File.ReadAllText(spritePath + ".meta");
+            StringAssert.Contains(
+                "spriteGenerateFallbackPhysicsShape: 0",
+                importerMetadata,
+                $"Sprite 必须禁用回退物理形状：{spritePath}");
         }
 
         /// <summary>创建并显式初始化玩家属性、生命和能力管理器夹具。</summary>

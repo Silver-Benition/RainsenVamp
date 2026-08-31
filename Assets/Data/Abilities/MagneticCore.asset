@@ -17,7 +17,7 @@ MonoBehaviour:
   descriptionKey: ability.magnetic_core.description
   abilityDisplayName: 磁力核心
   displayDescription: 永久扩大本局经验与掉落物拾取范围。
-  icon: {fileID: 21300000, guid: 106022d9d6775a74d8395e3c25baa581, type: 3}
+  icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:

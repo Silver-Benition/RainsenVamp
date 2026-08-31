@@ -19,7 +19,7 @@ MonoBehaviour:
   descriptionKey: ability.sprint_training.description
   upgradeName: 疾行训练
   description: 永久提高本局移动速度。
-  icon: {fileID: 21300000, guid: d72beab121f2d504f9de797279ed60d8, type: 3}
+  icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
   customLevelDescs: []
   weaponToGrant: {fileID: 0}
   abilityToGrant: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17102, type: 2}

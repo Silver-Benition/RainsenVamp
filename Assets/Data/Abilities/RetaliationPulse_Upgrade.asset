@@ -19,7 +19,7 @@ MonoBehaviour:
   descriptionKey: ability.retaliation_pulse.description
   upgradeName: 反击脉冲
   description: 受伤后对周围敌人造成一次范围伤害。
-  icon: {fileID: 21300000, guid: 82abe06dfc0cabc498e8f018574a5380, type: 3}
+  icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
   customLevelDescs: []
   weaponToGrant: {fileID: 0}
   abilityToGrant: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17106, type: 2}

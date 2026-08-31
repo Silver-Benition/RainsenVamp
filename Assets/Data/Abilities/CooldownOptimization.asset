@@ -17,7 +17,7 @@ MonoBehaviour:
   descriptionKey: ability.cooldown_optimization.description
   abilityDisplayName: 冷却优化
   displayDescription: 缩短所有未忽略全局冷却属性的武器攻击间隔。
-  icon: {fileID: 21300000, guid: 110539cc35d06664baff8ef0c4e8a49a, type: 3}
+  icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:

@@ -19,7 +19,7 @@ MonoBehaviour:
   descriptionKey: ability.strength_training.description
   upgradeName: 力量训练
   description: 永久提高本局武器伤害倍率。
-  icon: {fileID: 21300000, guid: 42c14ac6ea4d177439104bb284b3f831, type: 3}
+  icon: {fileID: 21300000, guid: 30c141d8445b4e458c729da7e03afcdd, type: 3}
   customLevelDescs: []
   weaponToGrant: {fileID: 0}
   abilityToGrant: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17101, type: 2}

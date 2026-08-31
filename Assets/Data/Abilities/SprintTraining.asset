@@ -17,7 +17,7 @@ MonoBehaviour:
   descriptionKey: ability.sprint_training.description
   abilityDisplayName: 疾行训练
   displayDescription: 永久提高本局移动速度。
-  icon: {fileID: 21300000, guid: d72beab121f2d504f9de797279ed60d8, type: 3}
+  icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:
