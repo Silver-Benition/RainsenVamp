@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: StrengthTraining_Upgrade
+  m_EditorClassIdentifier:
+  upgradeID: upgrade_ability_strength_training
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: ability.strength_training.name
+  descriptionKey: ability.strength_training.description
+  upgradeName: 力量训练
+  description: 永久提高本局武器伤害倍率。
+  icon: {fileID: 21300000, guid: 42c14ac6ea4d177439104bb284b3f831, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17101, type: 2}

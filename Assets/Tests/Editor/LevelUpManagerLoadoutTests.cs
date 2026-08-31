@@ -144,6 +144,69 @@ namespace RainsenVampSur.Tests
             Assert.That(manager.OwnedWeapons[0].CurrentLevel, Is.EqualTo(1));
         }
 
+        /// <summary>候选必须恰好包含一种奖励；空奖励与同时配置武器能力的资产均被拒绝。</summary>
+        [Test]
+        public void BuildSelectableUpgradePool_奖励配置非法_不会进入候选()
+        {
+            GameObject player = CreateTrackedGameObject("AutomationTest_InvalidRewardPlayer");
+            player.AddComponent<PlayerStats>();
+            player.AddComponent<PlayerHealth>();
+            AbilityManager abilityManager = player.AddComponent<AbilityManager>();
+            LevelUpManager manager = CreateManager(player.transform);
+            TestObjectUtility.SetPrivateField(manager, "_abilityManager", abilityManager);
+
+            WeaponDataSO weapon = CreateWeaponData("invalid_reward_weapon", true);
+            AbilityDataSO ability = CreateAbilityData("invalid_reward_ability", 2);
+            UpgradeDataSO noReward = ScriptableObject.CreateInstance<UpgradeDataSO>();
+            UpgradeDataSO doubleReward = CreateUpgradeData(weapon);
+            doubleReward.abilityToGrant = ability;
+            _createdData.Add(noReward);
+            manager.allAvailableUpgrades = new List<UpgradeDataSO> { noReward, doubleReward };
+
+            List<UpgradeDataSO> pool =
+                TestObjectUtility.InvokeNonPublicMethod<List<UpgradeDataSO>>(
+                    manager,
+                    "BuildSelectableUpgradePool");
+
+            Assert.That(pool, Is.Empty);
+        }
+
+        /// <summary>能力栏满六种后过滤新能力，但已持有且未满级的能力仍可继续升级。</summary>
+        [Test]
+        public void BuildSelectableUpgradePool_能力槽已满_只保留已有能力升级()
+        {
+            GameObject player = CreateTrackedGameObject("AutomationTest_AbilityCapacityPlayer");
+            player.AddComponent<PlayerStats>();
+            player.AddComponent<PlayerHealth>();
+            AbilityManager abilityManager = player.AddComponent<AbilityManager>();
+            LevelUpManager manager = CreateManager(player.transform);
+            TestObjectUtility.SetPrivateField(manager, "_abilityManager", abilityManager);
+
+            AbilityDataSO firstAbility = null;
+            for (int index = 0; index < PlayerLoadoutRules.MaxAbilityCount; index++)
+            {
+                AbilityDataSO ability = CreateAbilityData($"ability_{index + 1}", index == 0 ? 2 : 1);
+                firstAbility = index == 0 ? ability : firstAbility;
+                Assert.IsNotNull(abilityManager.GrantOrUpgrade(ability));
+            }
+
+            AbilityDataSO seventhAbility = CreateAbilityData("ability_7", 1);
+            UpgradeDataSO existingUpgrade = CreateAbilityUpgradeData(firstAbility);
+            UpgradeDataSO seventhUpgrade = CreateAbilityUpgradeData(seventhAbility);
+            manager.allAvailableUpgrades = new List<UpgradeDataSO>
+            {
+                seventhUpgrade,
+                existingUpgrade
+            };
+
+            List<UpgradeDataSO> pool =
+                TestObjectUtility.InvokeNonPublicMethod<List<UpgradeDataSO>>(
+                    manager,
+                    "BuildSelectableUpgradePool");
+
+            CollectionAssert.AreEqual(new[] { existingUpgrade }, pool);
+        }
+
         /// <summary>创建指定数量的场景预置武器，并执行管理器的实际登记逻辑。</summary>
         private LevelUpFixture CreateFixture(int weaponCount, bool firstWeaponCanLevelUp = false)
         {
@@ -205,6 +268,30 @@ namespace RainsenVampSur.Tests
         {
             UpgradeDataSO upgrade = ScriptableObject.CreateInstance<UpgradeDataSO>();
             upgrade.weaponToGrant = weaponData;
+            _createdData.Add(upgrade);
+            return upgrade;
+        }
+
+        /// <summary>创建指定等级数的测试能力数据。</summary>
+        private AbilityDataSO CreateAbilityData(string abilityId, int maxLevel)
+        {
+            AbilityDataSO ability = ScriptableObject.CreateInstance<AbilityDataSO>();
+            ability.abilityID = abilityId;
+            ability.levelConfigs = new List<AbilityLevelData>();
+            for (int level = 0; level < maxLevel; level++)
+            {
+                ability.levelConfigs.Add(new AbilityLevelData());
+            }
+
+            _createdData.Add(ability);
+            return ability;
+        }
+
+        /// <summary>创建只包含正式能力奖励的合法候选数据。</summary>
+        private UpgradeDataSO CreateAbilityUpgradeData(AbilityDataSO abilityData)
+        {
+            UpgradeDataSO upgrade = ScriptableObject.CreateInstance<UpgradeDataSO>();
+            upgrade.abilityToGrant = abilityData;
             _createdData.Add(upgrade);
             return upgrade;
         }

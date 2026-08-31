@@ -24,6 +24,7 @@ public class LevelUpManager : MonoBehaviour
 
     private Transform playerTransform;
     private PlayerStats _playerStats;
+    private AbilityManager _abilityManager;
     private RunState _runState;
     private LevelUpActionBarUI _actionBar;
     private readonly IRandomSource _randomSource = new UnityRandomSource();
@@ -199,10 +200,14 @@ public class LevelUpManager : MonoBehaviour
             return;
         }
 
-        // 1. 发放奖励
+        // 候选池已保证二选一奖励；这里仍使用互斥分支，避免异常资产在一次点击中发放两份内容。
         if (selectedData.weaponToGrant != null)
         {
             GrantWeapon(selectedData);
+        }
+        else if (selectedData.abilityToGrant != null)
+        {
+            GrantAbility(selectedData);
         }
 
         CompleteCurrentChoice();
@@ -296,6 +301,17 @@ public class LevelUpManager : MonoBehaviour
         }
 
         GrantOrUpgradeWeapon(upgradeData.weaponToGrant);
+    }
+
+    /// <summary>通过玩家 AbilityManager 获得或升级正式能力。</summary>
+    private void GrantAbility(UpgradeDataSO upgradeData)
+    {
+        if (upgradeData == null || upgradeData.abilityToGrant == null || _abilityManager == null)
+        {
+            return;
+        }
+
+        _abilityManager.GrantOrUpgrade(upgradeData.abilityToGrant);
     }
 
     /// <summary>
@@ -515,7 +531,7 @@ public class LevelUpManager : MonoBehaviour
         for (int i = 0; i < allAvailableUpgrades.Count; i++)
         {
             UpgradeDataSO upgrade = allAvailableUpgrades[i];
-            if (upgrade == null) continue;
+            if (upgrade == null || !upgrade.HasExactlyOneReward()) continue;
 
             if (AccountProgressService.Current.IsUpgradeSealed(upgrade.GetStableId()))
             {
@@ -527,10 +543,12 @@ public class LevelUpManager : MonoBehaviour
                 continue;
             }
 
-            // 非武器升级直接放行
-            if (upgrade.weaponToGrant == null)
+            if (upgrade.abilityToGrant != null)
             {
-                pool.Add(upgrade);
+                if (_abilityManager != null && _abilityManager.CanAcquireAbility(upgrade.abilityToGrant))
+                {
+                    pool.Add(upgrade);
+                }
                 continue;
             }
 
@@ -577,6 +595,12 @@ public class LevelUpManager : MonoBehaviour
         string weaponId = GetWeaponId(weaponData);
         ownedWeapons.TryGetValue(weaponId, out var weapon);
         return weapon;
+    }
+
+    /// <summary>查询玩家是否已拥有指定正式能力；能力管理器缺失时返回 null。</summary>
+    public OwnedAbilityState GetOwnedAbility(AbilityDataSO abilityData)
+    {
+        return _abilityManager != null ? _abilityManager.GetOwnedAbility(abilityData) : null;
     }
 
     /// <summary>
@@ -632,6 +656,11 @@ public class LevelUpManager : MonoBehaviour
         if (_playerStats == null)
         {
             _playerStats = playerTransform.GetComponent<PlayerStats>();
+        }
+
+        if (_abilityManager == null)
+        {
+            _abilityManager = playerTransform.GetComponent<AbilityManager>();
         }
 
         RunState resolvedState = _playerStats != null

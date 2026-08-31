@@ -159,11 +159,17 @@ namespace RainsenVampSur.Tests
             sealedUpgrade.upgradeID = "upgrade_sealed";
             UpgradeDataSO banishedUpgrade = ScriptableObject.CreateInstance<UpgradeDataSO>();
             banishedUpgrade.upgradeID = "upgrade_banished";
+            AbilityDataSO sealedAbility = CreateAbility("ability_sealed");
+            AbilityDataSO banishedAbility = CreateAbility("ability_banished");
+            sealedUpgrade.abilityToGrant = sealedAbility;
+            banishedUpgrade.abilityToGrant = banishedAbility;
 
             try
             {
                 GameObject player = CreateTrackedGameObject("AutomationTest_PhaseThreePoolPlayer");
                 PlayerStats stats = player.AddComponent<PlayerStats>();
+                player.AddComponent<PlayerHealth>();
+                AbilityManager abilityManager = player.AddComponent<AbilityManager>();
                 RunState runState = RunState.GetOrCreate(stats);
                 TestObjectUtility.InvokeNonPublicMethod(runState, "Awake");
                 runState.BanishUpgrade("upgrade_banished");
@@ -176,6 +182,7 @@ namespace RainsenVampSur.Tests
                     banishedUpgrade
                 };
                 TestObjectUtility.SetPrivateField(manager, "_runState", runState);
+                TestObjectUtility.SetPrivateField(manager, "_abilityManager", abilityManager);
 
                 List<UpgradeDataSO> blockedPool =
                     TestObjectUtility.InvokeNonPublicMethod<List<UpgradeDataSO>>(
@@ -194,6 +201,8 @@ namespace RainsenVampSur.Tests
             {
                 UnityEngine.Object.DestroyImmediate(sealedUpgrade);
                 UnityEngine.Object.DestroyImmediate(banishedUpgrade);
+                UnityEngine.Object.DestroyImmediate(sealedAbility);
+                UnityEngine.Object.DestroyImmediate(banishedAbility);
             }
         }
 
@@ -285,6 +294,18 @@ namespace RainsenVampSur.Tests
             character.unlock.conditionType = conditionType;
             character.unlock.requiredAmount = requiredAmount;
             return character;
+        }
+
+        /// <summary>创建具有单级空快照的合法正式能力，用于候选分域过滤。</summary>
+        private static AbilityDataSO CreateAbility(string abilityId)
+        {
+            AbilityDataSO ability = ScriptableObject.CreateInstance<AbilityDataSO>();
+            ability.abilityID = abilityId;
+            ability.levelConfigs = new List<AbilityLevelData>
+            {
+                new AbilityLevelData()
+            };
+            return ability;
         }
     }
 }

@@ -19,6 +19,7 @@ namespace RainsenVampSur.Tests.PlayMode
         {
             Sprite firstIcon = CreateTrackedSprite(Color.red);
             Sprite secondIcon = CreateTrackedSprite(Color.cyan);
+            Sprite abilityIcon = CreateTrackedSprite(Color.green);
             ScriptableObject firstWeaponData = CreateWeaponData(
                 "playmode_weapon_1",
                 firstIcon,
@@ -31,9 +32,20 @@ namespace RainsenVampSur.Tests.PlayMode
                 12,
                 0.75f,
                 new Vector2(-3f, 2f));
+            ScriptableObject abilityData = CreateAbilityData(
+                "playmode_ability_1",
+                abilityIcon,
+                3,
+                1.25f,
+                new Vector2(1f, 2f));
 
             GameObject player = CreateTrackedGameObject("PlayModeTest_Player", false);
             player.tag = "Player";
+            RuntimeComponentTestUtility.AddRuntimeComponent(player, "PlayerStats");
+            RuntimeComponentTestUtility.AddRuntimeComponent(player, "PlayerHealth");
+            Component abilityManager = RuntimeComponentTestUtility.AddRuntimeComponent(
+                player,
+                "AbilityManager");
             GameObject defaultWeaponObject = CreateTrackedGameObject("PlayModeTest_DefaultWeapon");
             defaultWeaponObject.transform.SetParent(player.transform, false);
             Component defaultWeapon = RuntimeComponentTestUtility.AddRuntimeComponent(
@@ -81,6 +93,9 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<int>(display, "DisplayedWeaponCount"),
                 Is.EqualTo(1));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(display, "DisplayedAbilityCount"),
+                Is.Zero);
             Assert.IsFalse(RuntimeComponentTestUtility.GetProperty<bool>(display, "IsShowingLevels"));
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(display, "CurrentCellHeight"),
@@ -106,9 +121,9 @@ namespace RainsenVampSur.Tests.PlayMode
 
             for (int slotIndex = 1; slotIndex <= 6; slotIndex++)
             {
-                Image abilityIcon = RequireSlotIcon(panelRoot, $"AbilitySlot_{slotIndex}");
-                Assert.IsFalse(abilityIcon.enabled);
-                Assert.IsNull(abilityIcon.sprite);
+                Image emptyAbilityIcon = RequireSlotIcon(panelRoot, $"AbilitySlot_{slotIndex}");
+                Assert.IsFalse(emptyAbilityIcon.enabled);
+                Assert.IsNull(emptyAbilityIcon.sprite);
             }
 
             object firstWeapon = GrantWeaponToLevel(
@@ -121,8 +136,10 @@ namespace RainsenVampSur.Tests.PlayMode
                 secondWeaponData,
                 0,
                 10);
+            object ownedAbility = GrantAbilityToLevel(abilityManager, abilityData, 2);
             Assert.IsNotNull(firstWeapon);
             Assert.IsNotNull(secondWeapon);
+            Assert.IsNotNull(ownedAbility);
 
             RuntimeComponentTestUtility.Invoke(gameFlowManager, "EnterLevelUpPause");
             Assert.IsFalse(RuntimeComponentTestUtility.GetProperty<bool>(display, "IsShowingLevels"));
@@ -137,6 +154,9 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<int>(display, "DisplayedWeaponCount"),
                 Is.EqualTo(2));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(display, "DisplayedAbilityCount"),
+                Is.EqualTo(1));
 
             Transform firstLevel = RequireLevelRoot(panelRoot, "WeaponSlot_1");
             Transform firstDots = firstLevel.Find("Dots");
@@ -172,7 +192,18 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(secondNumber.fontSize, Is.EqualTo(24));
 
             Transform firstAbilityLevel = RequireLevelRoot(panelRoot, "AbilitySlot_1");
-            Assert.IsFalse(firstAbilityLevel.gameObject.activeSelf);
+            Image firstAbilityIcon = RequireSlotIcon(panelRoot, "AbilitySlot_1");
+            Assert.IsTrue(firstAbilityIcon.enabled);
+            Assert.AreSame(abilityIcon, firstAbilityIcon.sprite);
+            Assert.That(firstAbilityIcon.rectTransform.localScale.x, Is.EqualTo(1.25f).Within(FloatTolerance));
+            Assert.That(firstAbilityIcon.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(1f, 2f)));
+            Assert.IsTrue(firstAbilityLevel.gameObject.activeSelf);
+            Transform abilityDots = firstAbilityLevel.Find("Dots");
+            Assert.IsTrue(abilityDots.Find("Dot_1/Fill").GetComponent<Image>().color == activeDotColor);
+            Assert.IsTrue(abilityDots.Find("Dot_2/Fill").GetComponent<Image>().color == activeDotColor);
+            Assert.That(
+                abilityDots.Find("Dot_3/Fill").GetComponent<Image>().color,
+                Is.Not.EqualTo(activeDotColor));
 
             RuntimeComponentTestUtility.Invoke(gameFlowManager, "ResumeGame");
 
@@ -182,6 +213,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 Is.EqualTo(48f).Within(FloatTolerance));
             Assert.IsFalse(firstLevel.gameObject.activeSelf);
             Assert.IsFalse(secondLevel.gameObject.activeSelf);
+            Assert.IsFalse(firstAbilityLevel.gameObject.activeSelf);
         }
 
         /// <summary>
@@ -204,6 +236,24 @@ namespace RainsenVampSur.Tests.PlayMode
             }
 
             return weapon;
+        }
+
+        /// <summary>逐级调用 AbilityManager 正式授予入口，返回最终运行时能力状态。</summary>
+        private static object GrantAbilityToLevel(
+            Component abilityManager,
+            ScriptableObject abilityData,
+            int targetLevel)
+        {
+            object state = null;
+            for (int level = 0; level < targetLevel; level++)
+            {
+                state = RuntimeComponentTestUtility.Invoke(
+                    abilityManager,
+                    "GrantOrUpgrade",
+                    abilityData);
+            }
+
+            return state;
         }
 
         /// <summary>创建带唯一 ID、等级数量与 HUD 变换配置的真实 WeaponDataSO。</summary>
@@ -231,6 +281,32 @@ namespace RainsenVampSur.Tests.PlayMode
             }
             RuntimeComponentTestUtility.SetField(weaponData, "levelConfigs", levelConfigs);
             return weaponData;
+        }
+
+        /// <summary>创建带等级数量和 HUD 图标变换的正式能力数据。</summary>
+        private ScriptableObject CreateAbilityData(
+            string abilityId,
+            Sprite icon,
+            int maxLevel,
+            float iconScale,
+            Vector2 iconOffset)
+        {
+            ScriptableObject abilityData = TrackObject(
+                RuntimeComponentTestUtility.CreateRuntimeScriptableObject("AbilityDataSO"));
+            RuntimeComponentTestUtility.SetField(abilityData, "abilityID", abilityId);
+            RuntimeComponentTestUtility.SetField(abilityData, "icon", icon);
+            RuntimeComponentTestUtility.SetField(abilityData, "loadoutIconScale", iconScale);
+            RuntimeComponentTestUtility.SetField(abilityData, "loadoutIconOffset", iconOffset);
+
+            Type levelDataType = RuntimeComponentTestUtility.RequireRuntimeType("AbilityLevelData");
+            Type levelListType = typeof(List<>).MakeGenericType(levelDataType);
+            IList levelConfigs = (IList)Activator.CreateInstance(levelListType);
+            for (int level = 0; level < maxLevel; level++)
+            {
+                levelConfigs.Add(Activator.CreateInstance(levelDataType));
+            }
+            RuntimeComponentTestUtility.SetField(abilityData, "levelConfigs", levelConfigs);
+            return abilityData;
         }
 
         /// <summary>创建可辨识颜色的最小运行时 Sprite，并纳入测试清理。</summary>

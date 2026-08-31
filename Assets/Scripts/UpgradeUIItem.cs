@@ -18,24 +18,37 @@ public class UpgradeUIItem : MonoBehaviour
     /// </summary>
     public void Setup(UpgradeDataSO data)
     {
+        if (data == null)
+        {
+            return;
+        }
+
         currentData = data;
 
-        // 查询当前武器等级
+        // 武器与正式能力共享同一张候选卡，但等级分别来自各自权威运行时容器。
         WeaponBase owned = null;
+        OwnedAbilityState ownedAbility = null;
         int currentLv = 0;
-        if (data.weaponToGrant != null)
+        if (LevelUpManager.Instance != null && data.weaponToGrant != null)
         {
             owned = LevelUpManager.Instance.GetOwnedWeapon(data.weaponToGrant);
             currentLv = owned != null ? owned.CurrentLevel : 0;
+        }
+        else if (LevelUpManager.Instance != null && data.abilityToGrant != null)
+        {
+            ownedAbility = LevelUpManager.Instance.GetOwnedAbility(data.abilityToGrant);
+            currentLv = ownedAbility != null ? ownedAbility.CurrentLevel : 0;
         }
         bool isFirstGet = currentLv == 0;
 
         // --- 名称 ---
         if (nameText != null)
         {
-            string baseName = data.upgradeName;
-            if (string.IsNullOrEmpty(baseName) && data.weaponToGrant != null)
-                baseName = data.weaponToGrant.weaponNameKey;
+            string baseName = data.weaponToGrant != null
+                ? data.weaponToGrant.GetDisplayName()
+                : data.abilityToGrant != null
+                    ? data.abilityToGrant.GetDisplayName()
+                    : data.GetDisplayName();
             if (string.IsNullOrEmpty(baseName))
                 baseName = data.name;
 
@@ -49,10 +62,16 @@ public class UpgradeUIItem : MonoBehaviour
         {
             if (isFirstGet)
             {
-                string displayDesc = data.description;
-                if (string.IsNullOrEmpty(displayDesc) && data.weaponToGrant != null)
-                    displayDesc = data.weaponToGrant.descriptionKey;
+                string displayDesc = data.weaponToGrant != null
+                    ? data.weaponToGrant.GetDisplayDescription()
+                    : data.abilityToGrant != null
+                        ? data.abilityToGrant.GetDisplayDescription()
+                        : data.GetDisplayDescription();
                 descText.text = displayDesc ?? string.Empty;
+            }
+            else if (data.abilityToGrant != null)
+            {
+                descText.text = BuildAbilityLevelUpDesc(data.abilityToGrant, currentLv);
             }
             else
             {
@@ -69,7 +88,9 @@ public class UpgradeUIItem : MonoBehaviour
         {
             Sprite displayIcon = data.weaponToGrant != null && data.weaponToGrant.icon != null
                 ? data.weaponToGrant.icon
-                : data.icon;
+                : data.abilityToGrant != null && data.abilityToGrant.icon != null
+                    ? data.abilityToGrant.icon
+                    : data.icon;
             iconImage.sprite = displayIcon;
             iconImage.enabled = displayIcon != null;
         }
@@ -150,6 +171,28 @@ public class UpgradeUIItem : MonoBehaviour
         return parts.Count > 0
             ? string.Join("\n", parts)
             : "属性强化";
+    }
+
+    /// <summary>优先读取候选自定义说明，否则使用能力目标等级的权威说明。</summary>
+    private string BuildAbilityLevelUpDesc(AbilityDataSO abilityData, int currentLv)
+    {
+        if (abilityData == null)
+        {
+            return string.Empty;
+        }
+
+        int targetLevel = currentLv + 1;
+        if (currentData != null && currentData.customLevelDescs != null)
+        {
+            LevelUpgradeDesc custom = currentData.customLevelDescs.Find(
+                item => item.level == targetLevel);
+            if (custom != null && !string.IsNullOrWhiteSpace(custom.customDesc))
+            {
+                return custom.customDesc;
+            }
+        }
+
+        return abilityData.GetLevelDescription(targetLevel);
     }
 
     /// <summary>

@@ -26,9 +26,33 @@ namespace RainsenVampSur.Tests.PlayMode
             bool originalManagerFound = originalManager != null;
             int originalInstanceId = originalManagerFound ? originalManager.GetInstanceID() : 0;
             bool pausedBeforeRestart = false;
+            bool abilityGrantedBeforeRestart = false;
 
             if (originalManagerFound)
             {
+                GameObject originalPlayer = GameObject.FindWithTag("Player");
+                Component originalAbilityManager = originalPlayer != null
+                    ? originalPlayer.GetComponent("AbilityManager")
+                    : null;
+                Type levelUpManagerType = RuntimeComponentTestUtility.RequireRuntimeType("LevelUpManager");
+                Component levelUpManager = UnityEngine.Object.FindObjectOfType(levelUpManagerType) as Component;
+                FieldInfo upgradesField = levelUpManagerType.GetField("allAvailableUpgrades");
+                IList configuredUpgrades = upgradesField != null && levelUpManager != null
+                    ? upgradesField.GetValue(levelUpManager) as IList
+                    : null;
+                UnityEngine.Object firstAbility = FindFirstConfiguredAbility(configuredUpgrades);
+                if (originalAbilityManager != null && firstAbility != null)
+                {
+                    RuntimeComponentTestUtility.Invoke(
+                        originalAbilityManager,
+                        "GrantOrUpgrade",
+                        firstAbility);
+                    abilityGrantedBeforeRestart =
+                        RuntimeComponentTestUtility.GetProperty<int>(
+                            originalAbilityManager,
+                            "OwnedAbilityCount") == 1;
+                }
+
                 RuntimeComponentTestUtility.Invoke(originalManager, "PauseGame");
                 pausedBeforeRestart =
                     RuntimeComponentTestUtility.GetProperty<bool>(originalManager, "IsPaused") &&
@@ -50,6 +74,15 @@ namespace RainsenVampSur.Tests.PlayMode
                                           RuntimeComponentTestUtility.GetProperty<bool>(
                                               reloadedManager,
                                               "IsGameOver");
+            GameObject reloadedPlayer = GameObject.FindWithTag("Player");
+            Component reloadedAbilityManager = reloadedPlayer != null
+                ? reloadedPlayer.GetComponent("AbilityManager")
+                : null;
+            int reloadedAbilityCount = reloadedAbilityManager != null
+                ? RuntimeComponentTestUtility.GetProperty<int>(
+                    reloadedAbilityManager,
+                    "OwnedAbilityCount")
+                : -1;
 
             // 在断言前恢复空测试场景，保证即使用例失败也不会污染后续 PlayMode 测试。
             Scene cleanupScene = SceneManager.CreateScene("PlayModeTest_CleanupScene");
@@ -61,6 +94,7 @@ namespace RainsenVampSur.Tests.PlayMode
             }
 
             Assert.IsTrue(originalManagerFound, "MainLevel 缺少 GameFlowManager。");
+            Assert.IsTrue(abilityGrantedBeforeRestart, "重载前没有通过正式入口授予测试能力。");
             Assert.IsTrue(pausedBeforeRestart, "主场景管理器没有进入真实暂停状态。");
             Assert.IsTrue(reloadedManagerFound, "RestartGame 后没有重建 GameFlowManager。");
             Assert.That(activeSceneName, Is.EqualTo(MainSceneName));
@@ -68,6 +102,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(timeScaleAfterRestart, Is.EqualTo(1f).Within(FloatTolerance));
             Assert.IsFalse(isPausedAfterRestart);
             Assert.IsFalse(isGameOverAfterRestart);
+            Assert.That(reloadedAbilityCount, Is.Zero, "RestartGame 后残留了上一局的正式能力。");
         }
 
         /// <summary>主场景 HUD 应显示全宽经验条、可读文本、避让后的装备栏和底部计时器。</summary>
@@ -212,6 +247,33 @@ namespace RainsenVampSur.Tests.PlayMode
             Component playerHealth = playerObject != null
                 ? playerObject.GetComponent("PlayerHealth")
                 : null;
+            Component abilityManager = playerObject != null
+                ? playerObject.GetComponent("AbilityManager")
+                : null;
+            int ownedAbilityCount = abilityManager != null
+                ? RuntimeComponentTestUtility.GetProperty<int>(abilityManager, "OwnedAbilityCount")
+                : -1;
+            Type levelUpManagerType = RuntimeComponentTestUtility.RequireRuntimeType("LevelUpManager");
+            Component levelUpManager = UnityEngine.Object.FindObjectOfType(levelUpManagerType) as Component;
+            FieldInfo upgradesField = levelUpManagerType.GetField("allAvailableUpgrades");
+            IList configuredUpgrades = upgradesField != null && levelUpManager != null
+                ? upgradesField.GetValue(levelUpManager) as IList
+                : null;
+            int configuredAbilityUpgradeCount = 0;
+            if (configuredUpgrades != null)
+            {
+                for (int index = 0; index < configuredUpgrades.Count; index++)
+                {
+                    object upgrade = configuredUpgrades[index];
+                    FieldInfo abilityField = upgrade != null
+                        ? upgrade.GetType().GetField("abilityToGrant")
+                        : null;
+                    if (abilityField != null && abilityField.GetValue(upgrade) != null)
+                    {
+                        configuredAbilityUpgradeCount++;
+                    }
+                }
+            }
             UnityEngine.Object characterData = playerStats != null
                 ? RuntimeComponentTestUtility.GetProperty<UnityEngine.Object>(playerStats, "CharacterData")
                 : null;
@@ -474,6 +536,10 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(healthMaxHealth, Is.EqualTo(100f).Within(FloatTolerance));
             Assert.That(playerMoveSpeed, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.That(playerMagnet, Is.EqualTo(3f).Within(FloatTolerance));
+            Assert.IsNotNull(abilityManager, "MainLevel 的 Player 缺少 AbilityManager。");
+            Assert.That(ownedAbilityCount, Is.Zero, "新局不应继承上一局的正式能力状态。");
+            Assert.That(configuredAbilityUpgradeCount, Is.EqualTo(6),
+                "MainLevel 的升级池没有完整登记六项正式能力。 ");
             Assert.That(magnetRadius, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.IsNotNull(
                 playerHurtbox,
@@ -606,6 +672,32 @@ namespace RainsenVampSur.Tests.PlayMode
                    sprite == null &&
                    imageType != null &&
                    imageType.ToString() == "Simple";
+        }
+
+        /// <summary>从 LevelUpManager 配置列表读取第一项正式能力奖励。</summary>
+        private static UnityEngine.Object FindFirstConfiguredAbility(IList configuredUpgrades)
+        {
+            if (configuredUpgrades == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < configuredUpgrades.Count; index++)
+            {
+                object upgrade = configuredUpgrades[index];
+                FieldInfo abilityField = upgrade != null
+                    ? upgrade.GetType().GetField("abilityToGrant")
+                    : null;
+                UnityEngine.Object ability = abilityField != null
+                    ? abilityField.GetValue(upgrade) as UnityEngine.Object
+                    : null;
+                if (ability != null)
+                {
+                    return ability;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>把正式场景卸载到临时空场景，避免场景型 PlayMode 测试相互污染。</summary>

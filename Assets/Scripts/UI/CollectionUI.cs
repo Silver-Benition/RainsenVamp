@@ -360,8 +360,11 @@ public sealed class CollectionUI : MonoBehaviour
             string upgradeId = upgrade.GetStableId();
             bool discovered = _accountProgress.IsUpgradeDiscovered(upgradeId);
             WeaponDataSO grantedWeapon = upgrade.weaponToGrant;
+            AbilityDataSO grantedAbility = upgrade.abilityToGrant;
             CreateEntry(
-                grantedWeapon != null ? grantedWeapon.icon : upgrade.icon,
+                grantedWeapon != null
+                    ? grantedWeapon.icon
+                    : grantedAbility != null ? grantedAbility.icon : upgrade.icon,
                 discovered,
                 discovered ? GetUpgradeCollectionName(upgrade) : "？？？",
                 discovered ? GetUpgradeCollectionDescription(upgrade) : "在升级候选中出现后发现",
@@ -490,20 +493,22 @@ public sealed class CollectionUI : MonoBehaviour
             : "无固有被动";
     }
 
-    /// <summary>武器型升级在收藏页复用武器权威名称，非武器升级回退到自身词条。</summary>
+    /// <summary>武器或能力型升级在收藏页复用奖励数据的权威名称。</summary>
     private static string GetUpgradeCollectionName(UpgradeDataSO upgrade)
     {
-        return upgrade != null && upgrade.weaponToGrant != null
-            ? upgrade.weaponToGrant.GetDisplayName()
-            : upgrade != null ? upgrade.GetDisplayName() : string.Empty;
+        if (upgrade == null) return string.Empty;
+        if (upgrade.weaponToGrant != null) return upgrade.weaponToGrant.GetDisplayName();
+        if (upgrade.abilityToGrant != null) return upgrade.abilityToGrant.GetDisplayName();
+        return upgrade.GetDisplayName();
     }
 
-    /// <summary>武器型升级在收藏页复用武器权威描述，避免两份基础文案发生标点漂移。</summary>
+    /// <summary>武器或能力型升级在收藏页复用奖励数据的权威描述，避免文案漂移。</summary>
     private static string GetUpgradeCollectionDescription(UpgradeDataSO upgrade)
     {
-        return upgrade != null && upgrade.weaponToGrant != null
-            ? upgrade.weaponToGrant.GetDisplayDescription()
-            : upgrade != null ? upgrade.GetDisplayDescription() : string.Empty;
+        if (upgrade == null) return string.Empty;
+        if (upgrade.weaponToGrant != null) return upgrade.weaponToGrant.GetDisplayDescription();
+        if (upgrade.abilityToGrant != null) return upgrade.abilityToGrant.GetDisplayDescription();
+        return upgrade.GetDisplayDescription();
     }
 
     /// <summary>创建统一风格的低频菜单按钮。</summary>

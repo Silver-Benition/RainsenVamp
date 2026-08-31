@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: AdversityInstinct
+  m_EditorClassIdentifier:
+  abilityID: ability_adversity_instinct
+  abilityNameKey: ability.adversity_instinct.name
+  descriptionKey: ability.adversity_instinct.description
+  abilityDisplayName: 逆境本能
+  displayDescription: 生命不高于 40% 时提高武器伤害与移动速度，恢复到阈值以上后立即失效。
+  icon: {fileID: 21300000, guid: 238bc5b7fb12c0349895fbf6a12f1983, type: 3}
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  levelConfigs:
+  - upgradeDescription: 低生命时伤害提高 20%，移动速度提高 6%。
+    statModifiers: []
+  - upgradeDescription: 低生命时伤害提高 30%，移动速度提高 9%。
+    statModifiers: []
+  - upgradeDescription: 低生命时伤害提高 40%，移动速度提高 12%。
+    statModifiers: []
+  mechanic: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17201, type: 2}

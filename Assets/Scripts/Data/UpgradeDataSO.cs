@@ -13,7 +13,8 @@ public sealed class LevelUpgradeDesc
 }
 
 /// <summary>
-/// 升级候选的 UI 数据与奖励引用。武器运行类型统一由 WeaponDataSO 决定。
+/// 升级候选的 UI 数据与奖励引用。
+/// 每项候选必须且只能配置武器或正式能力之一，运行类型由对应数据资产决定。
 /// </summary>
 [CreateAssetMenu(fileName = "NewUpgrade", menuName = "GameData/Upgrade Data")]
 public sealed class UpgradeDataSO : ScriptableObject
@@ -43,6 +44,13 @@ public sealed class UpgradeDataSO : ScriptableObject
 
     [Header("奖励内容")]
     public WeaponDataSO weaponToGrant;
+    public AbilityDataSO abilityToGrant;
+
+    /// <summary>判断该候选是否恰好配置了一种合法奖励，拒绝空奖励和双奖励资产。</summary>
+    public bool HasExactlyOneReward()
+    {
+        return (weaponToGrant != null) != (abilityToGrant != null);
+    }
 
     /// <summary>读取升级稳定 ID；旧资产缺少 ID 时使用资产名兼容，避免当前内容突然失效。</summary>
     public string GetStableId()

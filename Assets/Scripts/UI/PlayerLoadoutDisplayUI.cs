@@ -43,8 +43,10 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
         new List<LoadoutSlotView>(PlayerLoadoutRules.MaxAbilityCount);
 
     private LevelUpManager _levelUpManager;
+    private AbilityManager _abilityManager;
     private GameFlowManager _gameFlowManager;
     private int _displayedWeaponCount;
+    private int _displayedAbilityCount;
     private bool _showLevels;
 
     /// <summary>当前已构建的武器槽位数量。</summary>
@@ -55,6 +57,9 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
 
     /// <summary>当前成功绑定了武器数据的槽位数量；图标缺失时仍视为已占用。</summary>
     public int DisplayedWeaponCount => _displayedWeaponCount;
+
+    /// <summary>当前成功绑定了正式能力数据的槽位数量；图标缺失时仍视为已占用。</summary>
+    public int DisplayedAbilityCount => _displayedAbilityCount;
 
     /// <summary>等级点阵或数字当前是否因手动暂停而展开。</summary>
     public bool IsShowingLevels => _showLevels;
@@ -78,7 +83,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     private void Start()
     {
         ResolveManagersAndSubscribe();
-        RefreshWeaponSlots();
+        RefreshLoadoutSlots();
         SetLevelVisibility(_gameFlowManager != null && _gameFlowManager.IsManuallyPaused);
     }
 
@@ -86,6 +91,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     private void OnDisable()
     {
         UnsubscribeLevelUpManager();
+        UnsubscribeAbilityManager();
         UnsubscribeGameFlowManager();
     }
 
@@ -384,6 +390,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     private void ResolveManagersAndSubscribe()
     {
         ResolveLevelUpManagerAndSubscribe();
+        ResolveAbilityManagerAndSubscribe();
         ResolveGameFlowManagerAndSubscribe();
     }
 
@@ -405,7 +412,24 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
         _levelUpManager = resolvedManager;
         if (_levelUpManager != null && isActiveAndEnabled)
         {
-            _levelUpManager.OwnedWeaponsChanged += RefreshWeaponSlots;
+            _levelUpManager.OwnedWeaponsChanged += RefreshLoadoutSlots;
+        }
+    }
+
+    /// <summary>解析玩家能力管理器并订阅正式能力变化事件。</summary>
+    private void ResolveAbilityManagerAndSubscribe()
+    {
+        AbilityManager resolvedManager = FindObjectOfType<AbilityManager>();
+        if (_abilityManager == resolvedManager)
+        {
+            return;
+        }
+
+        UnsubscribeAbilityManager();
+        _abilityManager = resolvedManager;
+        if (_abilityManager != null && isActiveAndEnabled)
+        {
+            _abilityManager.OwnedAbilitiesChanged += RefreshLoadoutSlots;
         }
     }
 
@@ -441,10 +465,21 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     {
         if (_levelUpManager != null)
         {
-            _levelUpManager.OwnedWeaponsChanged -= RefreshWeaponSlots;
+            _levelUpManager.OwnedWeaponsChanged -= RefreshLoadoutSlots;
         }
 
         _levelUpManager = null;
+    }
+
+    /// <summary>解除当前能力管理器事件并清空缓存引用。</summary>
+    private void UnsubscribeAbilityManager()
+    {
+        if (_abilityManager != null)
+        {
+            _abilityManager.OwnedAbilitiesChanged -= RefreshLoadoutSlots;
+        }
+
+        _abilityManager = null;
     }
 
     /// <summary>解除当前流程管理器事件并清空缓存引用。</summary>
@@ -484,12 +519,12 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     }
 
     /// <summary>
-    /// 按获得顺序刷新第一排武器槽，应用每项数据的 HUD 专用缩放与等级。
-    /// 能力系统尚未实现，第二排保持空槽但使用同一套可扩展槽位结构。
+    /// 按获得顺序刷新第一排武器与第二排正式能力，并应用各自 HUD 变换与等级。
     /// </summary>
-    private void RefreshWeaponSlots()
+    private void RefreshLoadoutSlots()
     {
         _displayedWeaponCount = 0;
+        _displayedAbilityCount = 0;
         for (int index = 0; index < _weaponSlots.Count; index++)
         {
             ClearSlot(_weaponSlots[index]);
@@ -500,30 +535,54 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
             ClearSlot(_abilitySlots[index]);
         }
 
-        if (_levelUpManager == null)
+        if (_levelUpManager != null)
+        {
+            IReadOnlyList<WeaponBase> ownedWeapons = _levelUpManager.OwnedWeapons;
+            int visibleWeaponCount = Mathf.Min(ownedWeapons.Count, _weaponSlots.Count);
+            for (int index = 0; index < visibleWeaponCount; index++)
+            {
+                WeaponBase weapon = ownedWeapons[index];
+                if (weapon == null || weapon.weaponData == null)
+                {
+                    continue;
+                }
+
+                WeaponDataSO weaponData = weapon.weaponData;
+                ApplySlotContent(
+                    _weaponSlots[index],
+                    weaponData.icon,
+                    weaponData.loadoutIconScale,
+                    weaponData.loadoutIconOffset,
+                    weapon.CurrentLevel,
+                    weapon.MaxLevel);
+                _displayedWeaponCount++;
+            }
+        }
+
+        if (_abilityManager == null)
         {
             return;
         }
 
-        IReadOnlyList<WeaponBase> ownedWeapons = _levelUpManager.OwnedWeapons;
-        int visibleCount = Mathf.Min(ownedWeapons.Count, _weaponSlots.Count);
-        for (int index = 0; index < visibleCount; index++)
+        IReadOnlyList<OwnedAbilityState> ownedAbilities = _abilityManager.OwnedAbilities;
+        int visibleAbilityCount = Mathf.Min(ownedAbilities.Count, _abilitySlots.Count);
+        for (int index = 0; index < visibleAbilityCount; index++)
         {
-            WeaponBase weapon = ownedWeapons[index];
-            if (weapon == null || weapon.weaponData == null)
+            OwnedAbilityState abilityState = ownedAbilities[index];
+            if (abilityState == null || abilityState.Data == null)
             {
                 continue;
             }
 
-            WeaponDataSO weaponData = weapon.weaponData;
+            AbilityDataSO abilityData = abilityState.Data;
             ApplySlotContent(
-                _weaponSlots[index],
-                weaponData.icon,
-                weaponData.loadoutIconScale,
-                weaponData.loadoutIconOffset,
-                weapon.CurrentLevel,
-                weapon.MaxLevel);
-            _displayedWeaponCount++;
+                _abilitySlots[index],
+                abilityData.icon,
+                abilityData.loadoutIconScale,
+                abilityData.loadoutIconOffset,
+                abilityState.CurrentLevel,
+                abilityState.MaxLevel);
+            _displayedAbilityCount++;
         }
     }
 
