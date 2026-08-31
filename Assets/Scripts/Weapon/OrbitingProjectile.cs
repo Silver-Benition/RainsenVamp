@@ -8,6 +8,7 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
 {
     private GameObject _prefabReference;
     private Transform _owner;
+    private WeaponDataSO _weaponData;
     private float _damage;
     private Vector3 _baseLocalScale;
 
@@ -22,6 +23,7 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     {
         transform.localScale = _baseLocalScale;
         _owner = null;
+        _weaponData = null;
         _damage = 0f;
     }
 
@@ -38,6 +40,13 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     /// </summary>
     public void Initialize(Transform owner, float damage, float areaMultiplier = 1f)
     {
+        Initialize(null, owner, damage, areaMultiplier);
+    }
+
+    /// <summary>注入带稳定武器来源的环绕投射物生命周期。</summary>
+    public void Initialize(WeaponDataSO weaponData, Transform owner, float damage, float areaMultiplier = 1f)
+    {
+        _weaponData = weaponData;
         _owner = owner;
         _damage = Mathf.Max(0f, damage);
         float safeAreaMultiplier = Mathf.Max(0.01f, areaMultiplier);
@@ -75,7 +84,7 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
         if (_damage > 0f
             && DamageTargetFilter.TryGetEnemyDamageable(other, out IDamageable damageable))
         {
-            damageable.TakeDamage(_damage);
+            CombatDamageResolver.Apply(damageable, _damage, _weaponData);
         }
     }
 
@@ -85,6 +94,7 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     public void ReleaseToPool()
     {
         _owner = null;
+        _weaponData = null;
         _damage = 0f;
 
         if (_prefabReference != null && PoolManager.Instance != null)

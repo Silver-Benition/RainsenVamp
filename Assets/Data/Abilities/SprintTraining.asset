@@ -18,6 +18,7 @@ MonoBehaviour:
   abilityDisplayName: 疾行训练
   displayDescription: 永久提高本局移动速度。
   icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+  presentationCategory: 0
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:

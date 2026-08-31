@@ -23,6 +23,13 @@ public class WorldEnemySimulation : MonoBehaviour
         public Renderer[] renderers;
     }
 
+    private sealed class TrackedVfx
+    {
+        public GameObject instance;
+        public BossWarningVfx vfx;
+        public Renderer[] renderers;
+    }
+
     [Header("世界配置")]
     [SerializeField] private WorldLineDataSO worldLine;
     [SerializeField] private Transform target;
@@ -30,6 +37,7 @@ public class WorldEnemySimulation : MonoBehaviour
 
     private readonly List<TrackedEnemy> trackedEnemies = new List<TrackedEnemy>();
     private readonly List<TrackedProjectile> trackedProjectiles = new List<TrackedProjectile>();
+    private readonly List<TrackedVfx> trackedVfx = new List<TrackedVfx>();
     private static readonly Dictionary<GameObject, WorldEnemySimulation> EntityOwners =
         new Dictionary<GameObject, WorldEnemySimulation>();
     private bool worldActive;
@@ -75,6 +83,11 @@ public class WorldEnemySimulation : MonoBehaviour
         for (int i = 0; i < trackedProjectiles.Count; i++)
         {
             RemoveOwnership(trackedProjectiles[i] != null ? trackedProjectiles[i].instance : null);
+        }
+
+        for (int i = 0; i < trackedVfx.Count; i++)
+        {
+            RemoveOwnership(trackedVfx[i] != null ? trackedVfx[i].instance : null);
         }
     }
 
@@ -187,6 +200,97 @@ public class WorldEnemySimulation : MonoBehaviour
         return projectileInstance;
     }
 
+    /// <summary>
+    /// 从共享对象池生成并注册当前世界的 Boss 首领。
+    /// 不绑定普通 WaveSpawnedNotifier，也不消费 EnemyDataSO 的掉落表。
+    /// </summary>
+    public GameObject SpawnBoss(
+        GameObject prefab,
+        Vector3 position,
+        BossDataSO bossData,
+        RunDirector director)
+    {
+        if (prefab == null || bossData == null || PoolManager.Instance == null)
+        {
+            return null;
+        }
+
+        GameObject bossObject = PoolManager.Instance.Spawn(prefab, position, Quaternion.identity);
+        if (bossObject == null)
+        {
+            return null;
+        }
+
+        bossObject.transform.SetParent(entityRoot, true);
+        TrackedEnemy tracked = FindTrackedEnemy(bossObject);
+        if (tracked == null)
+        {
+            tracked = new TrackedEnemy
+            {
+                instance = bossObject,
+                enemyBase = bossObject.GetComponent<EnemyBase>(),
+                colliders = bossObject.GetComponentsInChildren<Collider2D>(true),
+                renderers = bossObject.GetComponentsInChildren<Renderer>(true)
+            };
+            trackedEnemies.Add(tracked);
+        }
+
+        BossEnemyController boss = bossObject.GetComponent<BossEnemyController>();
+        if (boss == null)
+        {
+            PoolManager.Instance.Release(prefab, bossObject);
+            return null;
+        }
+
+        ClaimOwnership(bossObject);
+        boss.SetWorldSimulation(this);
+        boss.InitializeBoss(bossData, director);
+        ApplyWorldState(tracked);
+        return bossObject;
+    }
+
+    /// <summary>
+    /// 从对象池生成当前世界归属的预警 VFX，并在短生命周期结束后自动回收。
+    /// </summary>
+    public GameObject SpawnVfx(GameObject prefab, Vector3 position, Quaternion rotation)
+    {
+        if (prefab == null || PoolManager.Instance == null)
+        {
+            return null;
+        }
+
+        GameObject vfxObject = PoolManager.Instance.Spawn(prefab, position, rotation);
+        if (vfxObject == null)
+        {
+            return null;
+        }
+
+        vfxObject.transform.SetParent(entityRoot, true);
+        BossWarningVfx vfx = vfxObject.GetComponent<BossWarningVfx>();
+        if (vfx == null)
+        {
+            PoolManager.Instance.Release(prefab, vfxObject);
+            return null;
+        }
+
+        TrackedVfx tracked = FindTrackedVfx(vfxObject);
+        if (tracked == null)
+        {
+            tracked = new TrackedVfx
+            {
+                instance = vfxObject,
+                vfx = vfx,
+                renderers = vfxObject.GetComponentsInChildren<Renderer>(true)
+            };
+            trackedVfx.Add(tracked);
+        }
+
+        ClaimOwnership(vfxObject);
+        vfx.SetWorldSimulation(this);
+        ApplyWorldState(tracked);
+        return vfxObject;
+    }
+
     /// <summary>查找已缓存的池实例，避免同一实例重复加入跟踪列表。</summary>
     private TrackedEnemy FindTrackedEnemy(GameObject instance)
     {
@@ -203,6 +307,17 @@ public class WorldEnemySimulation : MonoBehaviour
         for (int i = 0; i < trackedProjectiles.Count; i++)
         {
             if (trackedProjectiles[i].instance == instance) return trackedProjectiles[i];
+        }
+
+        return null;
+    }
+
+    /// <summary>查找已缓存的池化预警 VFX，避免同一实例重复加入世界跟踪列表。</summary>
+    private TrackedVfx FindTrackedVfx(GameObject instance)
+    {
+        for (int i = 0; i < trackedVfx.Count; i++)
+        {
+            if (trackedVfx[i].instance == instance) return trackedVfx[i];
         }
 
         return null;
@@ -235,6 +350,7 @@ public class WorldEnemySimulation : MonoBehaviour
     {
         for (int i = 0; i < trackedEnemies.Count; i++) ApplyWorldState(trackedEnemies[i]);
         for (int i = 0; i < trackedProjectiles.Count; i++) ApplyWorldState(trackedProjectiles[i]);
+        for (int i = 0; i < trackedVfx.Count; i++) ApplyWorldState(trackedVfx[i]);
     }
 
     /// <summary>刷新单个敌人的世界交互状态。</summary>
@@ -253,6 +369,14 @@ public class WorldEnemySimulation : MonoBehaviour
         bool active = worldActive && projectile.instance.activeInHierarchy;
         for (int i = 0; i < projectile.colliders.Length; i++) projectile.colliders[i].enabled = active;
         for (int i = 0; i < projectile.renderers.Length; i++) projectile.renderers[i].enabled = active;
+    }
+
+    /// <summary>刷新单个预警 VFX 的世界显隐；不暂停其短生命周期计时。</summary>
+    private void ApplyWorldState(TrackedVfx vfx)
+    {
+        if (vfx == null || !IsOwnedByThisWorld(vfx.instance)) return;
+        bool active = worldActive && vfx.instance.activeInHierarchy;
+        for (int i = 0; i < vfx.renderers.Length; i++) vfx.renderers[i].enabled = active;
     }
 
     /// <summary>统计当前世界池中激活的敌人，不跨世界扫描。</summary>

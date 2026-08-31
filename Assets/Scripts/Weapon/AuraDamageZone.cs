@@ -31,6 +31,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     private float lifeTimer;
     private float tickTimer;
     private float currentDamage;
+    private WeaponDataSO weaponData;
 
     private GameObject prefabReference;
 
@@ -52,6 +53,16 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     private void OnEnable()
     {
         targets.Clear();
+    }
+
+    /// <summary>对象池回收时清除目标列表和旧武器来源，避免跨生命周期继续结算旧伤害。</summary>
+    private void OnDisable()
+    {
+        targets.Clear();
+        weaponData = null;
+        currentDamage = 0f;
+        lifeTimer = 0f;
+        tickTimer = 0f;
     }
 
     /// <summary>
@@ -83,6 +94,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     /// </summary>
     public void Initialize(WeaponDataSO data, Transform target, float overrideTickInterval, float damage, float lifeTimeValue, float radius)
     {
+        weaponData = data;
         followTarget = target;
         tickInterval = Mathf.Max(0.01f, overrideTickInterval);
         if (circleCollider != null)
@@ -146,7 +158,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
                 targets.RemoveAt(i);
                 continue;
             }
-            t.TakeDamage(currentDamage);
+            CombatDamageResolver.Apply(t, currentDamage, weaponData);
         }
     }
 

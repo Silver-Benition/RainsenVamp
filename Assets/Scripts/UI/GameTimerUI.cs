@@ -2,8 +2,8 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// 显示本局已经运行的游戏时间。
-/// 计时使用 Time.deltaTime，因此暂停或升级选择时会随游戏一起停止。
+/// 显示 RunDirector 权威维护的本局游戏时间。
+/// UI 不再自行累计时间，暂停、升级、结果冻结和 Boss 触发共享同一时间源。
 /// </summary>
 public sealed class GameTimerUI : MonoBehaviour
 {
@@ -17,23 +17,27 @@ public sealed class GameTimerUI : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float outlineWidth = 0.24f;
 
-    private float _elapsedSeconds;
+    private RunDirector _runDirector;
 
     /// <summary>当前已累计的游戏时间，供 HUD 测试和其他只读表现层读取。</summary>
-    public float CurrentTimeSeconds => _elapsedSeconds;
+    public float CurrentTimeSeconds => _runDirector != null ? _runDirector.ElapsedSeconds : 0f;
 
     /// <summary>初始化计时器和文字样式。</summary>
     private void Awake()
     {
-        _elapsedSeconds = 0f;
+        _runDirector = FindObjectOfType<RunDirector>();
         ApplyTextStyle();
         RefreshText();
     }
 
-    /// <summary>按游戏时间推进计时；Time.timeScale 为 0 时自然停止。</summary>
+    /// <summary>读取权威计时器并刷新文字；本组件不拥有任何可推进的时间状态。</summary>
     private void Update()
     {
-        _elapsedSeconds += Time.deltaTime;
+        if (_runDirector == null)
+        {
+            _runDirector = FindObjectOfType<RunDirector>();
+        }
+
         RefreshText();
     }
 
@@ -45,7 +49,7 @@ public sealed class GameTimerUI : MonoBehaviour
             return;
         }
 
-        int totalSeconds = Mathf.FloorToInt(_elapsedSeconds);
+        int totalSeconds = Mathf.FloorToInt(CurrentTimeSeconds);
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
         timerText.text = $"{minutes:00}:{seconds:00}";

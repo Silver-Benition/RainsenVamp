@@ -14,6 +14,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
     private Camera _mainCamera;
     private Vector3 _startPosition;
     private Vector3 _initialVelocity;
+    private WeaponDataSO _weaponData;
     private float _damage;
     private float _gravity;
     private float _releaseDeadline;
@@ -53,6 +54,9 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
     {
         transform.localScale = _baseLocalScale;
         _hitColliders.Clear();
+        _weaponData = null;
+        _damage = 0f;
+        _elapsedTime = 0f;
     }
 
     /// <summary>
@@ -80,6 +84,35 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         float spinSpeed,
         float areaMultiplier = 1f)
     {
+        Initialize(
+            null,
+            startPosition,
+            inheritedVelocity,
+            direction,
+            damage,
+            launchSpeed,
+            maxLifetime,
+            pierceCount,
+            gravity,
+            spinSpeed,
+            areaMultiplier);
+    }
+
+    /// <summary>注入带稳定武器来源的抛物线投射物生命周期。</summary>
+    public void Initialize(
+        WeaponDataSO weaponData,
+        Vector3 startPosition,
+        Vector3 inheritedVelocity,
+        Vector3 direction,
+        float damage,
+        float launchSpeed,
+        float maxLifetime,
+        int pierceCount,
+        float gravity,
+        float spinSpeed,
+        float areaMultiplier = 1f)
+    {
+        _weaponData = weaponData;
         _startPosition = startPosition;
         Vector3 safeDirection = direction.sqrMagnitude > 0.0001f
             ? direction.normalized
@@ -160,7 +193,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         }
 
         _hitColliders.Add(other);
-        damageable.TakeDamage(_damage);
+        CombatDamageResolver.Apply(damageable, _damage, _weaponData);
         _remainingPierce--;
         if (_remainingPierce < 0)
         {

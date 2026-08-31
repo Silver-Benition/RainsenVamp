@@ -5,7 +5,7 @@ using UnityEngine;
 /// 每次生成消费 EnemySpawnSnapshot，避免热路径读取共享数据资产或遗留上一生命周期状态。
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
-public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
+public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoolable
 {
     public EnemyDataSO enemyData;
 
@@ -35,6 +35,9 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     /// <summary>当前敌人绑定的世界是否允许它与玩家交互。</summary>
     public bool IsWorldInteractionEnabled =>
         _worldSimulation == null || _worldSimulation.IsWorldActive;
+
+    /// <summary>当前敌人所属世界模拟器，供首领等特殊敌人生成世界归属实体。</summary>
+    public WorldEnemySimulation WorldSimulation => _worldSimulation;
 
     /// <summary>缓存刚体、受击表现和 SpriteRenderer 原色，避免战斗热路径重复查找。</summary>
     protected virtual void Awake()
@@ -108,7 +111,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
     /// 解析一次由本敌人发起的基础伤害。
     /// 远程攻击组件必须在创建投射物时调用，确保 Defang 同时约束近战和飞行道具。
     /// </summary>
-    public float ResolveOutgoingDamage(float baseDamage)
+    public virtual float ResolveOutgoingDamage(float baseDamage)
     {
         return _spawnSnapshot.ResolveOutgoingDamage(baseDamage);
     }
@@ -194,16 +197,27 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         TakeDamage(damage, false);
     }
 
-    /// <summary>扣除生命并触发受击表现；生命首次归零时进入死亡出口。</summary>
+    /// <summary>兼容旧 IDamageable 调用，执行实际扣血但不额外重复记账。</summary>
     public void TakeDamage(float damage, bool isCritical)
     {
+        ApplyCombatDamage(damage, isCritical);
+    }
+
+    /// <summary>
+    /// 扣除生命并返回实际损失值；过量伤害只按剩余生命计入武器统计。
+    /// </summary>
+    public CombatDamageResult ApplyCombatDamage(float damage, bool isCritical)
+    {
         // 回池后的对象已恢复下一生命周期基础生命，但在再次 Spawn 前必须拒绝所有外部伤害。
-        if (!isActiveAndEnabled || damage <= 0f || _currentHealth <= 0f)
+        if (!isActiveAndEnabled || damage <= 0f || _currentHealth <= 0f ||
+            (RunDirector.Instance != null && RunDirector.Instance.IsResultFrozen))
         {
-            return;
+            return new CombatDamageResult(damage, 0f, false, _currentHealth <= 0f);
         }
 
-        _currentHealth -= damage;
+        float previousHealth = _currentHealth;
+        float appliedDamage = Mathf.Min(previousHealth, Mathf.Max(0f, damage));
+        _currentHealth = Mathf.Max(0f, previousHealth - appliedDamage);
         if (_hitFlash != null)
         {
             _hitFlash.TriggerFlash();
@@ -211,17 +225,33 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
 
         if (DamagePopupManager.Instance != null)
         {
-            DamagePopupManager.Instance.Show(damage, transform.position, isCritical);
+            DamagePopupManager.Instance.Show(appliedDamage, transform.position, isCritical);
         }
 
         if (_currentHealth <= 0f)
         {
             Die();
         }
+
+        return new CombatDamageResult(damage, appliedDamage, true, _currentHealth <= 0f);
     }
 
     /// <summary>登记击杀、生成经验与概率掉落，并把敌人归还对应对象池。</summary>
-    private void Die()
+    protected virtual void Die()
+    {
+        RegisterKillForDefeat();
+
+        if (PoolManager.Instance != null && enemyData != null)
+        {
+            SpawnPooledDrop(enemyData.dropExpPrefab);
+            SpawnAdditionalDrops(enemyData.dropTable);
+        }
+
+        ReleaseToPool();
+    }
+
+    /// <summary>将一次正式敌人或首领死亡计为一击杀，兼容旧测试中的 RunStatsUI 后备路径。</summary>
+    protected void RegisterKillForDefeat()
     {
         if (RunState.Instance != null)
         {
@@ -231,13 +261,11 @@ public class EnemyBase : MonoBehaviour, IDamageable, IPoolable
         {
             RunStatsUI.Instance.RegisterKill();
         }
+    }
 
-        if (PoolManager.Instance != null && enemyData != null)
-        {
-            SpawnPooledDrop(enemyData.dropExpPrefab);
-            SpawnAdditionalDrops(enemyData.dropTable);
-        }
-
+    /// <summary>归还当前敌人的对象池；缺失池引用时仅禁用以隔离迟到物理回调。</summary>
+    protected void ReleaseToPool()
+    {
         if (PoolManager.Instance != null && _prefabReference != null)
         {
             PoolManager.Instance.Release(_prefabReference, gameObject);

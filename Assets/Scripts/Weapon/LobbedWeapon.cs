@@ -54,6 +54,7 @@ public sealed class LobbedWeapon : WeaponBase
                 && instance.TryGetComponent<LobbedProjectile>(out var projectile))
             {
                 projectile.Initialize(
+                    weaponData,
                     transform.position,
                     inheritedVelocity,
                     direction,

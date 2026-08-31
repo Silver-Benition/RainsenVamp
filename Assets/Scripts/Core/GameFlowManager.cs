@@ -18,7 +18,8 @@ public sealed class GameFlowManager : MonoBehaviour
         None = 0,
         LevelUp = 1 << 0,
         Manual = 1 << 1,
-        GameOver = 1 << 2
+        GameOver = 1 << 2,
+        RunResult = 1 << 3
     }
 
     public static GameFlowManager Instance { get; private set; }
@@ -74,6 +75,9 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>本局当前是否处于死亡面板流程；仍可能通过 Revival 返回游戏。</summary>
     public bool IsGameOver => HasPauseReason(PauseReason.GameOver);
 
+    /// <summary>本局最终 Victory/Defeat 结果是否已经展示并冻结。</summary>
+    public bool IsRunResultShowing => HasPauseReason(PauseReason.RunResult);
+
     /// <summary>是否已经提交返回主菜单的异步加载请求。</summary>
     public bool IsLoadingMainMenu => _isLoadingMainMenu;
 
@@ -113,6 +117,7 @@ public sealed class GameFlowManager : MonoBehaviour
         if (_isLoadingMainMenu ||
             !Input.GetKeyDown(pauseKey) ||
             IsGameOver ||
+            IsRunResultShowing ||
             HasPauseReason(PauseReason.LevelUp))
         {
             return;
@@ -148,7 +153,7 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>进入手动暂停并显示暂停面板。</summary>
     public void PauseGame()
     {
-        if (IsGameOver || HasPauseReason(PauseReason.LevelUp) || IsManuallyPaused)
+        if (IsGameOver || IsRunResultShowing || HasPauseReason(PauseReason.LevelUp) || IsManuallyPaused)
         {
             return;
         }
@@ -161,7 +166,7 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>解除手动暂停；其他暂停原因仍然存在时不会恢复游戏时间。</summary>
     public void ResumeGame()
     {
-        if (!HasPauseReason(PauseReason.Manual) || IsGameOver)
+        if (!HasPauseReason(PauseReason.Manual) || IsGameOver || IsRunResultShowing)
         {
             return;
         }
@@ -174,7 +179,7 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>由升级系统请求暂停，保留独立原因以避免被手动恢复覆盖。</summary>
     public void EnterLevelUpPause()
     {
-        if (IsGameOver)
+        if (IsGameOver || IsRunResultShowing)
         {
             return;
         }
@@ -191,6 +196,11 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>恢复正常时间流速并重新加载当前关卡。</summary>
     public void RestartGame()
     {
+        if (RunDirector.Instance != null)
+        {
+            RunDirector.Instance.EndRunAsDefeat();
+        }
+
         CommitRunProgressIfNeeded();
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
@@ -213,6 +223,11 @@ public sealed class GameFlowManager : MonoBehaviour
                 $"无法加载主菜单场景“{mainMenuSceneName}”，请检查 Build Settings。",
                 this);
             return;
+        }
+
+        if (RunDirector.Instance != null)
+        {
+            RunDirector.Instance.EndRunAsDefeat();
         }
 
         _isLoadingMainMenu = true;
@@ -238,7 +253,46 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>应用正常退出时结算尚未提交的本局统计。</summary>
     private void OnApplicationQuit()
     {
+        if (RunDirector.Instance != null)
+        {
+            RunDirector.Instance.EndRunAsDefeat();
+        }
+
         CommitRunProgressIfNeeded();
+    }
+
+    /// <summary>
+    /// 进入最终结果状态：停止玩家、清除其他暂停原因、冻结时间并提交一次本局统计。
+    /// </summary>
+    public void EnterRunResult(RunResultSnapshot snapshot)
+    {
+        if (snapshot == null || IsRunResultShowing)
+        {
+            return;
+        }
+
+        _pauseReasons = PauseReason.RunResult;
+        _isReviving = false;
+        if (playerRigidbody != null)
+        {
+            playerRigidbody.velocity = Vector2.zero;
+            playerRigidbody.angularVelocity = 0f;
+        }
+
+        if (playerController != null)
+        {
+            playerController.enabled = false;
+        }
+
+        SetPanelActive(levelUpPanel, false);
+        SetPanelActive(pausePanel, false);
+        SetPanelActive(gameOverPanel, false);
+        ApplyPauseState();
+        CommitRunProgressIfNeeded();
+        if (RunResultsUI.Instance != null)
+        {
+            RunResultsUI.Instance.Show(snapshot);
+        }
     }
 
     /// <summary>
@@ -409,7 +463,7 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>玩家生命归零时始终进入死亡面板；有 Revival 时额外提供可选复活按钮。</summary>
     private void HandlePlayerDied()
     {
-        if (IsGameOver)
+        if (IsGameOver || IsRunResultShowing)
         {
             return;
         }
@@ -430,9 +484,24 @@ public sealed class GameFlowManager : MonoBehaviour
 
         SetPanelActive(levelUpPanel, false);
         SetPanelActive(pausePanel, false);
-        SetPanelActive(gameOverPanel, true);
+        RunDirector director = RunDirector.Instance;
+        bool hasResultPreview = director != null && director.DeathPreviewSnapshot != null;
+        bool hasFinalResult = director != null && director.FinalSnapshot != null;
+        SetPanelActive(gameOverPanel, !hasResultPreview && !hasFinalResult);
         ApplyPauseState();
         RefreshGameOverActions();
+
+        if (RunResultsUI.Instance != null)
+        {
+            if (hasResultPreview)
+            {
+                RunResultsUI.Instance.ShowPreview(director.DeathPreviewSnapshot);
+            }
+            else if (hasFinalResult)
+            {
+                EnterRunResult(director.FinalSnapshot);
+            }
+        }
 
         if (wasManuallyPaused)
         {
@@ -546,6 +615,10 @@ public sealed class GameFlowManager : MonoBehaviour
         _pauseReasons = PauseReason.None;
         _isReviving = false;
         SetPanelActive(gameOverPanel, false);
+        if (RunResultsUI.Instance != null)
+        {
+            RunResultsUI.Instance.HidePreview();
+        }
         RefreshGameOverActions();
         ApplyPauseState();
     }

@@ -137,6 +137,12 @@ public sealed class WeaponDataSO : ScriptableObject
     [Tooltip("仅勾选该武器明确不应继承的全局属性；默认不忽略任何属性。")]
     public IgnoredPlayerWeaponStats ignoredPlayerStats = IgnoredPlayerWeaponStats.None;
 
+    /// <summary>读取武器稳定 ID；旧资产缺失时以资产名安全回退。</summary>
+    public string GetStableId()
+    {
+        return !string.IsNullOrWhiteSpace(weaponID) ? weaponID : name;
+    }
+
     /// <summary>
     /// 返回武器最大等级；空配置仍按一级处理，避免升级流程出现零级上限。
     /// </summary>

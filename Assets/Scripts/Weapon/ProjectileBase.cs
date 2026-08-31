@@ -35,6 +35,12 @@ public class ProjectileBase : MonoBehaviour, IPoolable
     {
         transform.localScale = baseLocalScale;
         hitColliders.Clear();
+        weaponData = null;
+        currentDamage = 0f;
+        currentSpeed = 0f;
+        currentPierce = 0;
+        currentBounce = 0;
+        lifeTimer = 0f;
     }
 
     // =====================================================================
@@ -117,7 +123,7 @@ public class ProjectileBase : MonoBehaviour, IPoolable
         // 先按 Enemy Layer 过滤，防止玩家实现 IDamageable 后被己方投射物误伤。
         if (!DamageTargetFilter.TryGetEnemyDamageable(collision, out IDamageable damageableEntity)) return;
 
-        damageableEntity.TakeDamage(currentDamage);
+        CombatDamageResolver.Apply(damageableEntity, currentDamage, weaponData);
 
         // 记录本次命中（用于弹射排除）
         hitColliders.Add(collision);

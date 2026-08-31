@@ -25,6 +25,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
     private Vector3 _baseRootScale;
     private Vector3 _baseVisualScale;
     private Vector2 _baseColliderSize;
+    private WeaponDataSO _weaponData;
     private float _damage;
     private float _duration;
     private float _elapsedTime;
@@ -61,6 +62,15 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         _hitColliders.Clear();
     }
 
+    /// <summary>对象池回收时清除旧武器来源、玩家跟随和本次命中集合。</summary>
+    private void OnDisable()
+    {
+        _owner = null;
+        _weaponData = null;
+        _damage = 0f;
+        _hitColliders.Clear();
+    }
+
     /// <summary>
     /// 保存原始 Prefab 引用，供挥击结束时归还正确的池。
     /// </summary>
@@ -81,6 +91,29 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         float duration,
         float startAngleOffset = 0f)
     {
+        Initialize(
+            null,
+            owner,
+            facesRight,
+            damage,
+            range,
+            arc,
+            duration,
+            startAngleOffset);
+    }
+
+    /// <summary>注入带稳定武器来源的近战挥击生命周期。</summary>
+    public void Initialize(
+        WeaponDataSO weaponData,
+        Transform owner,
+        bool facesRight,
+        float damage,
+        float range,
+        float arc,
+        float duration,
+        float startAngleOffset = 0f)
+    {
+        _weaponData = weaponData;
         _owner = owner;
         _damage = Mathf.Max(0f, damage);
         _duration = Mathf.Max(0.02f, duration);
@@ -176,7 +209,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         }
 
         _hitColliders.Add(other);
-        damageable.TakeDamage(_damage);
+        CombatDamageResolver.Apply(damageable, _damage, _weaponData);
     }
 
     /// <summary>
@@ -185,6 +218,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
     private void ReleaseToPool()
     {
         _owner = null;
+        _weaponData = null;
         _damage = 0f;
         _hitColliders.Clear();
 

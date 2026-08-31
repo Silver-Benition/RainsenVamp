@@ -2,6 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// 结果页对正式能力的展示分类。
+/// 这是明确的策划字段，不得通过 mechanic 是否为空推断，以支持未来独立 Item 机制。
+/// </summary>
+public enum AbilityPresentationCategory
+{
+    Item = 0,
+    Ability = 1
+}
+
+/// <summary>
 /// 单个正式能力等级的完整配置快照。
 /// 基础属性修改器使用累计值；运行时升级时由稳定来源整体替换，避免旧等级重复叠加。
 /// </summary>
@@ -34,6 +44,10 @@ public sealed class AbilityDataSO : ScriptableObject
     [TextArea, Tooltip("本地化系统接入前使用的直接显示描述。")]
     public string displayDescription;
     public Sprite icon;
+
+    [Header("结果页分类")]
+    [Tooltip("明确决定结果页显示在 Item 或 Ability 区域；不改变能力升级逻辑和六格容量。")]
+    public AbilityPresentationCategory presentationCategory = AbilityPresentationCategory.Ability;
 
     [Header("持有栏表现")]
     [Min(0.01f)] public float loadoutIconScale = 1f;

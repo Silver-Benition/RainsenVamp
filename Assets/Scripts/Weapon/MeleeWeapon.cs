@@ -34,6 +34,7 @@ public sealed class MeleeWeapon : WeaponBase
                 // Amount 大于零时把额外挥击均匀排布在玩家周围，避免完全重叠后退化为伤害倍增。
                 float startAngleOffset = count > 1 ? 360f * index / count : 0f;
                 swingHitbox.Initialize(
+                    weaponData,
                     transform,
                     GetHorizontalFacingSign() >= 0f,
                     GetCurrentDamage(),

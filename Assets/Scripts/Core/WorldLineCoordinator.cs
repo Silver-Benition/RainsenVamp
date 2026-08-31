@@ -47,6 +47,11 @@ public class WorldLineCoordinator : MonoBehaviour
     public bool MainWorldIsActive => mainWorldIsActive;
     public WorldWaveManager MainWorldWaveManager => mainWorld != null ? mainWorld.worldWaveManager : null;
     public WorldWaveManager SubWorldWaveManager => subWorld != null ? subWorld.worldWaveManager : null;
+    public WorldEnemySimulation ActiveWorldSimulation =>
+        mainWorldIsActive
+            ? (mainWorld != null ? mainWorld.enemySimulation : null)
+            : (subWorld != null ? subWorld.enemySimulation : null);
+    public bool IsWorldSwitchLocked { get; private set; }
 
     private void Awake()
     {
@@ -90,6 +95,11 @@ public class WorldLineCoordinator : MonoBehaviour
     /// </summary>
     public void SwitchWorldLine()
     {
+        if (IsWorldSwitchLocked)
+        {
+            return;
+        }
+
         mainWorldIsActive = !mainWorldIsActive;
         ApplyWorldStates();
 
@@ -98,6 +108,12 @@ public class WorldLineCoordinator : MonoBehaviour
         {
             Debug.Log($"玩家世界线已切换为：{activeWorld.WorldLineId}。", this);
         }
+    }
+
+    /// <summary>设置世界切换锁；Boss 生成后由 RunDirector 保持锁定到本局结束。</summary>
+    public void SetWorldSwitchLocked(bool locked)
+    {
+        IsWorldSwitchLocked = locked;
     }
 
     private void ApplyWorldStates()
