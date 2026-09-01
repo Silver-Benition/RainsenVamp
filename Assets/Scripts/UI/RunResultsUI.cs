@@ -307,7 +307,7 @@ public sealed class RunResultsUI : MonoBehaviour
             if (value != null)
             {
                 value.GetComponent<TMP_Text>().text =
-                    $"{weapon.ActualTotalDamage:F0}  |  {weapon.DamagePerSecond:F1}/s  |  首效 {FormatTime(weapon.FirstEffectTime)}";
+                    $"{weapon.ActualTotalDamage:F0}  |  {weapon.DamagePerSecond:F1}/s  |  获得时间 {FormatTime(weapon.FirstEffectTime)}";
             }
             _weaponRows.Add(row);
         }
@@ -571,10 +571,13 @@ public sealed class RunResultsUI : MonoBehaviour
         objects.Clear();
     }
 
-    /// <summary>将秒数格式化为分钟和秒，用于首效时间与生存时间。</summary>
+    /// <summary>将有限非负秒数格式化为分钟和秒，用于获得时间与生存时间。</summary>
     private static string FormatTime(float seconds)
     {
-        int totalSeconds = Mathf.FloorToInt(Mathf.Max(0f, seconds));
+        float safeSeconds = RunResultValueSanitizer.SanitizeNonNegative(seconds);
+        int totalSeconds = safeSeconds >= int.MaxValue
+            ? int.MaxValue
+            : Mathf.FloorToInt(safeSeconds);
         return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
     }
 }

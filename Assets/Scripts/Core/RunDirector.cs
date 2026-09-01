@@ -35,6 +35,7 @@ public sealed class RunDirector : MonoBehaviour
     private bool _initialWeaponScanDone;
     private PlayerHealth _boundPlayerHealth;
     private LevelUpManager _boundLevelUpManager;
+    private BossEnemyController _pendingBossDefeat;
     private float _elapsedSeconds;
 
     /// <summary>权威单局经过的缩放时间秒数；手动暂停和升级暂停期间不增长。</summary>
@@ -79,14 +80,14 @@ public sealed class RunDirector : MonoBehaviour
         ResolveDependencies();
     }
 
-    /// <summary>订阅玩家死亡/复活与武器清单变化事件。</summary>
+    /// <summary>订阅玩家死亡/复活与武器生命周期事件。</summary>
     private void OnEnable()
     {
         ResolveDependencies();
         BindRuntimeEvents();
     }
 
-    /// <summary>场景对象完成 Start 后补齐预置武器的 0 秒首效时间。</summary>
+    /// <summary>场景对象完成 Start 后补齐预置武器的 0 秒获得时间。</summary>
     private void Start()
     {
         ResolveDependencies();
@@ -120,7 +121,9 @@ public sealed class RunDirector : MonoBehaviour
             return;
         }
 
-        _elapsedSeconds += Mathf.Max(0f, Time.deltaTime);
+        _elapsedSeconds = RunResultValueSanitizer.SaturatingAdd(
+            _elapsedSeconds,
+            RunResultValueSanitizer.SanitizeNonNegative(Time.deltaTime));
         if (!_bossSpawned && bossEncounter != null &&
             _elapsedSeconds >= bossEncounter.GetSafeTriggerTime())
         {
@@ -185,7 +188,29 @@ public sealed class RunDirector : MonoBehaviour
             return;
         }
 
+        if (CombatDamageResolver.IsSettlingDamage)
+        {
+            _pendingBossDefeat = defeatedBoss;
+            return;
+        }
+
         FreezeRun(RunOutcome.Victory);
+    }
+
+    /// <summary>
+    /// 在 CombatDamageResolver 完成实际扣血记账后提交延迟的 Boss 胜利。
+    /// 该入口只消费当前首领的待结算请求，避免重复冻结或重复提交账号进度。
+    /// </summary>
+    public void FlushPendingBossDefeat()
+    {
+        if (_resultFrozen || CombatDamageResolver.IsSettlingDamage || _pendingBossDefeat == null)
+        {
+            return;
+        }
+
+        BossEnemyController pendingBoss = _pendingBossDefeat;
+        _pendingBossDefeat = null;
+        NotifyBossDefeated(pendingBoss);
     }
 
     /// <summary>
@@ -249,6 +274,7 @@ public sealed class RunDirector : MonoBehaviour
             return;
         }
 
+        _pendingBossDefeat = null;
         _resultFrozen = true;
         if (_telemetry != null)
         {
@@ -412,13 +438,15 @@ public sealed class RunDirector : MonoBehaviour
         {
             if (_boundLevelUpManager != null)
             {
-                _boundLevelUpManager.OwnedWeaponsChanged -= HandleOwnedWeaponsChanged;
+                _boundLevelUpManager.InitialWeaponsReady -= HandleInitialWeaponsReady;
+                _boundLevelUpManager.WeaponAdded -= HandleRuntimeWeaponAdded;
             }
 
             _boundLevelUpManager = levelUpManager;
             if (_boundLevelUpManager != null)
             {
-                _boundLevelUpManager.OwnedWeaponsChanged += HandleOwnedWeaponsChanged;
+                _boundLevelUpManager.InitialWeaponsReady += HandleInitialWeaponsReady;
+                _boundLevelUpManager.WeaponAdded += HandleRuntimeWeaponAdded;
             }
         }
     }
@@ -435,15 +463,17 @@ public sealed class RunDirector : MonoBehaviour
 
         if (_boundLevelUpManager != null)
         {
-            _boundLevelUpManager.OwnedWeaponsChanged -= HandleOwnedWeaponsChanged;
+            _boundLevelUpManager.InitialWeaponsReady -= HandleInitialWeaponsReady;
+            _boundLevelUpManager.WeaponAdded -= HandleRuntimeWeaponAdded;
             _boundLevelUpManager = null;
         }
     }
 
-    /// <summary>在正式管理器已完成初始化后登记起始武器的 0 秒首效时间。</summary>
+    /// <summary>在 LevelUpManager 明确发布初始化完成后登记起始武器的 0 秒获得时间。</summary>
     private void SyncInitialWeapons()
     {
-        if (_initialWeaponScanDone || _telemetry == null || levelUpManager == null)
+        if (_initialWeaponScanDone || _telemetry == null || levelUpManager == null ||
+            !levelUpManager.IsInitialWeaponsReady)
         {
             return;
         }
@@ -452,16 +482,22 @@ public sealed class RunDirector : MonoBehaviour
         _initialWeaponScanDone = true;
     }
 
-    /// <summary>武器首次加入时记录获得时间；开局前后极短窗口仍按起始 0 秒处理。</summary>
-    private void HandleOwnedWeaponsChanged()
+    /// <summary>收到明确的初始武器完成事件后执行一次起始扫描。</summary>
+    private void HandleInitialWeaponsReady()
     {
-        if (_telemetry == null || levelUpManager == null || _resultFrozen)
+        SyncInitialWeapons();
+    }
+
+    /// <summary>只为正式新增武器登记获得时间；升级事件不会重置既有获得时间。</summary>
+    private void HandleRuntimeWeaponAdded(WeaponBase weapon)
+    {
+        if (_telemetry == null || levelUpManager == null || _resultFrozen || weapon == null ||
+            weapon.weaponData == null || !levelUpManager.IsInitialWeaponsReady)
         {
             return;
         }
 
-        bool initialWindow = !_initialWeaponScanDone || _elapsedSeconds <= 0.05f;
-        _telemetry.SyncOwnedWeapons(levelUpManager.OwnedWeapons, _elapsedSeconds, initialWindow);
-        _initialWeaponScanDone = true;
+        SyncInitialWeapons();
+        _telemetry.RegisterRuntimeWeapon(weapon.weaponData, _elapsedSeconds);
     }
 }

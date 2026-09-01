@@ -9,8 +9,8 @@ public readonly struct CombatDamageResult
     /// <summary>建立一次伤害结算结果。</summary>
     public CombatDamageResult(float requestedDamage, float appliedDamage, bool accepted, bool targetDefeated)
     {
-        RequestedDamage = Mathf.Max(0f, requestedDamage);
-        AppliedDamage = Mathf.Max(0f, appliedDamage);
+        RequestedDamage = RunResultValueSanitizer.SanitizeNonNegative(requestedDamage);
+        AppliedDamage = RunResultValueSanitizer.SanitizeNonNegative(appliedDamage);
         Accepted = accepted;
         TargetDefeated = targetDefeated;
     }
@@ -44,6 +44,11 @@ public interface ICombatDamageTarget
 /// </summary>
 public static class CombatDamageResolver
 {
+    private static int _damageSettlementDepth;
+
+    /// <summary>返回当前是否正处于伤害结果提交窗口，供 Boss 胜利出口延迟冻结。</summary>
+    internal static bool IsSettlingDamage => _damageSettlementDepth > 0;
+
     /// <summary>
     /// 对一个敌方伤害目标结算武器伤害，并将实际扣血记录到指定或当前局遥测。
     /// </summary>
@@ -60,7 +65,7 @@ public static class CombatDamageResolver
         bool isCritical = false,
         RunTelemetry telemetry = null)
     {
-        float safeDamage = Mathf.Max(0f, damage);
+        float safeDamage = RunResultValueSanitizer.SanitizeNonNegative(damage);
         if (target == null || safeDamage <= 0f)
         {
             return new CombatDamageResult(safeDamage, 0f, false, false);
@@ -73,29 +78,58 @@ public static class CombatDamageResolver
         }
 
         ICombatDamageTarget combatTarget = target as ICombatDamageTarget;
-        CombatDamageResult result;
-        if (combatTarget != null)
+        CombatDamageResult result = default(CombatDamageResult);
+        BeginDamageSettlement();
+        try
         {
-            result = combatTarget.ApplyCombatDamage(safeDamage, isCritical);
+            if (combatTarget != null)
+            {
+                result = combatTarget.ApplyCombatDamage(safeDamage, isCritical);
+            }
+            else
+            {
+                // 兼容尚未迁移的 IDamageable：旧目标无法返回实际扣血，只能把已接受的请求视作实际值。
+                // 正式敌人均实现 ICombatDamageTarget，因此生产统计不会走这里。
+                target.TakeDamage(safeDamage, isCritical);
+                result = new CombatDamageResult(safeDamage, safeDamage, true, false);
+            }
+
+            if (result.AppliedDamage > 0f && weaponData != null)
+            {
+                RunTelemetry targetTelemetry = telemetry ?? RunTelemetry.Active;
+                if (targetTelemetry != null)
+                {
+                    float effectTime = director != null ? director.ElapsedSeconds : 0f;
+                    targetTelemetry.RecordWeaponDamage(weaponData, result.AppliedDamage, effectTime);
+                }
+            }
         }
-        else
+        finally
         {
-            // 兼容尚未迁移的 IDamageable：旧目标无法返回实际扣血，只能把已接受的请求视作实际值。
-            // 正式敌人均实现 ICombatDamageTarget，因此生产统计不会走这里。
-            target.TakeDamage(safeDamage, isCritical);
-            result = new CombatDamageResult(safeDamage, safeDamage, true, false);
+            EndDamageSettlement();
         }
 
-        if (result.AppliedDamage > 0f && weaponData != null)
+        // Boss 的 Die() 可能在 ApplyCombatDamage() 内同步触发；必须等实际扣血完成记账后再冻结快照。
+        if (director != null)
         {
-            RunTelemetry targetTelemetry = telemetry ?? RunTelemetry.Active;
-            if (targetTelemetry != null)
-            {
-                float effectTime = director != null ? director.ElapsedSeconds : 0f;
-                targetTelemetry.RecordWeaponDamage(weaponData, result.AppliedDamage, effectTime);
-            }
+            director.FlushPendingBossDefeat();
         }
 
         return result;
+    }
+
+    /// <summary>进入可嵌套的伤害结算深度，保护同步死亡回调不提前冻结结果。</summary>
+    private static void BeginDamageSettlement()
+    {
+        if (_damageSettlementDepth < int.MaxValue)
+        {
+            _damageSettlementDepth++;
+        }
+    }
+
+    /// <summary>离开伤害结算深度；异常也必须恢复深度，避免后续胜利出口永久挂起。</summary>
+    private static void EndDamageSettlement()
+    {
+        _damageSettlementDepth = Mathf.Max(0, _damageSettlementDepth - 1);
     }
 }

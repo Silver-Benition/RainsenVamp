@@ -208,15 +208,16 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     /// </summary>
     public CombatDamageResult ApplyCombatDamage(float damage, bool isCritical)
     {
+        float safeDamage = RunResultValueSanitizer.SanitizeNonNegative(damage);
         // 回池后的对象已恢复下一生命周期基础生命，但在再次 Spawn 前必须拒绝所有外部伤害。
-        if (!isActiveAndEnabled || damage <= 0f || _currentHealth <= 0f ||
+        if (!isActiveAndEnabled || safeDamage <= 0f || _currentHealth <= 0f ||
             (RunDirector.Instance != null && RunDirector.Instance.IsResultFrozen))
         {
-            return new CombatDamageResult(damage, 0f, false, _currentHealth <= 0f);
+            return new CombatDamageResult(safeDamage, 0f, false, _currentHealth <= 0f);
         }
 
         float previousHealth = _currentHealth;
-        float appliedDamage = Mathf.Min(previousHealth, Mathf.Max(0f, damage));
+        float appliedDamage = Mathf.Min(previousHealth, safeDamage);
         _currentHealth = Mathf.Max(0f, previousHealth - appliedDamage);
         if (_hitFlash != null)
         {
@@ -228,12 +229,13 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
             DamagePopupManager.Instance.Show(appliedDamage, transform.position, isCritical);
         }
 
-        if (_currentHealth <= 0f)
+        bool targetDefeated = _currentHealth <= 0f;
+        if (targetDefeated)
         {
             Die();
         }
 
-        return new CombatDamageResult(damage, appliedDamage, true, _currentHealth <= 0f);
+        return new CombatDamageResult(safeDamage, appliedDamage, true, targetDefeated);
     }
 
     /// <summary>登记击杀、生成经验与概率掉落，并把敌人归还对应对象池。</summary>

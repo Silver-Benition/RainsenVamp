@@ -49,9 +49,9 @@ public sealed class RunResultWeaponSnapshot
         Icon = icon;
         CurrentLevel = Mathf.Max(1, currentLevel);
         MaxLevel = Mathf.Max(CurrentLevel, maxLevel);
-        ActualTotalDamage = Mathf.Max(0f, actualTotalDamage);
-        FirstEffectTime = Mathf.Max(0f, firstEffectTime);
-        DamagePerSecond = Mathf.Max(0f, damagePerSecond);
+        ActualTotalDamage = RunResultValueSanitizer.SanitizeNonNegative(actualTotalDamage);
+        FirstEffectTime = RunResultValueSanitizer.SanitizeNonNegative(firstEffectTime);
+        DamagePerSecond = RunResultValueSanitizer.SanitizeNonNegative(damagePerSecond);
     }
 
     public string WeaponId { get; }
@@ -155,7 +155,7 @@ public sealed class RunResultSnapshot
         IsPreview = isPreview;
         MapNameKey = mapNameKey ?? string.Empty;
         MapDisplayName = string.IsNullOrWhiteSpace(mapDisplayName) ? "双世界试炼" : mapDisplayName;
-        SurvivalTimeSeconds = Mathf.Max(0f, survivalTimeSeconds);
+        SurvivalTimeSeconds = RunResultValueSanitizer.SanitizeNonNegative(survivalTimeSeconds);
         Gold = Mathf.Max(0, gold);
         Kills = Mathf.Max(0, kills);
         Level = Mathf.Max(1, level);

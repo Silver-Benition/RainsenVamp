@@ -65,6 +65,12 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>玩家持有武器的种类或等级变化时触发，供 HUD 等只读表现层刷新。</summary>
     public event Action OwnedWeaponsChanged;
 
+    /// <summary>默认武器与角色起始武器登记完成后触发，供统计系统建立起始快照。</summary>
+    public event Action InitialWeaponsReady;
+
+    /// <summary>正式新增武器后触发；升级已有武器不会触发此事件。</summary>
+    public event Action<WeaponBase> WeaponAdded;
+
     /// <summary>宝箱成功授予武器后触发，供奖励横幅等表现层显示来源与最终等级。</summary>
     public event Action<ChestRewardResult> ChestRewardGranted;
 
@@ -114,7 +120,12 @@ public class LevelUpManager : MonoBehaviour
         // 这样升级系统才能感知到默认武器的存在，避免重复发放 / 正确处理升级等级
         RegisterDefaultWeapons();
         EnsureCharacterStartingWeapon();
+        IsInitialWeaponsReady = true;
+        InitialWeaponsReady?.Invoke();
     }
+
+    /// <summary>是否已经完成本局起始武器扫描。</summary>
+    public bool IsInitialWeaponsReady { get; private set; }
 
     /// <summary>销毁时释放单例引用，避免场景重载后其他系统取得失效管理器。</summary>
     private void OnDestroy()
@@ -409,6 +420,7 @@ public class LevelUpManager : MonoBehaviour
         }
 
         NotifyOwnedWeaponsChanged();
+        WeaponAdded?.Invoke(weaponBase);
         Debug.Log($"获得新武器: {weaponData.weaponNameKey} Lv.{weaponBase.CurrentLevel}/{weaponBase.MaxLevel}");
         return weaponBase;
     }

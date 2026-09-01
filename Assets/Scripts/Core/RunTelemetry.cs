@@ -30,6 +30,10 @@ public sealed class RunTelemetry
         new Dictionary<string, PickupRecord>(StringComparer.Ordinal);
     private readonly List<PickupRecord> _pickupOrder = new List<PickupRecord>(8);
     private bool _frozen;
+    private float _lastRuntimeWeaponAcquisitionTime;
+    private bool _hasRuntimeWeaponAcquisitionTime;
+
+    private const float RuntimeWeaponAcquisitionEpsilon = 0.000001f;
 
     /// <summary>当前场景被 CombatDamageResolver 使用的遥测实例。</summary>
     public static RunTelemetry Active { get; private set; }
@@ -45,7 +49,7 @@ public sealed class RunTelemetry
 
     /// <summary>
     /// 同步正式持有的武器列表。
-    /// 初始扫描使用 0 秒；后续新武器按调用方提供的正式获得时间登记，升级不会重置首效时间。
+    /// 初始扫描使用 0 秒；后续新武器按调用方提供的正式获得时间登记，升级不会重置获得时间。
     /// </summary>
     public void SyncOwnedWeapons(IReadOnlyList<WeaponBase> ownedWeapons, float officialTimeSeconds, bool initialScan)
     {
@@ -54,7 +58,9 @@ public sealed class RunTelemetry
             return;
         }
 
-        float safeTime = initialScan ? 0f : Mathf.Max(0f, officialTimeSeconds);
+        float safeTime = initialScan
+            ? 0f
+            : RunResultValueSanitizer.SanitizeNonNegative(officialTimeSeconds);
         for (int index = 0; index < ownedWeapons.Count; index++)
         {
             WeaponBase weapon = ownedWeapons[index];
@@ -88,7 +94,7 @@ public sealed class RunTelemetry
         {
             data = data,
             stableId = stableId,
-            firstEffectTime = Mathf.Max(0f, officialTimeSeconds),
+            firstEffectTime = RunResultValueSanitizer.SanitizeNonNegative(officialTimeSeconds),
             actualDamage = 0f
         };
         _weaponsById.Add(stableId, record);
@@ -97,12 +103,46 @@ public sealed class RunTelemetry
     }
 
     /// <summary>
+    /// 登记运行期间新获得的武器，并强制其获得时间严格晚于起始扫描和上一把运行时武器。
+    /// 该时序由事件语义保证，不依赖首帧时长或任意时间窗口启发式。
+    /// </summary>
+    public bool RegisterRuntimeWeapon(WeaponDataSO data, float observedTimeSeconds)
+    {
+        if (_frozen || data == null)
+        {
+            return false;
+        }
+
+        float safeObservedTime = RunResultValueSanitizer.SanitizeNonNegative(observedTimeSeconds);
+        if (!_hasRuntimeWeaponAcquisitionTime && safeObservedTime <= 0f)
+        {
+            safeObservedTime = RuntimeWeaponAcquisitionEpsilon;
+        }
+        else if (_hasRuntimeWeaponAcquisitionTime && safeObservedTime <= _lastRuntimeWeaponAcquisitionTime)
+        {
+            safeObservedTime = RunResultValueSanitizer.SaturatingAdd(
+                _lastRuntimeWeaponAcquisitionTime,
+                RuntimeWeaponAcquisitionEpsilon);
+        }
+
+        bool registered = RegisterWeapon(data, safeObservedTime);
+        if (registered)
+        {
+            _lastRuntimeWeaponAcquisitionTime = safeObservedTime;
+            _hasRuntimeWeaponAcquisitionTime = true;
+        }
+
+        return registered;
+    }
+
+    /// <summary>
     /// 记录一笔武器实际扣血。
     /// 未提前登记的来源会以当前效果时间补登记，兼容测试夹具和动态创建武器。
     /// </summary>
     public void RecordWeaponDamage(WeaponDataSO data, float actualDamage, float effectTimeSeconds)
     {
-        if (_frozen || data == null || actualDamage <= 0f)
+        float safeDamage = RunResultValueSanitizer.SanitizeNonNegative(actualDamage);
+        if (_frozen || data == null || safeDamage <= 0f)
         {
             return;
         }
@@ -124,10 +164,7 @@ public sealed class RunTelemetry
             return;
         }
 
-        float safeDamage = Mathf.Min(float.MaxValue, actualDamage);
-        record.actualDamage = record.actualDamage >= float.MaxValue - safeDamage
-            ? float.MaxValue
-            : record.actualDamage + safeDamage;
+        record.actualDamage = RunResultValueSanitizer.SaturatingAdd(record.actualDamage, safeDamage);
     }
 
     /// <summary>在地图即时效果真正成功后累计一次拾取；相同稳定 ID 聚合为一个结果行。</summary>
@@ -170,13 +207,13 @@ public sealed class RunTelemetry
         _frozen = true;
     }
 
-    /// <summary>按武器首次获得顺序生成结果行，并计算从首效时间到结算时间的实际 DPS。</summary>
+    /// <summary>按武器首次获得顺序生成结果行，并计算从获得时间到结算时间的实际 DPS。</summary>
     public List<RunResultWeaponSnapshot> CreateWeaponSnapshots(
         float finalTimeSeconds,
         IReadOnlyList<WeaponBase> ownedWeapons)
     {
         var snapshots = new List<RunResultWeaponSnapshot>(_weaponOrder.Count);
-        float safeFinalTime = Mathf.Max(0f, finalTimeSeconds);
+        float safeFinalTime = RunResultValueSanitizer.SanitizeNonNegative(finalTimeSeconds);
         for (int index = 0; index < _weaponOrder.Count; index++)
         {
             WeaponRecord record = _weaponOrder[index];
@@ -200,8 +237,10 @@ public sealed class RunTelemetry
                 }
             }
 
-            float activeDuration = Mathf.Max(0f, safeFinalTime - record.firstEffectTime);
-            float dps = activeDuration > 0.0001f ? record.actualDamage / activeDuration : 0f;
+            float dps = RunResultValueSanitizer.CalculateDamagePerSecond(
+                record.actualDamage,
+                record.firstEffectTime,
+                safeFinalTime);
             snapshots.Add(new RunResultWeaponSnapshot(
                 record.stableId,
                 record.data.weaponNameKey,

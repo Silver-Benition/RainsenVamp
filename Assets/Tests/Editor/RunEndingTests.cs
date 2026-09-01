@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace RainsenVampSur.Tests
@@ -44,6 +45,97 @@ namespace RainsenVampSur.Tests
             {
                 Object.DestroyImmediate(firstWeapon);
                 Object.DestroyImmediate(secondWeapon);
+            }
+        }
+
+        /// <summary>运行期间新武器必须使用显式获得事件时间，升级或重复事件不得重置原时间。</summary>
+        [Test]
+        public void RunTelemetry_显式运行时获得事件_获得时间严格晚于起始扫描()
+        {
+            WeaponDataSO initialWeapon = CreateWeapon("weapon.telemetry.initial", "起始武器", 3);
+            WeaponDataSO runtimeWeapon = CreateWeapon("weapon.telemetry.runtime", "运行时武器", 3);
+            var telemetry = new RunTelemetry();
+
+            try
+            {
+                Assert.IsTrue(telemetry.RegisterWeapon(initialWeapon, 0f));
+                Assert.IsTrue(telemetry.RegisterRuntimeWeapon(runtimeWeapon, 0f));
+                Assert.IsFalse(telemetry.RegisterRuntimeWeapon(runtimeWeapon, 0f));
+
+                List<RunResultWeaponSnapshot> rows = telemetry.CreateWeaponSnapshots(1f, null);
+                Assert.That(rows.Count, Is.EqualTo(2));
+                Assert.That(rows[0].FirstEffectTime, Is.EqualTo(0f).Within(FloatTolerance));
+                Assert.That(rows[1].FirstEffectTime, Is.GreaterThan(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(initialWeapon);
+                Object.DestroyImmediate(runtimeWeapon);
+            }
+        }
+
+        /// <summary>结果统计遇到 NaN、无穷大和饱和累加时，所有浮点字段必须保持有限非负。</summary>
+        [Test]
+        public void RunResultStats_异常浮点与溢出边界_快照保持有限非负()
+        {
+            WeaponDataSO weapon = CreateWeapon("weapon.telemetry.finite", "有限值武器", 1);
+            var telemetry = new RunTelemetry();
+
+            try
+            {
+                Assert.IsTrue(telemetry.RegisterWeapon(weapon, float.NaN));
+                telemetry.RecordWeaponDamage(weapon, float.NaN, float.NaN);
+                telemetry.RecordWeaponDamage(weapon, float.PositiveInfinity, float.PositiveInfinity);
+                telemetry.RecordWeaponDamage(weapon, float.MaxValue, float.MaxValue);
+
+                List<RunResultWeaponSnapshot> rows = telemetry.CreateWeaponSnapshots(
+                    float.PositiveInfinity,
+                    null);
+
+                Assert.That(rows.Count, Is.EqualTo(1));
+                AssertFiniteNonNegative(rows[0].ActualTotalDamage, "ActualTotalDamage");
+                AssertFiniteNonNegative(rows[0].FirstEffectTime, "FirstEffectTime");
+                AssertFiniteNonNegative(rows[0].DamagePerSecond, "DamagePerSecond");
+                Assert.That(rows[0].ActualTotalDamage, Is.EqualTo(float.MaxValue));
+
+                List<RunResultWeaponSnapshot> zeroDurationRows = telemetry.CreateWeaponSnapshots(0f, null);
+                Assert.That(zeroDurationRows[0].DamagePerSecond, Is.EqualTo(0f));
+
+                var snapshot = new RunResultSnapshot(
+                    RunOutcome.Victory,
+                    false,
+                    "map.test",
+                    "测试地图",
+                    float.PositiveInfinity,
+                    0,
+                    0,
+                    1,
+                    new RunResultCharacterSnapshot("character.test", "character.test.name", "测试角色", null),
+                    new List<RunResultWeaponSnapshot>
+                    {
+                        new RunResultWeaponSnapshot(
+                            weapon.weaponID,
+                            weapon.weaponNameKey,
+                            weapon.weaponDisplayName,
+                            null,
+                            1,
+                            1,
+                            float.NaN,
+                            float.PositiveInfinity,
+                            float.NegativeInfinity)
+                    },
+                    new List<RunResultAbilitySnapshot>(),
+                    new List<RunResultAbilitySnapshot>(),
+                    new List<RunResultPickupSnapshot>());
+
+                AssertFiniteNonNegative(snapshot.SurvivalTimeSeconds, "SurvivalTimeSeconds");
+                AssertFiniteNonNegative(snapshot.Weapons[0].ActualTotalDamage, "Snapshot.ActualTotalDamage");
+                AssertFiniteNonNegative(snapshot.Weapons[0].FirstEffectTime, "Snapshot.FirstEffectTime");
+                AssertFiniteNonNegative(snapshot.Weapons[0].DamagePerSecond, "Snapshot.DamagePerSecond");
+            }
+            finally
+            {
+                Object.DestroyImmediate(weapon);
             }
         }
 
@@ -251,6 +343,32 @@ namespace RainsenVampSur.Tests
             }
         }
 
+        /// <summary>武装巨像配置必须引用 EnemyProjectile Prefab 资产，而不是 EnemyProjectile 脚本 GUID。</summary>
+        [Test]
+        public void ArmedColossus_弹体引用_指向EnemyProjectilePrefab资产()
+        {
+            const string bossDataPath = "Assets/Data/Boss/ArmedColossus.asset";
+            const string projectilePath = "Assets/Prefab/Enemy/EnemyProjectile_1.prefab";
+            const string bossPrefabPath = "Assets/Prefab/Enemy/BossArmedColossus.prefab";
+
+            BossDataSO bossData = AssetDatabase.LoadAssetAtPath<BossDataSO>(bossDataPath);
+            GameObject projectilePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(projectilePath);
+            GameObject bossPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(bossPrefabPath);
+
+            Assert.IsNotNull(bossData, $"找不到 {bossDataPath}。");
+            Assert.IsNotNull(projectilePrefab, $"找不到 {projectilePath}。");
+            Assert.IsNotNull(bossPrefab, $"找不到 {bossPrefabPath}。");
+            Assert.AreSame(projectilePrefab, bossData.projectilePrefab);
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(projectilePath),
+                Is.EqualTo("d4a812c67e0f49bbc5a043e926c81317"));
+            BossEnemyController bossController = bossPrefab.GetComponent<BossEnemyController>();
+            Assert.IsNotNull(bossController);
+            Assert.IsNull(
+                bossController.enemyData,
+                "Boss Prefab 不应绑定普通 EnemyDataSO 掉落入口。");
+        }
+
         /// <summary>创建测试用武器资产，使用稳定 ID 和显式等级配置避免依赖项目内容资产。</summary>
         private static WeaponDataSO CreateWeapon(string id, string displayName, int maxLevel)
         {
@@ -281,6 +399,14 @@ namespace RainsenVampSur.Tests
             data.displayName = displayName;
             data.sortOrder = sortOrder;
             return data;
+        }
+
+        /// <summary>断言结果页使用的浮点值既不是 NaN/Infinity，也没有负数。</summary>
+        private static void AssertFiniteNonNegative(float value, string fieldName)
+        {
+            Assert.IsFalse(float.IsNaN(value), $"{fieldName} 不得为 NaN。");
+            Assert.IsFalse(float.IsInfinity(value), $"{fieldName} 不得为 Infinity。");
+            Assert.That(value, Is.GreaterThanOrEqualTo(0f), $"{fieldName} 不得为负数。");
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -110,6 +111,62 @@ namespace RainsenVampSur.Tests.PlayMode
             yield return null;
 
             Assert.That(RuntimeComponentTestUtility.GetProperty<int>(runStats, "KillCount"), Is.EqualTo(1));
+        }
+
+        /// <summary>真实对象池敌人致死后，伤害收据仍必须报告 TargetDefeated=true。</summary>
+        [UnityTest]
+        public IEnumerator EnemyPool_致死伤害回池_返回结果保留死亡状态()
+        {
+            GameObject managerObject = CreateTrackedGameObject("PlayModeTest_LethalDamagePoolManager");
+            Component poolManager = RuntimeComponentTestUtility.AddRuntimeComponent(
+                managerObject,
+                "PoolManager");
+
+            ScriptableObject enemyData = TrackObject(
+                RuntimeComponentTestUtility.CreateRuntimeScriptableObject("EnemyDataSO"));
+            RuntimeComponentTestUtility.SetField(enemyData, "maxHealth", 10f);
+
+            GameObject template = CreateTrackedGameObject("PlayModeTest_LethalDamageEnemyTemplate", false);
+            Rigidbody2D body = template.AddComponent<Rigidbody2D>();
+            body.gravityScale = 0f;
+            template.AddComponent<BoxCollider2D>();
+            Component templateEnemy = RuntimeComponentTestUtility.AddRuntimeComponent(template, "EnemyBase");
+            RuntimeComponentTestUtility.SetField(templateEnemy, "enemyData", enemyData);
+
+#if UNITY_EDITOR
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex("PoolManager\\.Spawn 收到的对象不是 Prefab 资产"));
+#endif
+            GameObject enemyInstance = TrackObject((GameObject)RuntimeComponentTestUtility.Invoke(
+                poolManager,
+                "Spawn",
+                template,
+                Vector3.zero,
+                Quaternion.identity));
+            Component enemy = enemyInstance.GetComponent("EnemyBase");
+            object telemetry = Activator.CreateInstance(
+                RuntimeComponentTestUtility.RequireRuntimeType("RunTelemetry"));
+
+            object result = RuntimeComponentTestUtility.InvokeStatic(
+                RuntimeComponentTestUtility.RequireRuntimeType("CombatDamageResolver"),
+                "Apply",
+                enemy,
+                10f,
+                null,
+                false,
+                telemetry);
+
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(result, "Accepted"));
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(result, "TargetDefeated"),
+                "敌人在 ApplyCombatDamage 内回池后，返回结果仍必须保留本次死亡状态。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(result, "AppliedDamage"),
+                Is.EqualTo(10f).Within(FloatTolerance));
+            Assert.IsFalse(enemyInstance.activeSelf, "致死敌人必须从对象池回收并停用。");
+
+            yield return null;
         }
     }
 }

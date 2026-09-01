@@ -33,5 +33,5 @@ MonoBehaviour:
     projectileDamage: 12
     projectileSpeed: 5.5
     projectileLifetime: 6
-  projectilePrefab: {fileID: 2303125396859290572, guid: 5c74a75555fb40f596f98e07c14c498f, type: 3}
+  projectilePrefab: {fileID: 2303125396859290572, guid: d4a812c67e0f49bbc5a043e926c81317, type: 3}
   warningVfxPrefab: {fileID: 9100002001, guid: b8c42e6f9a1357d0c4e8b1f3a6d92750, type: 3}

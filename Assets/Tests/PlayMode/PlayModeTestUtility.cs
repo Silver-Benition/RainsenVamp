@@ -87,6 +87,8 @@ namespace RainsenVampSur.Tests.PlayMode
         private const string RuntimeAssemblyName = "Assembly-CSharp";
         private const BindingFlags AllInstanceMembers =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private const BindingFlags AllStaticMembers =
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
         /// <summary>在默认运行时程序集中取得必需类型。</summary>
         public static Type RequireRuntimeType(string typeName)
@@ -143,14 +145,54 @@ namespace RainsenVampSur.Tests.PlayMode
             return (T)property.GetValue(target, null);
         }
 
+        /// <summary>读取生产对象公开或私有字段，用于验证池化生命周期后的来源清理。</summary>
+        public static T GetFieldValue<T>(object target, string fieldName)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            FieldInfo field = FindRequiredField(target.GetType(), fieldName);
+            return (T)field.GetValue(target);
+        }
+
         /// <summary>调用参数数量和运行时类型匹配的生产方法，并展开反射包装异常。</summary>
         public static object Invoke(object target, string methodName, params object[] arguments)
         {
-            MethodInfo method = FindRequiredMethod(target.GetType(), methodName, arguments);
+            MethodInfo method = FindRequiredMethod(
+                target.GetType(),
+                methodName,
+                arguments,
+                AllInstanceMembers);
 
             try
             {
                 return method.Invoke(target, arguments);
+            }
+            catch (TargetInvocationException exception)
+            {
+                throw exception.InnerException ?? exception;
+            }
+        }
+
+        /// <summary>调用默认运行时程序集中的静态生产方法，并展开反射包装异常。</summary>
+        public static object InvokeStatic(Type targetType, string methodName, params object[] arguments)
+        {
+            if (targetType == null)
+            {
+                throw new ArgumentNullException(nameof(targetType));
+            }
+
+            MethodInfo method = FindRequiredMethod(
+                targetType,
+                methodName,
+                arguments,
+                AllStaticMembers);
+
+            try
+            {
+                return method.Invoke(null, arguments);
             }
             catch (TargetInvocationException exception)
             {
@@ -182,9 +224,10 @@ namespace RainsenVampSur.Tests.PlayMode
         private static MethodInfo FindRequiredMethod(
             Type targetType,
             string methodName,
-            object[] arguments)
+            object[] arguments,
+            BindingFlags memberFlags)
         {
-            MethodInfo[] methods = targetType.GetMethods(AllInstanceMembers);
+            MethodInfo[] methods = targetType.GetMethods(memberFlags);
             for (int methodIndex = 0; methodIndex < methods.Length; methodIndex++)
             {
                 MethodInfo candidate = methods[methodIndex];
