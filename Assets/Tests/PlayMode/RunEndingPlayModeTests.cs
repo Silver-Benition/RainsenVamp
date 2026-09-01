@@ -15,6 +15,17 @@ namespace RainsenVampSur.Tests.PlayMode
         private const string MainSceneName = "MainLevel";
         private const float FloatTolerance = 0.0001f;
 
+        /// <summary>真实 MainLevel Boss 弹幕测试所需的活动世界、非活动世界和正式 Prefab 上下文。</summary>
+        private sealed class BossEncounterFixture
+        {
+            public Component director;
+            public Component coordinator;
+            public Component boss;
+            public Component activeSimulation;
+            public Component inactiveSimulation;
+            public GameObject projectilePrefab;
+        }
+
         /// <summary>120 秒遭遇配置可在当前活动世界生成首领，并锁定世界切换但保留正常运行。</summary>
         [UnityTest]
         public IEnumerator MainLevel_RunDirector_生成武装巨像并锁定世界切换()
@@ -82,6 +93,66 @@ namespace RainsenVampSur.Tests.PlayMode
                 RuntimeComponentTestUtility.GetProperty<bool>(boss, "IsPhaseTwoActive"),
                 "Boss 生命值降至 50% 后未进入第二阶段。");
             Assert.That(Time.timeScale, Is.EqualTo(1f).Within(FloatTolerance), "仅进入二阶段不应冻结游戏。");
+        }
+
+        /// <summary>真实 Boss 第一阶段必须在 3 秒边界后发射恰好 8 枚正式弹体并保持正确属性与世界归属。</summary>
+        [UnityTest]
+        public IEnumerator MainLevel_Boss弹幕第一阶段_三秒边界与正式弹体属性()
+        {
+            yield return SceneManager.LoadSceneAsync(MainSceneName, LoadSceneMode.Single);
+            yield return null;
+
+            BossEncounterFixture fixture = PrepareBossEncounter();
+            AssertNoActiveProjectiles(fixture, "第一阶段发射前");
+
+            yield return new WaitForSeconds(2.75f);
+            AssertNoActiveProjectiles(fixture, "第一阶段 3 秒边界前");
+
+            yield return WaitUntil(
+                () => GetActiveProjectiles(fixture.activeSimulation).Count >= 8,
+                0.75f,
+                "第一阶段跨过 3 秒边界后未观察到 8 枚 Boss 弹体。");
+
+            List<Component> projectiles = GetActiveProjectiles(fixture.activeSimulation);
+            AssertBossBarrageProjectiles(fixture, projectiles, 8, 10f, 4.5f, "第一阶段");
+        }
+
+        /// <summary>真实 Boss 第二阶段必须在生命降至 50% 后重置 2 秒边界并发射恰好 12 枚正式弹体。</summary>
+        [UnityTest]
+        public IEnumerator MainLevel_Boss弹幕第二阶段_两秒边界与正式弹体属性()
+        {
+            yield return SceneManager.LoadSceneAsync(MainSceneName, LoadSceneMode.Single);
+            yield return null;
+
+            BossEncounterFixture fixture = PrepareBossEncounter();
+            AssertNoActiveProjectiles(fixture, "第二阶段切换前");
+
+            object phaseDamage = RuntimeComponentTestUtility.Invoke(
+                fixture.boss,
+                "ApplyCombatDamage",
+                400f,
+                false);
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(phaseDamage, "Accepted"));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(fixture.boss, "CurrentHealth"),
+                Is.EqualTo(400f).Within(FloatTolerance));
+
+            // Boss 在下一次 Update 中依据真实生命值切入第二阶段并将弹幕计时器重置为 2 秒。
+            yield return null;
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(fixture.boss, "IsPhaseTwoActive"),
+                "Boss 降至 50% 后未进入第二阶段。");
+
+            yield return new WaitForSeconds(1.75f);
+            AssertNoActiveProjectiles(fixture, "第二阶段 2 秒边界前");
+
+            yield return WaitUntil(
+                () => GetActiveProjectiles(fixture.activeSimulation).Count >= 12,
+                0.75f,
+                "第二阶段跨过 2 秒边界后未观察到 12 枚 Boss 弹体。");
+
+            List<Component> projectiles = GetActiveProjectiles(fixture.activeSimulation);
+            AssertBossBarrageProjectiles(fixture, projectiles, 12, 12f, 5.5f, "第二阶段");
         }
 
         /// <summary>真实 Boss 致死命中必须先写入实际伤害，再只冻结一次胜利结果。</summary>
@@ -492,6 +563,204 @@ namespace RainsenVampSur.Tests.PlayMode
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 从真实 MainLevel 建立 Boss 弹幕夹具。
+        /// 仅禁用测试夹具内两套普通波次组件，保留 BossEncounter、Boss Prefab、EnemyProjectile Prefab 和双世界模拟器的生产引用。
+        /// </summary>
+        private static BossEncounterFixture PrepareBossEncounter()
+        {
+            Component director = Object.FindObjectOfType(
+                RuntimeComponentTestUtility.RequireRuntimeType("RunDirector")) as Component;
+            Component coordinator = Object.FindObjectOfType(
+                RuntimeComponentTestUtility.RequireRuntimeType("WorldLineCoordinator")) as Component;
+            Assert.IsNotNull(director, "MainLevel 缺少 RunDirector。");
+            Assert.IsNotNull(coordinator, "MainLevel 缺少 WorldLineCoordinator。");
+            Assert.IsTrue(
+                RuntimeComponentTestUtility.GetProperty<bool>(coordinator, "MainWorldIsActive"),
+                "Boss 弹幕夹具预期从主世界活动状态开始。");
+
+            DisableWaveManager(coordinator, "MainWorldWaveManager");
+            DisableWaveManager(coordinator, "SubWorldWaveManager");
+
+            Assert.IsTrue(
+                (bool)RuntimeComponentTestUtility.Invoke(director, "DebugTriggerBossEncounter"),
+                "Boss 遭遇未能从正式 Encounter 数据生成。");
+
+            Component activeSimulation = RuntimeComponentTestUtility.GetProperty<object>(
+                coordinator,
+                "ActiveWorldSimulation") as Component;
+            Assert.IsNotNull(activeSimulation, "当前活动世界缺少 WorldEnemySimulation。");
+
+            Type simulationType = RuntimeComponentTestUtility.RequireRuntimeType("WorldEnemySimulation");
+            Component[] simulations = coordinator.GetComponentsInChildren(simulationType, true);
+            Assert.That(simulations.Length, Is.EqualTo(2), "MainLevel 必须保留主/副两套世界模拟器。");
+            Component inactiveSimulation = null;
+            for (int index = 0; index < simulations.Length; index++)
+            {
+                if (simulations[index] != activeSimulation)
+                {
+                    inactiveSimulation = simulations[index];
+                    break;
+                }
+            }
+
+            Assert.IsNotNull(inactiveSimulation, "未能找到非活动世界模拟器。");
+            Component boss = activeSimulation.GetComponentInChildren(
+                RuntimeComponentTestUtility.RequireRuntimeType("BossEnemyController"),
+                true);
+            Assert.IsNotNull(boss, "活动世界中找不到正式 Boss 控制器。");
+
+            object bossData = RuntimeComponentTestUtility.GetProperty<object>(boss, "BossData");
+            Assert.IsNotNull(bossData, "Boss 未绑定正式 BossDataSO。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetFieldValue<string>(bossData, "bossID"),
+                Is.EqualTo("boss_armed_colossus"));
+            GameObject projectilePrefab = RuntimeComponentTestUtility.GetFieldValue<GameObject>(
+                bossData,
+                "projectilePrefab");
+            Assert.IsNotNull(projectilePrefab, "正式 BossDataSO 缺少 EnemyProjectile Prefab。");
+            Assert.That(projectilePrefab.name, Is.EqualTo("EnemyProjectile_1"));
+            Assert.IsFalse(
+                projectilePrefab.scene.IsValid(),
+                "Boss 弹幕测试必须使用 Project 资产 Prefab，而不是场景临时对象。");
+
+            return new BossEncounterFixture
+            {
+                director = director,
+                coordinator = coordinator,
+                boss = boss,
+                activeSimulation = activeSimulation,
+                inactiveSimulation = inactiveSimulation,
+                projectilePrefab = projectilePrefab
+            };
+        }
+
+        /// <summary>只在测试夹具中停止普通波次 Update，避免普通远程敌人复用同一 EnemyProjectile 池键污染 Boss 计数。</summary>
+        private static void DisableWaveManager(Component coordinator, string propertyName)
+        {
+            Behaviour waveManager = RuntimeComponentTestUtility.GetProperty<object>(
+                coordinator,
+                propertyName) as Behaviour;
+            Assert.IsNotNull(waveManager, $"MainLevel 缺少 {propertyName}。");
+            waveManager.enabled = false;
+        }
+
+        /// <summary>读取指定世界模拟器下仍处于激活状态且直接归属于该模拟器的真实 EnemyProjectile。</summary>
+        private static List<Component> GetActiveProjectiles(Component simulation)
+        {
+            Type projectileType = RuntimeComponentTestUtility.RequireRuntimeType("EnemyProjectile");
+            Component[] allProjectiles = simulation.GetComponentsInChildren(projectileType, true);
+            var activeProjectiles = new List<Component>(allProjectiles.Length);
+            for (int index = 0; index < allProjectiles.Length; index++)
+            {
+                Component projectile = allProjectiles[index];
+                if (projectile != null &&
+                    projectile.gameObject.activeInHierarchy &&
+                    projectile.transform.parent == simulation.transform)
+                {
+                    activeProjectiles.Add(projectile);
+                }
+            }
+
+            return activeProjectiles;
+        }
+
+        /// <summary>断言边界前主/副世界都没有活跃 Boss 弹体。</summary>
+        private static void AssertNoActiveProjectiles(
+            BossEncounterFixture fixture,
+            string boundaryDescription)
+        {
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(
+                    fixture.activeSimulation,
+                    "ActiveProjectileCount"),
+                Is.Zero,
+                $"{boundaryDescription}活动世界不应有弹体。");
+            Assert.That(
+                GetActiveProjectiles(fixture.activeSimulation).Count,
+                Is.Zero,
+                $"{boundaryDescription}活动世界不应有 Boss 弹体。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(
+                    fixture.inactiveSimulation,
+                    "ActiveProjectileCount"),
+                Is.Zero,
+                $"{boundaryDescription}非活动世界不应有弹体。");
+            Assert.That(
+                GetActiveProjectiles(fixture.inactiveSimulation).Count,
+                Is.Zero,
+                $"{boundaryDescription}非活动世界不应有 Boss 弹体。");
+        }
+
+        /// <summary>核对本轮所有活跃弹体的数量、伤害、速度、Prefab 池键、WorldSimulation 和父级归属。</summary>
+        private static void AssertBossBarrageProjectiles(
+            BossEncounterFixture fixture,
+            List<Component> projectiles,
+            int expectedCount,
+            float expectedDamage,
+            float expectedSpeed,
+            string phaseDescription)
+        {
+            Assert.That(projectiles.Count, Is.EqualTo(expectedCount), $"{phaseDescription}活跃弹体数量不正确。");
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<int>(
+                    fixture.activeSimulation,
+                    "ActiveProjectileCount"),
+                Is.EqualTo(expectedCount),
+                $"{phaseDescription}WorldEnemySimulation 计数与真实弹体数量不一致。");
+            Assert.That(
+                GetActiveProjectiles(fixture.inactiveSimulation).Count,
+                Is.Zero,
+                $"{phaseDescription}非活动世界不应拥有 Boss 弹体。");
+
+            for (int index = 0; index < projectiles.Count; index++)
+            {
+                Component projectile = projectiles[index];
+                Assert.AreSame(
+                    fixture.projectilePrefab,
+                    RuntimeComponentTestUtility.GetFieldValue<GameObject>(
+                        projectile,
+                        "_prefabReference"),
+                    $"{phaseDescription}第 {index + 1} 枚弹体未使用正式 BossData projectilePrefab 池键。");
+                Assert.AreSame(
+                    fixture.activeSimulation,
+                    RuntimeComponentTestUtility.GetFieldValue<object>(
+                        projectile,
+                        "_worldSimulation"),
+                    $"{phaseDescription}第 {index + 1} 枚弹体的 WorldSimulation 归属错误。");
+                Assert.AreSame(
+                    fixture.activeSimulation.transform,
+                    projectile.transform.parent,
+                    $"{phaseDescription}第 {index + 1} 枚弹体未挂在活动世界实体根节点。");
+                Assert.That(
+                    RuntimeComponentTestUtility.GetProperty<float>(projectile, "ResolvedDamage"),
+                    Is.EqualTo(expectedDamage).Within(FloatTolerance),
+                    $"{phaseDescription}第 {index + 1} 枚弹体伤害错误。");
+
+                Rigidbody2D rigidbody = projectile.GetComponent<Rigidbody2D>();
+                Assert.IsNotNull(rigidbody, $"{phaseDescription}第 {index + 1} 枚弹体缺少 Rigidbody2D。");
+                Assert.That(
+                    rigidbody.velocity.magnitude,
+                    Is.EqualTo(expectedSpeed).Within(FloatTolerance),
+                    $"{phaseDescription}第 {index + 1} 枚弹体速度错误。");
+            }
+        }
+
+        /// <summary>等待真实 Player Loop 条件成立或超时，避免弹幕边界测试无限等待。</summary>
+        private static IEnumerator WaitUntil(
+            Func<bool> condition,
+            float timeoutSeconds,
+            string timeoutMessage)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!condition() && Time.realtimeSinceStartup < deadline)
+            {
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.IsTrue(condition(), timeoutMessage);
         }
     }
 }
