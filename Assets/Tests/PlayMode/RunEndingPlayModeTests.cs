@@ -95,8 +95,11 @@ namespace RainsenVampSur.Tests.PlayMode
                 RuntimeComponentTestUtility.RequireRuntimeType("RunDirector")) as Component;
             Component coordinator = Object.FindObjectOfType(
                 RuntimeComponentTestUtility.RequireRuntimeType("WorldLineCoordinator")) as Component;
+            Component levelUpManager = Object.FindObjectOfType(
+                RuntimeComponentTestUtility.RequireRuntimeType("LevelUpManager")) as Component;
             Assert.IsNotNull(director);
             Assert.IsNotNull(coordinator);
+            Assert.IsNotNull(levelUpManager);
             Assert.IsTrue((bool)RuntimeComponentTestUtility.Invoke(director, "DebugTriggerBossEncounter"));
 
             Component simulation = RuntimeComponentTestUtility.GetProperty<object>(
@@ -107,8 +110,17 @@ namespace RainsenVampSur.Tests.PlayMode
                 true);
             Assert.IsNotNull(boss);
 
-            yield return new WaitForSeconds(0.05f);
+            // 通过正式调试授予入口触发 WeaponAdded，确保致命命中前已有明确的获得时间。
+            // 这里不依赖首帧时间窗口；等待期间产生正的生效时长后，DPS 断言才有业务意义。
             ScriptableObject finisher = CreateWeaponData("weapon.test.boss_finisher", 1);
+            Component ownedFinisher = RuntimeComponentTestUtility.Invoke(
+                levelUpManager,
+                "DebugEnsureWeaponLevel",
+                finisher,
+                1) as Component;
+            Assert.IsNotNull(ownedFinisher, "Boss 致命武器未通过正式武器授予路径获得。");
+
+            yield return new WaitForSeconds(0.05f);
             object result = RuntimeComponentTestUtility.InvokeStatic(
                 RuntimeComponentTestUtility.RequireRuntimeType("CombatDamageResolver"),
                 "Apply",
