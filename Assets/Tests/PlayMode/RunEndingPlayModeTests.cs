@@ -661,7 +661,13 @@ namespace RainsenVampSur.Tests.PlayMode
                 Transform text = headerColumns[index].Find("Text");
                 Assert.IsNotNull(text, $"表头列 {columnNames[index]} 缺少独立文本节点。");
                 Assert.That(GetUiText(text), Is.EqualTo(headerTexts[index]));
+                Assert.That(
+                    headerColumns[index].GetComponent<LayoutElement>().flexibleWidth,
+                    Is.EqualTo(index == 0 ? 1f : 0f).Within(FloatTolerance),
+                    $"表头 {columnNames[index]} 列的弹性配置不正确。");
             }
+            AssertWeaponColumnsFillRow(header, headerColumns, "表头");
+            Rect headerRect = GetWorldRect(header.GetComponent<RectTransform>());
 
             List<Transform> visibleRows = new List<Transform>();
             for (int index = 0; index < content.childCount; index++)
@@ -689,13 +695,35 @@ namespace RainsenVampSur.Tests.PlayMode
                 for (int columnIndex = 0; columnIndex < columnNames.Length; columnIndex++)
                 {
                     Assert.That(columns[columnIndex].name, Is.EqualTo(columnNames[columnIndex]));
-                    float headerWidth = headerColumns[columnIndex].GetComponent<RectTransform>().rect.width;
-                    float rowWidth = columns[columnIndex].GetComponent<RectTransform>().rect.width;
+                    LayoutElement rowColumnLayout = columns[columnIndex].GetComponent<LayoutElement>();
                     Assert.That(
-                        rowWidth,
-                        Is.EqualTo(headerWidth).Within(0.5f),
+                        rowColumnLayout.flexibleWidth,
+                        Is.EqualTo(columnIndex == 0 ? 1f : 0f).Within(FloatTolerance),
+                        $"第 {rowIndex + 1} 行 {columnNames[columnIndex]} 列的弹性配置不正确。");
+                    Rect headerColumnRect = GetWorldRect(headerColumns[columnIndex].GetComponent<RectTransform>());
+                    Rect rowColumnRect = GetWorldRect(columns[columnIndex].GetComponent<RectTransform>());
+                    Assert.That(
+                        rowColumnRect.width,
+                        Is.EqualTo(headerColumnRect.width).Within(0.5f),
                         $"第 {rowIndex + 1} 行 {columnNames[columnIndex]} 列宽必须与表头一致。");
+                    Assert.That(
+                        rowColumnRect.xMin,
+                        Is.EqualTo(headerColumnRect.xMin).Within(0.5f),
+                        $"第 {rowIndex + 1} 行 {columnNames[columnIndex]} 左边界必须与表头一致。");
+                    Assert.That(
+                        rowColumnRect.xMax,
+                        Is.EqualTo(headerColumnRect.xMax).Within(0.5f),
+                        $"第 {rowIndex + 1} 行 {columnNames[columnIndex]} 右边界必须与表头一致。");
                 }
+                Assert.That(
+                    GetWorldRect(row.GetComponent<RectTransform>()).xMin,
+                    Is.EqualTo(headerRect.xMin).Within(0.5f),
+                    $"第 {rowIndex + 1} 行左边界必须与表头容器一致。");
+                Assert.That(
+                    GetWorldRect(row.GetComponent<RectTransform>()).xMax,
+                    Is.EqualTo(headerRect.xMax).Within(0.5f),
+                    $"第 {rowIndex + 1} 行右边界必须与表头容器一致。");
+                AssertWeaponColumnsFillRow(row, columns, $"第 {rowIndex + 1} 行");
 
                 Transform weaponColumn = row.Find("Weapon");
                 Assert.IsNotNull(weaponColumn);
@@ -722,6 +750,46 @@ namespace RainsenVampSur.Tests.PlayMode
                     GetUiText(row.Find("Dps/Text")),
                     Is.EqualTo($"{12f + rowIndex:F1}"));
             }
+        }
+
+        /// <summary>断言五列覆盖行内可用宽度，并验证最后 DPS 列贴近行容器右边界。</summary>
+        private static void AssertWeaponColumnsFillRow(
+            Transform row,
+            List<Transform> columns,
+            string description)
+        {
+            const float LayoutTolerance = 0.5f;
+            Rect rowRect = GetWorldRect(row.GetComponent<RectTransform>());
+            Rect firstColumnRect = GetWorldRect(columns[0].GetComponent<RectTransform>());
+            Rect lastColumnRect = GetWorldRect(columns[columns.Count - 1].GetComponent<RectTransform>());
+            float leadingInset = firstColumnRect.xMin - rowRect.xMin;
+            float trailingInset = rowRect.xMax - lastColumnRect.xMax;
+
+            Assert.That(leadingInset, Is.GreaterThanOrEqualTo(-LayoutTolerance), $"{description}首列不得越过行容器。");
+            Assert.That(
+                trailingInset,
+                Is.EqualTo(leadingInset).Within(LayoutTolerance),
+                $"{description}五列必须覆盖行内可用宽度。");
+            Assert.That(
+                lastColumnRect.xMax,
+                Is.EqualTo(rowRect.xMax - leadingInset).Within(LayoutTolerance),
+                $"{description}最后一列必须到达行内可用宽度的右边界。");
+
+            for (int index = 1; index < columns.Count; index++)
+            {
+                Rect previousRect = GetWorldRect(columns[index - 1].GetComponent<RectTransform>());
+                Rect currentRect = GetWorldRect(columns[index].GetComponent<RectTransform>());
+                Assert.That(
+                    currentRect.xMin,
+                    Is.GreaterThanOrEqualTo(previousRect.xMax - LayoutTolerance),
+                    $"{description}第 {index} 与第 {index + 1} 列不得重叠。");
+            }
+
+            Rect dpsRect = GetWorldRect(columns[4].GetComponent<RectTransform>());
+            Assert.That(
+                dpsRect.xMax,
+                Is.EqualTo(rowRect.xMax - leadingInset).Within(LayoutTolerance),
+                $"{description} DPS 列右边界必须贴近行容器右边界。");
         }
 
         /// <summary>核对角色、Item、Ability 五个纵向区域、六列单行网格和隐藏装备模板。</summary>

@@ -453,6 +453,7 @@ public sealed class RunResultsUI : MonoBehaviour
             WeaponColumnWeaponWidth,
             "武器",
             TextAlignmentOptions.Left,
+            true,
             true);
         CreateWeaponTextColumn(
             header.transform,
@@ -460,28 +461,32 @@ public sealed class RunResultsUI : MonoBehaviour
             WeaponColumnLevelWidth,
             "等级",
             TextAlignmentOptions.Right,
-            true);
+            true,
+            false);
         CreateWeaponTextColumn(
             header.transform,
             "Damage",
             WeaponColumnDamageWidth,
             "伤害",
             TextAlignmentOptions.Right,
-            true);
+            true,
+            false);
         CreateWeaponTextColumn(
             header.transform,
             "Time",
             WeaponColumnTimeWidth,
             "时间",
             TextAlignmentOptions.Right,
-            true);
+            true,
+            false);
         CreateWeaponTextColumn(
             header.transform,
             "Dps",
             WeaponColumnDpsWidth,
             "每秒伤害",
             TextAlignmentOptions.Right,
-            true);
+            true,
+            false);
         return header;
     }
 
@@ -504,6 +509,7 @@ public sealed class RunResultsUI : MonoBehaviour
             WeaponColumnLevelWidth,
             "Lv.1/1",
             TextAlignmentOptions.Right,
+            false,
             false);
         CreateWeaponTextColumn(
             row.transform,
@@ -511,6 +517,7 @@ public sealed class RunResultsUI : MonoBehaviour
             WeaponColumnDamageWidth,
             "0",
             TextAlignmentOptions.Right,
+            false,
             false);
         CreateWeaponTextColumn(
             row.transform,
@@ -518,6 +525,7 @@ public sealed class RunResultsUI : MonoBehaviour
             WeaponColumnTimeWidth,
             "00:00",
             TextAlignmentOptions.Right,
+            false,
             false);
         CreateWeaponTextColumn(
             row.transform,
@@ -525,6 +533,7 @@ public sealed class RunResultsUI : MonoBehaviour
             WeaponColumnDpsWidth,
             "0.0",
             TextAlignmentOptions.Right,
+            false,
             false);
         return row;
     }
@@ -553,13 +562,14 @@ public sealed class RunResultsUI : MonoBehaviour
         float width,
         string text,
         TextAlignmentOptions alignment,
-        bool header)
+        bool header,
+        bool flexibleWidth)
     {
         GameObject column = CreateUiObject(name, parent, typeof(LayoutElement));
         LayoutElement columnLayout = column.GetComponent<LayoutElement>();
         columnLayout.minWidth = width;
         columnLayout.preferredWidth = width;
-        columnLayout.flexibleWidth = 0f;
+        columnLayout.flexibleWidth = flexibleWidth ? 1f : 0f;
 
         TextMeshProUGUI columnText = CreateText(
             "Text",
@@ -584,7 +594,7 @@ public sealed class RunResultsUI : MonoBehaviour
         LayoutElement columnLayout = column.GetComponent<LayoutElement>();
         columnLayout.minWidth = WeaponColumnWeaponWidth;
         columnLayout.preferredWidth = WeaponColumnWeaponWidth;
-        columnLayout.flexibleWidth = 0f;
+        columnLayout.flexibleWidth = 1f;
 
         HorizontalLayoutGroup layout = column.GetComponent<HorizontalLayoutGroup>();
         layout.spacing = 4f;
