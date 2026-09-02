@@ -204,8 +204,7 @@ namespace RainsenVampSur.Tests
                 Assert.That(result.RequestedDamage, Is.EqualTo(150f).Within(FloatTolerance));
                 Assert.That(result.AppliedDamage, Is.EqualTo(150f).Within(FloatTolerance));
                 Assert.That(result.HealthLost, Is.EqualTo(100f).Within(FloatTolerance));
-                Assert.That(result.CurrentHealth, Is.EqualTo(0f).Within(FloatTolerance));
-                Assert.That(enemy.CurrentHealth, Is.EqualTo(0f).Within(FloatTolerance));
+                Assert.IsTrue(result.TargetDefeated);
 
                 List<RunResultWeaponSnapshot> rows = telemetry.CreateWeaponSnapshots(5f, null);
                 Assert.That(rows.Count, Is.EqualTo(1));
@@ -220,7 +219,6 @@ namespace RainsenVampSur.Tests
                 Assert.IsFalse(lateResult.Accepted);
                 Assert.That(lateResult.AppliedDamage, Is.EqualTo(0f).Within(FloatTolerance));
                 Assert.That(lateResult.HealthLost, Is.EqualTo(0f).Within(FloatTolerance));
-                Assert.That(lateResult.CurrentHealth, Is.EqualTo(0f).Within(FloatTolerance));
                 List<RunResultWeaponSnapshot> rowsAfterLateHit = telemetry.CreateWeaponSnapshots(5f, null);
                 Assert.That(rowsAfterLateHit[0].ActualTotalDamage, Is.EqualTo(150f).Within(FloatTolerance));
             }

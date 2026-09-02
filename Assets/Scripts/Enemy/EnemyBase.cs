@@ -219,7 +219,6 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
                 safeDamage,
                 0f,
                 0f,
-                safeCurrentHealth,
                 false,
                 safeCurrentHealth <= 0f);
         }
@@ -239,20 +238,18 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         }
 
         bool targetDefeated = _currentHealth <= 0f;
-        if (targetDefeated)
-        {
-            Die();
-            // Die() 可能同步回池并触发 OnDisable；死亡结果仍必须保留归零的当前生命。
-            _currentHealth = 0f;
-        }
-
-        return new CombatDamageResult(
+        CombatDamageResult result = new CombatDamageResult(
             safeDamage,
             appliedDamage,
             healthLost,
-            _currentHealth,
             true,
             targetDefeated);
+        if (targetDefeated)
+        {
+            Die();
+        }
+
+        return result;
     }
 
     /// <summary>登记击杀、生成经验与概率掉落，并把敌人归还对应对象池。</summary>

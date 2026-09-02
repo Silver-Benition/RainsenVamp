@@ -210,9 +210,6 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(result, "HealthLost"),
                 Is.EqualTo(800f).Within(FloatTolerance));
-            Assert.That(
-                RuntimeComponentTestUtility.GetProperty<float>(result, "CurrentHealth"),
-                Is.EqualTo(0f).Within(FloatTolerance));
             Assert.IsFalse(boss.gameObject.activeSelf, "Boss 致死后必须从对象池回收。");
             Assert.IsNull(
                 RuntimeComponentTestUtility.GetFieldValue<object>(boss, "enemyData"),

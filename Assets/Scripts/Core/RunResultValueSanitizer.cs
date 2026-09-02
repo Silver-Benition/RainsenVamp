@@ -73,17 +73,4 @@ public static class RunResultValueSanitizer
         return SanitizeNonNegative(safeDamage / safeActiveDuration);
     }
 
-    /// <summary>
-    /// 兼容旧调用方：先按首次生效时间和结算时间计算有效时长，再计算 DPS。
-    /// 新的结果冻结流程应优先传入已计算的有效时长，确保时间显示与 DPS 使用同一权威值。
-    /// </summary>
-    public static float CalculateDamagePerSecond(
-        float actualDamage,
-        float firstEffectTimeSeconds,
-        float survivalTimeSeconds)
-    {
-        return CalculateDamagePerSecond(
-            actualDamage,
-            CalculateActiveDuration(survivalTimeSeconds, firstEffectTimeSeconds));
-    }
 }

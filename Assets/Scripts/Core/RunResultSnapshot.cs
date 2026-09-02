@@ -56,34 +56,6 @@ public sealed class RunResultWeaponSnapshot
         DamagePerSecond = RunResultValueSanitizer.SanitizeNonNegative(damagePerSecond);
     }
 
-    /// <summary>
-    /// 兼容只提供首次生效时间的旧构造调用；没有结算时间时无法推导有效作用时长，按零保存。
-    /// 正式结果冻结流程必须使用包含 activeDurationSeconds 的构造函数。
-    /// </summary>
-    public RunResultWeaponSnapshot(
-        string weaponId,
-        string nameKey,
-        string displayName,
-        Sprite icon,
-        int currentLevel,
-        int maxLevel,
-        float actualTotalDamage,
-        float firstEffectTime,
-        float damagePerSecond)
-        : this(
-            weaponId,
-            nameKey,
-            displayName,
-            icon,
-            currentLevel,
-            maxLevel,
-            actualTotalDamage,
-            firstEffectTime,
-            0f,
-            damagePerSecond)
-    {
-    }
-
     public string WeaponId { get; }
     public string NameKey { get; }
     public string DisplayName { get; }
