@@ -136,7 +136,7 @@ public sealed class RunTelemetry
     }
 
     /// <summary>
-    /// 记录一笔武器实际扣血。
+    /// 记录一笔武器有效命中伤害。
     /// 未提前登记的来源会以当前效果时间补登记，兼容测试夹具和动态创建武器。
     /// </summary>
     public void RecordWeaponDamage(WeaponDataSO data, float actualDamage, float effectTimeSeconds)
@@ -207,7 +207,10 @@ public sealed class RunTelemetry
         _frozen = true;
     }
 
-    /// <summary>按武器首次获得顺序生成结果行，并计算从获得时间到结算时间的实际 DPS。</summary>
+    /// <summary>
+    /// 按武器首次获得顺序生成结果行，并冻结从首次生效到结算时刻的有效时长与 DPS。
+    /// 时间列和 DPS 必须共同使用这里计算出的 activeDurationSeconds，不能各自重新推导。
+    /// </summary>
     public List<RunResultWeaponSnapshot> CreateWeaponSnapshots(
         float finalTimeSeconds,
         IReadOnlyList<WeaponBase> ownedWeapons)
@@ -237,10 +240,12 @@ public sealed class RunTelemetry
                 }
             }
 
+            float activeDurationSeconds = RunResultValueSanitizer.CalculateActiveDuration(
+                safeFinalTime,
+                record.firstEffectTime);
             float dps = RunResultValueSanitizer.CalculateDamagePerSecond(
                 record.actualDamage,
-                record.firstEffectTime,
-                safeFinalTime);
+                activeDurationSeconds);
             snapshots.Add(new RunResultWeaponSnapshot(
                 record.stableId,
                 record.data.weaponNameKey,
@@ -250,6 +255,7 @@ public sealed class RunTelemetry
                 record.data.MaxLevel,
                 record.actualDamage,
                 record.firstEffectTime,
+                activeDurationSeconds,
                 dps));
         }
 

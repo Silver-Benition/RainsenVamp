@@ -2,24 +2,51 @@ using UnityEngine;
 
 /// <summary>
 /// 一次战斗伤害结算的不可变结果。
-/// AppliedDamage 只表示目标实际损失的生命值，因此致命一击不会把过量伤害计入武器统计。
+/// AppliedDamage 表示目标接受的有效命中伤害；HealthLost 才表示本次实际减少的生命值。
+/// 因此致命过量命中可以保留完整伤害统计，同时把生命值安全夹到零。
 /// </summary>
 public readonly struct CombatDamageResult
 {
-    /// <summary>建立一次伤害结算结果。</summary>
-    public CombatDamageResult(float requestedDamage, float appliedDamage, bool accepted, bool targetDefeated)
+    /// <summary>建立一次包含有效命中伤害、生命损失和结算后生命值的伤害结果。</summary>
+    public CombatDamageResult(
+        float requestedDamage,
+        float appliedDamage,
+        float healthLost,
+        float currentHealth,
+        bool accepted,
+        bool targetDefeated)
     {
         RequestedDamage = RunResultValueSanitizer.SanitizeNonNegative(requestedDamage);
         AppliedDamage = RunResultValueSanitizer.SanitizeNonNegative(appliedDamage);
+        HealthLost = RunResultValueSanitizer.SanitizeNonNegative(healthLost);
+        CurrentHealth = RunResultValueSanitizer.SanitizeNonNegative(currentHealth);
         Accepted = accepted;
         TargetDefeated = targetDefeated;
+    }
+
+    /// <summary>兼容旧调用方；旧目标无法提供结算后生命值时按零保存。</summary>
+    public CombatDamageResult(float requestedDamage, float appliedDamage, bool accepted, bool targetDefeated)
+        : this(
+            requestedDamage,
+            appliedDamage,
+            accepted ? appliedDamage : 0f,
+            0f,
+            accepted,
+            targetDefeated)
+    {
     }
 
     /// <summary>攻击方请求的原始伤害。</summary>
     public float RequestedDamage { get; }
 
-    /// <summary>目标实际扣除的生命值。</summary>
+    /// <summary>目标接受的有效命中伤害；不会因目标剩余生命不足而被封顶。</summary>
     public float AppliedDamage { get; }
+
+    /// <summary>本次命中实际减少的生命值，最大不超过命中前目标剩余生命。</summary>
+    public float HealthLost { get; }
+
+    /// <summary>本次结算完成后的目标当前生命值。</summary>
+    public float CurrentHealth { get; }
 
     /// <summary>本次请求是否通过目标的有效性与运行流程检查。</summary>
     public bool Accepted { get; }
@@ -29,18 +56,18 @@ public readonly struct CombatDamageResult
 }
 
 /// <summary>
-/// 支持真实伤害收据的目标契约。
-/// IDamageable 仍保留给旧系统和玩家受击；敌人实现此接口后，武器系统可以得到实际扣血结果。
+/// 支持有效命中与生命损失收据的目标契约。
+/// IDamageable 仍保留给旧系统和玩家受击；敌人实现此接口后，武器系统可以得到完整命中与生命变化结果。
 /// </summary>
 public interface ICombatDamageTarget
 {
-    /// <summary>结算一次伤害并返回真实扣血量。</summary>
+    /// <summary>结算一次伤害并返回有效命中、生命损失与当前生命。</summary>
     CombatDamageResult ApplyCombatDamage(float damage, bool isCritical);
 }
 
 /// <summary>
 /// 统一的武器命中入口。
-/// 目标层负责生命变化，解析器负责把“实际扣血”提交给当前局统计，避免 UI 或投射物自行累加。
+/// 目标层负责生命变化，解析器负责把“有效命中伤害”提交给当前局统计，避免 UI 或投射物自行累加。
 /// </summary>
 public static class CombatDamageResolver
 {
@@ -50,7 +77,7 @@ public static class CombatDamageResolver
     internal static bool IsSettlingDamage => _damageSettlementDepth > 0;
 
     /// <summary>
-    /// 对一个敌方伤害目标结算武器伤害，并将实际扣血记录到指定或当前局遥测。
+    /// 对一个敌方伤害目标结算武器伤害，并将有效命中伤害记录到指定或当前局遥测。
     /// </summary>
     /// <param name="target">经过 DamageTargetFilter 筛选的敌人目标。</param>
     /// <param name="damage">本次攻击请求的伤害。</param>
@@ -68,13 +95,13 @@ public static class CombatDamageResolver
         float safeDamage = RunResultValueSanitizer.SanitizeNonNegative(damage);
         if (target == null || safeDamage <= 0f)
         {
-            return new CombatDamageResult(safeDamage, 0f, false, false);
+            return new CombatDamageResult(safeDamage, 0f, 0f, 0f, false, false);
         }
 
         RunDirector director = RunDirector.Instance;
         if (director != null && director.IsResultFrozen)
         {
-            return new CombatDamageResult(safeDamage, 0f, false, false);
+            return new CombatDamageResult(safeDamage, 0f, 0f, 0f, false, false);
         }
 
         ICombatDamageTarget combatTarget = target as ICombatDamageTarget;
@@ -88,10 +115,10 @@ public static class CombatDamageResolver
             }
             else
             {
-                // 兼容尚未迁移的 IDamageable：旧目标无法返回实际扣血，只能把已接受的请求视作实际值。
+                // 兼容尚未迁移的 IDamageable：旧目标无法返回生命损失，只能把已接受的请求视作有效命中值。
                 // 正式敌人均实现 ICombatDamageTarget，因此生产统计不会走这里。
                 target.TakeDamage(safeDamage, isCritical);
-                result = new CombatDamageResult(safeDamage, safeDamage, true, false);
+                result = new CombatDamageResult(safeDamage, safeDamage, safeDamage, 0f, true, false);
             }
 
             if (result.AppliedDamage > 0f && weaponData != null)
@@ -109,7 +136,7 @@ public static class CombatDamageResolver
             EndDamageSettlement();
         }
 
-        // Boss 的 Die() 可能在 ApplyCombatDamage() 内同步触发；必须等实际扣血完成记账后再冻结快照。
+        // Boss 的 Die() 可能在 ApplyCombatDamage() 内同步触发；必须等有效命中伤害完成记账后再冻结快照。
         if (director != null)
         {
             director.FlushPendingBossDefeat();

@@ -156,9 +156,9 @@ namespace RainsenVampSur.Tests.PlayMode
             AssertBossBarrageProjectiles(fixture, projectiles, 12, 12f, 5.5f, "第二阶段");
         }
 
-        /// <summary>真实 Boss 致死命中必须先写入实际伤害，再只冻结一次胜利结果。</summary>
+        /// <summary>真实 Boss 致死命中必须先写入有效命中伤害，再只冻结一次胜利结果。</summary>
         [UnityTest]
-        public IEnumerator MainLevel_Boss被武器致死_实际伤害进入胜利快照且只结算一次()
+        public IEnumerator MainLevel_Boss被武器致死_有效命中伤害进入胜利快照且只结算一次()
         {
             yield return SceneManager.LoadSceneAsync(MainSceneName, LoadSceneMode.Single);
             yield return null;
@@ -206,7 +206,13 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(result, "TargetDefeated"));
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(result, "AppliedDamage"),
+                Is.EqualTo(900f).Within(FloatTolerance));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(result, "HealthLost"),
                 Is.EqualTo(800f).Within(FloatTolerance));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(result, "CurrentHealth"),
+                Is.EqualTo(0f).Within(FloatTolerance));
             Assert.IsFalse(boss.gameObject.activeSelf, "Boss 致死后必须从对象池回收。");
             Assert.IsNull(
                 RuntimeComponentTestUtility.GetFieldValue<object>(boss, "enemyData"),
@@ -224,8 +230,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNotNull(weaponRow, "致死武器没有进入胜利结果的武器表。");
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(weaponRow, "ActualTotalDamage"),
-                Is.EqualTo(800f).Within(FloatTolerance),
-                "Boss 在实际扣血记账前冻结会丢失最后一击；该值必须是 800 而不是 0。");
+                Is.EqualTo(900f).Within(FloatTolerance),
+                "Boss 在有效命中伤害记账前冻结会丢失最后一击；该值必须是 900 而不是 0。");
             float damagePerSecond = RuntimeComponentTestUtility.GetProperty<float>(
                 weaponRow,
                 "DamagePerSecond");
@@ -251,6 +257,95 @@ namespace RainsenVampSur.Tests.PlayMode
                 "重复 Boss 胜利通知不得重新构造结果或重复提交。");
             Assert.That(RuntimeComponentTestUtility.GetProperty<int>(runState, "KillCount"), Is.EqualTo(1));
             Assert.IsTrue(RuntimeComponentTestUtility.GetFieldValue<bool>(gameFlow, "_runProgressCommitted"));
+        }
+
+        /// <summary>
+        /// 真实 MainLevel 伤害链必须把致死的 150 有效命中传入 PoolManager、DamagePopupManager 和 DamagePopup，飘字显示 150。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator MainLevel_EnemyBase伤害链_过量命中飘字显示有效伤害()
+        {
+            yield return SceneManager.LoadSceneAsync(MainSceneName, LoadSceneMode.Single);
+            yield return null;
+
+            Assert.IsNotNull(
+                Object.FindObjectOfType(RuntimeComponentTestUtility.RequireRuntimeType("PoolManager")),
+                "MainLevel 缺少 PoolManager，无法验证实际飘字池链。");
+            Assert.IsNotNull(
+                Object.FindObjectOfType(RuntimeComponentTestUtility.RequireRuntimeType("DamagePopupManager")),
+                "MainLevel 缺少 DamagePopupManager，无法验证实际飘字入口。");
+
+            ScriptableObject enemyData = TrackObject(
+                RuntimeComponentTestUtility.CreateRuntimeScriptableObject("EnemyDataSO"));
+            RuntimeComponentTestUtility.SetField(enemyData, "maxHealth", 100f);
+            RuntimeComponentTestUtility.SetField(enemyData, "moveSpeed", 0f);
+            RuntimeComponentTestUtility.SetField(enemyData, "collisionDamage", 0f);
+
+            GameObject enemyObject = CreateTrackedGameObject(
+                "PlayModeTest_OverkillPopupEnemy",
+                false);
+            Rigidbody2D enemyBody = enemyObject.AddComponent<Rigidbody2D>();
+            enemyBody.bodyType = RigidbodyType2D.Kinematic;
+            enemyBody.gravityScale = 0f;
+            enemyObject.AddComponent<BoxCollider2D>();
+            Component enemy = RuntimeComponentTestUtility.AddRuntimeComponent(enemyObject, "EnemyBase");
+            RuntimeComponentTestUtility.SetField(enemy, "enemyData", enemyData);
+            enemyObject.SetActive(true);
+
+            Type spawnSnapshotType = RuntimeComponentTestUtility.RequireRuntimeType("EnemySpawnSnapshot");
+            object spawnSnapshot = Activator.CreateInstance(
+                spawnSnapshotType,
+                new object[] { 100f, 0f, 0f, 1f, false });
+            RuntimeComponentTestUtility.Invoke(enemy, "ApplySpawnSnapshot", spawnSnapshot);
+
+            ScriptableObject weapon = CreateWeaponData("weapon.test.popup_overkill", 1);
+            object telemetry = Activator.CreateInstance(
+                RuntimeComponentTestUtility.RequireRuntimeType("RunTelemetry"));
+            object result = RuntimeComponentTestUtility.InvokeStatic(
+                RuntimeComponentTestUtility.RequireRuntimeType("CombatDamageResolver"),
+                "Apply",
+                enemy,
+                150f,
+                weapon,
+                false,
+                telemetry);
+
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(result, "Accepted"));
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(result, "TargetDefeated"));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(result, "AppliedDamage"),
+                Is.EqualTo(150f).Within(FloatTolerance));
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(result, "HealthLost"),
+                Is.EqualTo(100f).Within(FloatTolerance));
+
+            Type popupType = RuntimeComponentTestUtility.RequireRuntimeType("DamagePopup");
+            UnityEngine.Object[] activePopups = Object.FindObjectsOfType(popupType);
+            bool foundEffectiveDamageText = false;
+            for (int index = 0; index < activePopups.Length; index++)
+            {
+                Component popup = activePopups[index] as Component;
+                if (popup != null && GetDamagePopupText(popup) == "150")
+                {
+                    foundEffectiveDamageText = true;
+                    break;
+                }
+            }
+
+            Assert.IsTrue(
+                foundEffectiveDamageText,
+                "EnemyBase -> DamagePopupManager -> PoolManager -> DamagePopup 的致死飘字必须显示有效命中 150，而不是生命损失 100。");
+
+            object rowsObject = RuntimeComponentTestUtility.Invoke(
+                telemetry,
+                "CreateWeaponSnapshots",
+                5f,
+                null);
+            object weaponRow = FindWeaponSnapshot(rowsObject, "weapon.test.popup_overkill");
+            Assert.IsNotNull(weaponRow);
+            Assert.That(
+                RuntimeComponentTestUtility.GetProperty<float>(weaponRow, "ActualTotalDamage"),
+                Is.EqualTo(150f).Within(FloatTolerance));
         }
 
         /// <summary>正式 WeaponAdded 事件必须区分起始武器与运行时新增武器，升级不重置获得时间。</summary>
@@ -568,8 +663,10 @@ namespace RainsenVampSur.Tests.PlayMode
                         rowNumber,
                         6,
                         120f + index * 10f,
-                        rowNumber,
-                        12f + index
+                        index == 0 ? 0f : rowNumber * 10f,
+                        125f - (index == 0 ? 0f : rowNumber * 10f),
+                        (120f + index * 10f) /
+                            (125f - (index == 0 ? 0f : rowNumber * 10f))
                     }));
             }
 
@@ -743,12 +840,17 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.That(
                     GetUiText(row.Find("Damage/Text")),
                     Is.EqualTo($"{120f + rowIndex * 10f:F0}"));
+                int expectedActiveDurationSeconds =
+                    125 - (rowIndex == 0 ? 0 : (rowIndex + 1) * 10);
+                float expectedDps =
+                    (120f + rowIndex * 10f) / expectedActiveDurationSeconds;
                 Assert.That(
                     GetUiText(row.Find("Time/Text")),
-                    Is.EqualTo($"00:{rowIndex + 1:00}"));
+                    Is.EqualTo($"{expectedActiveDurationSeconds / 60:00}:" +
+                        $"{expectedActiveDurationSeconds % 60:00}"));
                 Assert.That(
                     GetUiText(row.Find("Dps/Text")),
-                    Is.EqualTo($"{12f + rowIndex:F1}"));
+                    Is.EqualTo($"{expectedDps:F1}"));
             }
         }
 
@@ -966,6 +1068,30 @@ namespace RainsenVampSur.Tests.PlayMode
             }
 
             Assert.Fail($"节点 {textTransform.name} 缺少 TextMeshProUGUI。");
+            return string.Empty;
+        }
+
+        /// <summary>从真实 DamagePopup 组件读取其 World Space TextMeshPro 文本。</summary>
+        private static string GetDamagePopupText(Component popup)
+        {
+            Assert.IsNotNull(popup, "DamagePopup 组件不能为空。");
+            Component[] components = popup.GetComponents<Component>();
+            for (int index = 0; index < components.Length; index++)
+            {
+                Component component = components[index];
+                if (component == null || component.GetType().FullName != "TMPro.TextMeshPro")
+                {
+                    continue;
+                }
+
+                System.Reflection.PropertyInfo textProperty = component.GetType().GetProperty(
+                    "text",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                Assert.IsNotNull(textProperty, "TextMeshPro 缺少公开 text 属性。");
+                return (string)textProperty.GetValue(component, null);
+            }
+
+            Assert.Fail($"节点 {popup.name} 缺少 TextMeshPro。");
             return string.Empty;
         }
 

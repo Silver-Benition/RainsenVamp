@@ -198,7 +198,7 @@ public sealed class RunDirector : MonoBehaviour
     }
 
     /// <summary>
-    /// 在 CombatDamageResolver 完成实际扣血记账后提交延迟的 Boss 胜利。
+    /// 在 CombatDamageResolver 完成有效命中伤害记账后提交延迟的 Boss 胜利。
     /// 该入口只消费当前首领的待结算请求，避免重复冻结或重复提交账号进度。
     /// </summary>
     public void FlushPendingBossDefeat()

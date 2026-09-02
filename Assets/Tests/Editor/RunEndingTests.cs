@@ -5,14 +5,14 @@ using UnityEngine;
 
 namespace RainsenVampSur.Tests
 {
-    /// <summary>验证 Session 19 的结果快照、实际扣血、稳定身份和未来拾取上报边界。</summary>
+    /// <summary>验证 Session 19 的结果快照、有效命中伤害、稳定身份和未来拾取上报边界。</summary>
     public sealed class RunEndingTests : EditModeComponentTestBase
     {
         private const float FloatTolerance = 0.0001f;
 
-        /// <summary>武器统计应按正式获得时间保序，并只累计真实扣除的生命值。</summary>
+        /// <summary>武器统计应按正式获得时间保序，并以统一有效时长计算 DPS。</summary>
         [Test]
-        public void RunTelemetry_武器首次获得时间与实际伤害_升级或重复登记不重置()
+        public void RunTelemetry_武器首次获得时间与有效伤害_升级或重复登记不重置()
         {
             WeaponDataSO firstWeapon = CreateWeapon("weapon.telemetry.first", "首发武器", 3);
             WeaponDataSO secondWeapon = CreateWeapon("weapon.telemetry.second", "后加入武器", 2);
@@ -34,10 +34,12 @@ namespace RainsenVampSur.Tests
                 Assert.That(rows.Count, Is.EqualTo(2));
                 Assert.That(rows[0].WeaponId, Is.EqualTo(firstWeapon.weaponID));
                 Assert.That(rows[0].FirstEffectTime, Is.EqualTo(0f).Within(FloatTolerance));
+                Assert.That(rows[0].ActiveDurationSeconds, Is.EqualTo(40f).Within(FloatTolerance));
                 Assert.That(rows[0].ActualTotalDamage, Is.EqualTo(175f).Within(FloatTolerance));
                 Assert.That(rows[0].DamagePerSecond, Is.EqualTo(4.375f).Within(FloatTolerance));
                 Assert.That(rows[1].WeaponId, Is.EqualTo(secondWeapon.weaponID));
                 Assert.That(rows[1].FirstEffectTime, Is.EqualTo(10f).Within(FloatTolerance));
+                Assert.That(rows[1].ActiveDurationSeconds, Is.EqualTo(30f).Within(FloatTolerance));
                 Assert.That(rows[1].ActualTotalDamage, Is.EqualTo(50f).Within(FloatTolerance));
                 Assert.That(rows[1].DamagePerSecond, Is.EqualTo(50f / 30f).Within(FloatTolerance));
             }
@@ -45,6 +47,33 @@ namespace RainsenVampSur.Tests
             {
                 Object.DestroyImmediate(firstWeapon);
                 Object.DestroyImmediate(secondWeapon);
+            }
+        }
+
+        /// <summary>结算时间早于运行时武器获得时间或本身异常时，主动时长和 DPS 必须归零。</summary>
+        [Test]
+        public void RunTelemetry_武器有效时长_未来获得时间与异常结算时间归零()
+        {
+            WeaponDataSO weapon = CreateWeapon("weapon.telemetry.future", "未来武器", 1);
+            var telemetry = new RunTelemetry();
+
+            try
+            {
+                Assert.IsTrue(telemetry.RegisterWeapon(weapon, 10f));
+                telemetry.RecordWeaponDamage(weapon, 50f, 10f);
+
+                List<RunResultWeaponSnapshot> futureRows = telemetry.CreateWeaponSnapshots(5f, null);
+                Assert.That(futureRows.Count, Is.EqualTo(1));
+                Assert.That(futureRows[0].ActiveDurationSeconds, Is.EqualTo(0f));
+                Assert.That(futureRows[0].DamagePerSecond, Is.EqualTo(0f));
+
+                List<RunResultWeaponSnapshot> invalidRows = telemetry.CreateWeaponSnapshots(float.NaN, null);
+                Assert.That(invalidRows[0].ActiveDurationSeconds, Is.EqualTo(0f));
+                Assert.That(invalidRows[0].DamagePerSecond, Is.EqualTo(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(weapon);
             }
         }
 
@@ -65,7 +94,10 @@ namespace RainsenVampSur.Tests
                 List<RunResultWeaponSnapshot> rows = telemetry.CreateWeaponSnapshots(1f, null);
                 Assert.That(rows.Count, Is.EqualTo(2));
                 Assert.That(rows[0].FirstEffectTime, Is.EqualTo(0f).Within(FloatTolerance));
+                Assert.That(rows[0].ActiveDurationSeconds, Is.EqualTo(1f).Within(FloatTolerance));
                 Assert.That(rows[1].FirstEffectTime, Is.GreaterThan(0f));
+                Assert.That(rows[1].ActiveDurationSeconds, Is.GreaterThan(0f));
+                Assert.That(rows[1].ActiveDurationSeconds, Is.LessThan(1f));
             }
             finally
             {
@@ -95,6 +127,7 @@ namespace RainsenVampSur.Tests
                 Assert.That(rows.Count, Is.EqualTo(1));
                 AssertFiniteNonNegative(rows[0].ActualTotalDamage, "ActualTotalDamage");
                 AssertFiniteNonNegative(rows[0].FirstEffectTime, "FirstEffectTime");
+                AssertFiniteNonNegative(rows[0].ActiveDurationSeconds, "ActiveDurationSeconds");
                 AssertFiniteNonNegative(rows[0].DamagePerSecond, "DamagePerSecond");
                 Assert.That(rows[0].ActualTotalDamage, Is.EqualTo(float.MaxValue));
 
@@ -122,6 +155,7 @@ namespace RainsenVampSur.Tests
                             1,
                             float.NaN,
                             float.PositiveInfinity,
+                            float.NaN,
                             float.NegativeInfinity)
                     },
                     new List<RunResultAbilitySnapshot>(),
@@ -131,6 +165,7 @@ namespace RainsenVampSur.Tests
                 AssertFiniteNonNegative(snapshot.SurvivalTimeSeconds, "SurvivalTimeSeconds");
                 AssertFiniteNonNegative(snapshot.Weapons[0].ActualTotalDamage, "Snapshot.ActualTotalDamage");
                 AssertFiniteNonNegative(snapshot.Weapons[0].FirstEffectTime, "Snapshot.FirstEffectTime");
+                AssertFiniteNonNegative(snapshot.Weapons[0].ActiveDurationSeconds, "Snapshot.ActiveDurationSeconds");
                 AssertFiniteNonNegative(snapshot.Weapons[0].DamagePerSecond, "Snapshot.DamagePerSecond");
             }
             finally
@@ -139,9 +174,9 @@ namespace RainsenVampSur.Tests
             }
         }
 
-        /// <summary>致死过量伤害必须按剩余生命封顶，并通过统一解析器写入武器统计。</summary>
+        /// <summary>致死过量伤害保留有效命中值，生命损失按剩余生命计算且死亡后拒绝迟到命中。</summary>
         [Test]
-        public void CombatDamageResolver_致死过量伤害_只记录目标实际扣血()
+        public void CombatDamageResolver_致死过量伤害_有效命中与生命损失分离()
         {
             EnemyDataSO enemyData = ScriptableObject.CreateInstance<EnemyDataSO>();
             WeaponDataSO weaponData = CreateWeapon("weapon.telemetry.overkill", "过量测试武器", 1);
@@ -166,12 +201,15 @@ namespace RainsenVampSur.Tests
 
                 Assert.IsTrue(result.Accepted);
                 Assert.IsTrue(result.TargetDefeated);
-                Assert.That(result.AppliedDamage, Is.EqualTo(100f).Within(FloatTolerance));
+                Assert.That(result.RequestedDamage, Is.EqualTo(150f).Within(FloatTolerance));
+                Assert.That(result.AppliedDamage, Is.EqualTo(150f).Within(FloatTolerance));
+                Assert.That(result.HealthLost, Is.EqualTo(100f).Within(FloatTolerance));
+                Assert.That(result.CurrentHealth, Is.EqualTo(0f).Within(FloatTolerance));
                 Assert.That(enemy.CurrentHealth, Is.EqualTo(0f).Within(FloatTolerance));
 
                 List<RunResultWeaponSnapshot> rows = telemetry.CreateWeaponSnapshots(5f, null);
                 Assert.That(rows.Count, Is.EqualTo(1));
-                Assert.That(rows[0].ActualTotalDamage, Is.EqualTo(100f).Within(FloatTolerance));
+                Assert.That(rows[0].ActualTotalDamage, Is.EqualTo(150f).Within(FloatTolerance));
 
                 CombatDamageResult lateResult = CombatDamageResolver.Apply(
                     enemy,
@@ -180,7 +218,11 @@ namespace RainsenVampSur.Tests
                     false,
                     telemetry);
                 Assert.IsFalse(lateResult.Accepted);
-                Assert.That(rows[0].ActualTotalDamage, Is.EqualTo(100f).Within(FloatTolerance));
+                Assert.That(lateResult.AppliedDamage, Is.EqualTo(0f).Within(FloatTolerance));
+                Assert.That(lateResult.HealthLost, Is.EqualTo(0f).Within(FloatTolerance));
+                Assert.That(lateResult.CurrentHealth, Is.EqualTo(0f).Within(FloatTolerance));
+                List<RunResultWeaponSnapshot> rowsAfterLateHit = telemetry.CreateWeaponSnapshots(5f, null);
+                Assert.That(rowsAfterLateHit[0].ActualTotalDamage, Is.EqualTo(150f).Within(FloatTolerance));
             }
             finally
             {
@@ -205,6 +247,7 @@ namespace RainsenVampSur.Tests
                     weapon.MaxLevel,
                     12f,
                     0f,
+                    120f,
                     12f)
             };
             var pickupRows = new List<RunResultPickupSnapshot>();

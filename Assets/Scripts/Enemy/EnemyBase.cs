@@ -197,28 +197,37 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         TakeDamage(damage, false);
     }
 
-    /// <summary>兼容旧 IDamageable 调用，执行实际扣血但不额外重复记账。</summary>
+    /// <summary>兼容旧 IDamageable 调用，执行伤害结算但不额外重复记账。</summary>
     public void TakeDamage(float damage, bool isCritical)
     {
         ApplyCombatDamage(damage, isCritical);
     }
 
     /// <summary>
-    /// 扣除生命并返回实际损失值；过量伤害只按剩余生命计入武器统计。
+    /// 扣除生命并返回有效命中与实际生命损失；过量伤害保留完整命中值，生命只减少剩余生命。
     /// </summary>
     public CombatDamageResult ApplyCombatDamage(float damage, bool isCritical)
     {
         float safeDamage = RunResultValueSanitizer.SanitizeNonNegative(damage);
+        float safeCurrentHealth = Mathf.Max(0f, _currentHealth);
+        _currentHealth = safeCurrentHealth;
         // 回池后的对象已恢复下一生命周期基础生命，但在再次 Spawn 前必须拒绝所有外部伤害。
-        if (!isActiveAndEnabled || safeDamage <= 0f || _currentHealth <= 0f ||
+        if (!isActiveAndEnabled || safeDamage <= 0f || safeCurrentHealth <= 0f ||
             (RunDirector.Instance != null && RunDirector.Instance.IsResultFrozen))
         {
-            return new CombatDamageResult(safeDamage, 0f, false, _currentHealth <= 0f);
+            return new CombatDamageResult(
+                safeDamage,
+                0f,
+                0f,
+                safeCurrentHealth,
+                false,
+                safeCurrentHealth <= 0f);
         }
 
-        float previousHealth = _currentHealth;
-        float appliedDamage = Mathf.Min(previousHealth, safeDamage);
-        _currentHealth = Mathf.Max(0f, previousHealth - appliedDamage);
+        float previousHealth = safeCurrentHealth;
+        float appliedDamage = safeDamage;
+        float healthLost = Mathf.Min(previousHealth, appliedDamage);
+        _currentHealth = Mathf.Max(0f, previousHealth - healthLost);
         if (_hitFlash != null)
         {
             _hitFlash.TriggerFlash();
@@ -233,9 +242,17 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         if (targetDefeated)
         {
             Die();
+            // Die() 可能同步回池并触发 OnDisable；死亡结果仍必须保留归零的当前生命。
+            _currentHealth = 0f;
         }
 
-        return new CombatDamageResult(safeDamage, appliedDamage, true, targetDefeated);
+        return new CombatDamageResult(
+            safeDamage,
+            appliedDamage,
+            healthLost,
+            _currentHealth,
+            true,
+            targetDefeated);
     }
 
     /// <summary>登记击杀、生成经验与概率掉落，并把敌人归还对应对象池。</summary>

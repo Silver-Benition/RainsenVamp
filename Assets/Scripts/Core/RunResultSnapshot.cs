@@ -31,7 +31,7 @@ public sealed class RunResultCharacterSnapshot
 /// <summary>结果页单行武器统计快照。</summary>
 public sealed class RunResultWeaponSnapshot
 {
-    /// <summary>复制武器稳定身份、等级和局内实际伤害统计。</summary>
+    /// <summary>复制武器稳定身份、等级、有效命中伤害和冻结后的有效作用时长。</summary>
     public RunResultWeaponSnapshot(
         string weaponId,
         string nameKey,
@@ -41,6 +41,7 @@ public sealed class RunResultWeaponSnapshot
         int maxLevel,
         float actualTotalDamage,
         float firstEffectTime,
+        float activeDurationSeconds,
         float damagePerSecond)
     {
         WeaponId = weaponId ?? string.Empty;
@@ -51,7 +52,36 @@ public sealed class RunResultWeaponSnapshot
         MaxLevel = Mathf.Max(CurrentLevel, maxLevel);
         ActualTotalDamage = RunResultValueSanitizer.SanitizeNonNegative(actualTotalDamage);
         FirstEffectTime = RunResultValueSanitizer.SanitizeNonNegative(firstEffectTime);
+        ActiveDurationSeconds = RunResultValueSanitizer.SanitizeNonNegative(activeDurationSeconds);
         DamagePerSecond = RunResultValueSanitizer.SanitizeNonNegative(damagePerSecond);
+    }
+
+    /// <summary>
+    /// 兼容只提供首次生效时间的旧构造调用；没有结算时间时无法推导有效作用时长，按零保存。
+    /// 正式结果冻结流程必须使用包含 activeDurationSeconds 的构造函数。
+    /// </summary>
+    public RunResultWeaponSnapshot(
+        string weaponId,
+        string nameKey,
+        string displayName,
+        Sprite icon,
+        int currentLevel,
+        int maxLevel,
+        float actualTotalDamage,
+        float firstEffectTime,
+        float damagePerSecond)
+        : this(
+            weaponId,
+            nameKey,
+            displayName,
+            icon,
+            currentLevel,
+            maxLevel,
+            actualTotalDamage,
+            firstEffectTime,
+            0f,
+            damagePerSecond)
+    {
     }
 
     public string WeaponId { get; }
@@ -62,6 +92,7 @@ public sealed class RunResultWeaponSnapshot
     public int MaxLevel { get; }
     public float ActualTotalDamage { get; }
     public float FirstEffectTime { get; }
+    public float ActiveDurationSeconds { get; }
     public float DamagePerSecond { get; }
 }
 

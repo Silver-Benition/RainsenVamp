@@ -208,7 +208,7 @@ public sealed class RunResultsUI : MonoBehaviour
         CreateSection(
             panel.transform,
             "WeaponTable",
-            "武器统计  ·  实际扣血",
+            "武器统计  ·  命中伤害与时长",
             new Vector2(0.03f, 0.14f),
             new Vector2(0.48f, 0.63f),
             out _weaponContent);
@@ -362,7 +362,7 @@ public sealed class RunResultsUI : MonoBehaviour
 
         SetWeaponColumnText(row, "Level", $"Lv.{weapon.CurrentLevel}/{weapon.MaxLevel}");
         SetWeaponColumnText(row, "Damage", $"{weapon.ActualTotalDamage:F0}");
-        SetWeaponColumnText(row, "Time", FormatTime(weapon.FirstEffectTime));
+        SetWeaponColumnText(row, "Time", FormatTime(weapon.ActiveDurationSeconds));
         SetWeaponColumnText(row, "Dps", $"{weapon.DamagePerSecond:F1}");
     }
 
@@ -824,7 +824,7 @@ public sealed class RunResultsUI : MonoBehaviour
         objects.Clear();
     }
 
-    /// <summary>将有限非负秒数格式化为分钟和秒，用于获得时间与生存时间。</summary>
+    /// <summary>将有限非负秒数格式化为分钟和秒，用于武器有效时长与生存时间。</summary>
     private static string FormatTime(float seconds)
     {
         float safeSeconds = RunResultValueSanitizer.SanitizeNonNegative(seconds);

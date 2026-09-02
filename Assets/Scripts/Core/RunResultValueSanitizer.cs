@@ -37,23 +37,53 @@ public static class RunResultValueSanitizer
     }
 
     /// <summary>
-    /// 计算结果页 DPS，并把零时长、倒计时和异常浮点输入统一视为零 DPS。
+    /// 计算武器从首次生效到结算时刻的有效作用时长。
+    /// 结算时间早于首次生效时间时返回零，避免倒计时或异常时序制造负时长。
     /// </summary>
-    public static float CalculateDamagePerSecond(
-        float actualDamage,
-        float firstEffectTime,
-        float finalTime)
+    public static float CalculateActiveDuration(
+        float survivalTimeSeconds,
+        float firstEffectTimeSeconds)
     {
-        float safeDamage = SanitizeNonNegative(actualDamage);
-        float safeFirstEffectTime = SanitizeNonNegative(firstEffectTime);
-        float safeFinalTime = SanitizeNonNegative(finalTime);
-        float activeDuration = safeFinalTime - safeFirstEffectTime;
-        if (safeDamage <= 0f || activeDuration <= 0f || float.IsNaN(activeDuration) ||
-            float.IsInfinity(activeDuration))
+        float safeSurvivalTime = SanitizeNonNegative(survivalTimeSeconds);
+        float safeFirstEffectTime = SanitizeNonNegative(firstEffectTimeSeconds);
+        if (safeSurvivalTime <= safeFirstEffectTime)
         {
             return 0f;
         }
 
-        return SanitizeNonNegative(safeDamage / activeDuration);
+        // 两个输入都已收敛为有限非负值，因此差值不会向正无穷溢出；
+        // 再次清洗是为了让这个公共边界方法在未来改动后仍保持结果契约。
+        return SanitizeNonNegative(safeSurvivalTime - safeFirstEffectTime);
+    }
+
+    /// <summary>
+    /// 使用已经冻结的有效作用时长计算结果页 DPS；零时长和异常输入统一视为零 DPS。
+    /// </summary>
+    public static float CalculateDamagePerSecond(
+        float actualDamage,
+        float activeDurationSeconds)
+    {
+        float safeDamage = SanitizeNonNegative(actualDamage);
+        float safeActiveDuration = SanitizeNonNegative(activeDurationSeconds);
+        if (safeDamage <= 0f || safeActiveDuration <= 0f)
+        {
+            return 0f;
+        }
+
+        return SanitizeNonNegative(safeDamage / safeActiveDuration);
+    }
+
+    /// <summary>
+    /// 兼容旧调用方：先按首次生效时间和结算时间计算有效时长，再计算 DPS。
+    /// 新的结果冻结流程应优先传入已计算的有效时长，确保时间显示与 DPS 使用同一权威值。
+    /// </summary>
+    public static float CalculateDamagePerSecond(
+        float actualDamage,
+        float firstEffectTimeSeconds,
+        float survivalTimeSeconds)
+    {
+        return CalculateDamagePerSecond(
+            actualDamage,
+            CalculateActiveDuration(survivalTimeSeconds, firstEffectTimeSeconds));
     }
 }
