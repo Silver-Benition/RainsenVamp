@@ -12,6 +12,18 @@ public sealed class RunResultsUI : MonoBehaviour
 {
     public static RunResultsUI Instance { get; private set; }
 
+    private const float WeaponColumnWeaponWidth = 190f;
+    private const float WeaponColumnLevelWidth = 64f;
+    private const float WeaponColumnDamageWidth = 80f;
+    private const float WeaponColumnTimeWidth = 72f;
+    private const float WeaponColumnDpsWidth = 90f;
+    private const float WeaponColumnSpacing = 4f;
+    private const float WeaponHeaderHeight = 28f;
+    private const float WeaponRowHeight = 32f;
+    private const float WeaponIconSize = 22f;
+    private const float LoadoutCellWidth = 94f;
+    private const float LoadoutCellHeight = 76f;
+
     private readonly List<GameObject> _weaponRows = new List<GameObject>(PlayerLoadoutRules.MaxWeaponCount);
     private readonly List<GameObject> _itemCells = new List<GameObject>(PlayerLoadoutRules.MaxAbilityCount);
     private readonly List<GameObject> _abilityCells = new List<GameObject>(PlayerLoadoutRules.MaxAbilityCount);
@@ -193,13 +205,15 @@ public sealed class RunResultsUI : MonoBehaviour
             out Transform basicsContent);
         basicsContent.GetComponent<VerticalLayoutGroup>().spacing = 2f;
 
-        CreateTextSection(
+        CreateSection(
             panel.transform,
             "WeaponTable",
             "武器统计  ·  实际扣血",
             new Vector2(0.03f, 0.14f),
             new Vector2(0.48f, 0.63f),
             out _weaponContent);
+        ConfigureVerticalList(_weaponContent, 2f);
+        CreateWeaponTableHeader(_weaponContent);
 
         GameObject loadoutSection = CreateSection(panel.transform, "Loadout", "角色与局内装备", new Vector2(0.51f, 0.34f), new Vector2(0.97f, 0.845f), out Transform loadoutContent);
         BuildLoadoutSection(loadoutContent);
@@ -232,7 +246,7 @@ public sealed class RunResultsUI : MonoBehaviour
         _restartButton = CreateButton("RestartButton", buttons.transform, "重新开始");
         _mainMenuButton = CreateButton("MainMenuButton", buttons.transform, "返回主菜单");
 
-        _weaponRowTemplate = CreateTextRowTemplate(_weaponContent, "WeaponRowTemplate");
+        _weaponRowTemplate = CreateWeaponRowTemplate(_weaponContent, "WeaponRowTemplate");
         _cellTemplate = CreateCellTemplate(loadoutContent, "LoadoutCellTemplate");
         _pickupRowTemplate = CreateTextRowTemplate(_pickupContent, "PickupRowTemplate");
         _weaponRowTemplate.SetActive(false);
@@ -264,10 +278,10 @@ public sealed class RunResultsUI : MonoBehaviour
         LayoutElement nameLayout = _characterNameText.gameObject.AddComponent<LayoutElement>();
         nameLayout.flexibleWidth = 1f;
 
-        _itemTitle = CreateText("ItemTitle", content, "Items", new Vector2(0f, 0.53f), new Vector2(1f, 0.72f), 16f, TextAlignmentOptions.Left);
-        _abilityTitle = CreateText("AbilityTitle", content, "Abilities", new Vector2(0f, 0.28f), new Vector2(1f, 0.47f), 16f, TextAlignmentOptions.Left);
-        _itemGrid = CreateGrid(content, "ItemGrid", new Vector2(0f, 0.48f), new Vector2(1f, 0.67f));
-        _abilityGrid = CreateGrid(content, "AbilityGrid", new Vector2(0f, 0.08f), new Vector2(1f, 0.27f));
+        _itemTitle = CreateText("ItemTitle", content, "Items", new Vector2(0f, 0.60f), new Vector2(1f, 0.74f), 16f, TextAlignmentOptions.Left);
+        _abilityTitle = CreateText("AbilityTitle", content, "Abilities", new Vector2(0f, 0.22f), new Vector2(1f, 0.34f), 16f, TextAlignmentOptions.Left);
+        _itemGrid = CreateGrid(content, "ItemGrid", new Vector2(0f, 0.37f), new Vector2(1f, 0.58f));
+        _abilityGrid = CreateGrid(content, "AbilityGrid", new Vector2(0f, 0.01f), new Vector2(1f, 0.20f));
     }
 
     /// <summary>把冻结快照绑定到所有静态标签、动态统计行和装备网格。</summary>
@@ -296,19 +310,13 @@ public sealed class RunResultsUI : MonoBehaviour
         _abilityTitle.text = $"Abilities  ({snapshot.Abilities.Count})";
 
         ClearObjects(_weaponRows);
-        for (int index = 0; index < snapshot.Weapons.Count; index++)
+        int weaponCount = Mathf.Min(snapshot.Weapons.Count, PlayerLoadoutRules.MaxWeaponCount);
+        for (int index = 0; index < weaponCount; index++)
         {
             RunResultWeaponSnapshot weapon = snapshot.Weapons[index];
             GameObject row = Instantiate(_weaponRowTemplate, _weaponContent);
             row.SetActive(true);
-            Transform label = row.transform.Find("Label");
-            Transform value = row.transform.Find("Value");
-            if (label != null) label.GetComponent<TMP_Text>().text = $"{weapon.DisplayName}  Lv.{weapon.CurrentLevel}/{weapon.MaxLevel}";
-            if (value != null)
-            {
-                value.GetComponent<TMP_Text>().text =
-                    $"{weapon.ActualTotalDamage:F0}  |  {weapon.DamagePerSecond:F1}/s  |  获得时间 {FormatTime(weapon.FirstEffectTime)}";
-            }
+            BindWeaponRow(row.transform, weapon);
             _weaponRows.Add(row);
         }
 
@@ -327,6 +335,45 @@ public sealed class RunResultsUI : MonoBehaviour
             if (label != null) label.GetComponent<TMP_Text>().text = pickup.DisplayName;
             if (value != null) value.GetComponent<TMP_Text>().text = $"×{pickup.Count}";
             _pickupRows.Add(row);
+        }
+    }
+
+    /// <summary>把一条武器快照绑定到五个独立列，保持列语义与表头一一对应。</summary>
+    private static void BindWeaponRow(Transform row, RunResultWeaponSnapshot weapon)
+    {
+        Transform weaponColumn = row.Find("Weapon");
+        if (weaponColumn != null)
+        {
+            Transform iconTransform = weaponColumn.Find("Icon");
+            if (iconTransform != null)
+            {
+                Image icon = iconTransform.GetComponent<Image>();
+                icon.sprite = weapon.Icon;
+                icon.enabled = weapon.Icon != null;
+                iconTransform.gameObject.SetActive(weapon.Icon != null);
+            }
+
+            Transform textTransform = weaponColumn.Find("Text");
+            if (textTransform != null)
+            {
+                textTransform.GetComponent<TMP_Text>().text = weapon.DisplayName;
+            }
+        }
+
+        SetWeaponColumnText(row, "Level", $"Lv.{weapon.CurrentLevel}/{weapon.MaxLevel}");
+        SetWeaponColumnText(row, "Damage", $"{weapon.ActualTotalDamage:F0}");
+        SetWeaponColumnText(row, "Time", FormatTime(weapon.FirstEffectTime));
+        SetWeaponColumnText(row, "Dps", $"{weapon.DamagePerSecond:F1}");
+    }
+
+    /// <summary>写入武器表指定列的唯一文本节点，避免回退到拼接字符串布局。</summary>
+    private static void SetWeaponColumnText(Transform row, string columnName, string value)
+    {
+        Transform column = row.Find(columnName);
+        Transform text = column != null ? column.Find("Text") : null;
+        if (text != null)
+        {
+            text.GetComponent<TMP_Text>().text = value;
         }
     }
 
@@ -388,7 +435,194 @@ public sealed class RunResultsUI : MonoBehaviour
         }
     }
 
-    /// <summary>创建带背景和双文本列的动态行模板。</summary>
+    /// <summary>创建武器统计表的固定表头，五列顺序与所有数据行完全一致。</summary>
+    private static GameObject CreateWeaponTableHeader(Transform parent)
+    {
+        GameObject header = CreateUiObject(
+            "WeaponTableHeader",
+            parent,
+            typeof(Image),
+            typeof(HorizontalLayoutGroup),
+            typeof(LayoutElement));
+        header.GetComponent<Image>().color = new Color(0.12f, 0.19f, 0.29f, 1f);
+        ConfigureWeaponRowLayout(header, WeaponHeaderHeight);
+
+        CreateWeaponTextColumn(
+            header.transform,
+            "Weapon",
+            WeaponColumnWeaponWidth,
+            "武器",
+            TextAlignmentOptions.Left,
+            true);
+        CreateWeaponTextColumn(
+            header.transform,
+            "Level",
+            WeaponColumnLevelWidth,
+            "等级",
+            TextAlignmentOptions.Right,
+            true);
+        CreateWeaponTextColumn(
+            header.transform,
+            "Damage",
+            WeaponColumnDamageWidth,
+            "伤害",
+            TextAlignmentOptions.Right,
+            true);
+        CreateWeaponTextColumn(
+            header.transform,
+            "Time",
+            WeaponColumnTimeWidth,
+            "时间",
+            TextAlignmentOptions.Right,
+            true);
+        CreateWeaponTextColumn(
+            header.transform,
+            "Dps",
+            WeaponColumnDpsWidth,
+            "每秒伤害",
+            TextAlignmentOptions.Right,
+            true);
+        return header;
+    }
+
+    /// <summary>创建与表头共享列宽常量的五列武器行模板。</summary>
+    private static GameObject CreateWeaponRowTemplate(Transform parent, string name)
+    {
+        GameObject row = CreateUiObject(
+            name,
+            parent,
+            typeof(Image),
+            typeof(HorizontalLayoutGroup),
+            typeof(LayoutElement));
+        row.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.17f, 0.9f);
+        ConfigureWeaponRowLayout(row, WeaponRowHeight);
+
+        CreateWeaponNameColumn(row.transform);
+        CreateWeaponTextColumn(
+            row.transform,
+            "Level",
+            WeaponColumnLevelWidth,
+            "Lv.1/1",
+            TextAlignmentOptions.Right,
+            false);
+        CreateWeaponTextColumn(
+            row.transform,
+            "Damage",
+            WeaponColumnDamageWidth,
+            "0",
+            TextAlignmentOptions.Right,
+            false);
+        CreateWeaponTextColumn(
+            row.transform,
+            "Time",
+            WeaponColumnTimeWidth,
+            "00:00",
+            TextAlignmentOptions.Right,
+            false);
+        CreateWeaponTextColumn(
+            row.transform,
+            "Dps",
+            WeaponColumnDpsWidth,
+            "0.0",
+            TextAlignmentOptions.Right,
+            false);
+        return row;
+    }
+
+    /// <summary>配置武器表头和数据行共同使用的背景、行高、内边距与列间距。</summary>
+    private static void ConfigureWeaponRowLayout(GameObject row, float preferredHeight)
+    {
+        LayoutElement rowLayout = row.GetComponent<LayoutElement>();
+        rowLayout.preferredHeight = preferredHeight;
+        rowLayout.minHeight = preferredHeight;
+
+        HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+        layout.padding = new RectOffset(8, 8, 2, 2);
+        layout.spacing = WeaponColumnSpacing;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlHeight = true;
+        layout.childControlWidth = true;
+        layout.childForceExpandHeight = false;
+        layout.childForceExpandWidth = false;
+    }
+
+    /// <summary>创建带固定宽度的普通武器统计列，并只在列内部放置一个文本节点。</summary>
+    private static GameObject CreateWeaponTextColumn(
+        Transform parent,
+        string name,
+        float width,
+        string text,
+        TextAlignmentOptions alignment,
+        bool header)
+    {
+        GameObject column = CreateUiObject(name, parent, typeof(LayoutElement));
+        LayoutElement columnLayout = column.GetComponent<LayoutElement>();
+        columnLayout.minWidth = width;
+        columnLayout.preferredWidth = width;
+        columnLayout.flexibleWidth = 0f;
+
+        TextMeshProUGUI columnText = CreateText(
+            "Text",
+            column.transform,
+            text,
+            Vector2.zero,
+            Vector2.one,
+            header ? 12f : 13f,
+            alignment);
+        columnText.fontStyle = header ? FontStyles.Bold : FontStyles.Normal;
+        return column;
+    }
+
+    /// <summary>创建武器名称列，按需显示图标并保持名称左对齐。</summary>
+    private static GameObject CreateWeaponNameColumn(Transform parent)
+    {
+        GameObject column = CreateUiObject(
+            "Weapon",
+            parent,
+            typeof(LayoutElement),
+            typeof(HorizontalLayoutGroup));
+        LayoutElement columnLayout = column.GetComponent<LayoutElement>();
+        columnLayout.minWidth = WeaponColumnWeaponWidth;
+        columnLayout.preferredWidth = WeaponColumnWeaponWidth;
+        columnLayout.flexibleWidth = 0f;
+
+        HorizontalLayoutGroup layout = column.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 4f;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        GameObject iconObject = CreateUiObject(
+            "Icon",
+            column.transform,
+            typeof(Image),
+            typeof(LayoutElement));
+        LayoutElement iconLayout = iconObject.GetComponent<LayoutElement>();
+        iconLayout.preferredWidth = WeaponIconSize;
+        iconLayout.preferredHeight = WeaponIconSize;
+        iconLayout.minWidth = WeaponIconSize;
+        iconLayout.minHeight = WeaponIconSize;
+        Image icon = iconObject.GetComponent<Image>();
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+
+        TextMeshProUGUI text = CreateText(
+            "Text",
+            column.transform,
+            "武器",
+            Vector2.zero,
+            Vector2.one,
+            13f,
+            TextAlignmentOptions.Left);
+        LayoutElement textLayout = text.gameObject.AddComponent<LayoutElement>();
+        textLayout.flexibleWidth = 1f;
+        textLayout.minWidth = 0f;
+        return column;
+    }
+
+    /// <summary>创建带背景和双文本列的通用动态行模板，继续供 Part4 拾取统计使用。</summary>
     private static GameObject CreateTextRowTemplate(Transform parent, string name)
     {
         GameObject row = CreateUiObject(name, parent, typeof(Image), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
@@ -416,8 +650,8 @@ public sealed class RunResultsUI : MonoBehaviour
         GameObject cell = CreateUiObject(name, parent, typeof(Image), typeof(LayoutElement));
         cell.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.17f, 0.9f);
         LayoutElement layout = cell.GetComponent<LayoutElement>();
-        layout.preferredWidth = 104f;
-        layout.preferredHeight = 76f;
+        layout.preferredWidth = LoadoutCellWidth;
+        layout.preferredHeight = LoadoutCellHeight;
 
         GameObject icon = CreateUiObject("Icon", cell.transform, typeof(Image));
         RectTransform iconRect = icon.GetComponent<RectTransform>();
@@ -471,12 +705,21 @@ public sealed class RunResultsUI : MonoBehaviour
         out Transform content)
     {
         CreateSection(parent, name, title, anchorMin, anchorMax, out content);
+        ConfigureVerticalList(content, 0f);
+        return CreateText("Summary", content, string.Empty, Vector2.zero, Vector2.one, 17f, TextAlignmentOptions.Left);
+    }
+
+    /// <summary>为低频结果列表统一设置内边距、行距和子项尺寸控制。</summary>
+    private static VerticalLayoutGroup ConfigureVerticalList(Transform content, float spacing)
+    {
         VerticalLayoutGroup layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(8, 8, 4, 4);
+        layout.spacing = spacing;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
         layout.childForceExpandHeight = false;
-        return CreateText("Summary", content, string.Empty, Vector2.zero, Vector2.one, 17f, TextAlignmentOptions.Left);
+        return layout;
     }
 
     /// <summary>创建网格容器，使用固定单元尺寸确保两种目标分辨率下不重叠。</summary>
@@ -489,10 +732,10 @@ public sealed class RunResultsUI : MonoBehaviour
         rect.offsetMin = new Vector2(6f, 0f);
         rect.offsetMax = new Vector2(-6f, 0f);
         GridLayoutGroup grid = gridObject.GetComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(104f, 76f);
+        grid.cellSize = new Vector2(LoadoutCellWidth, LoadoutCellHeight);
         grid.spacing = new Vector2(5f, 4f);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 3;
+        grid.constraintCount = 6;
         grid.childAlignment = TextAnchor.UpperLeft;
         return gridObject.transform;
     }

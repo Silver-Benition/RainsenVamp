@@ -5,6 +5,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace RainsenVampSur.Tests.PlayMode
@@ -518,6 +519,386 @@ namespace RainsenVampSur.Tests.PlayMode
                     RuntimeComponentTestUtility.GetProperty<float>(row, "ActualTotalDamage"),
                     Is.EqualTo(10f).Within(FloatTolerance));
             }
+        }
+
+        /// <summary>真实 MainLevel 结果页必须在六武器、六 Item、六 Ability 满载时保持五列表格绑定和区域不重叠。</summary>
+        [UnityTest]
+        public IEnumerator MainLevel_RunResultsUI_六武器与双六格满载_表格绑定和区域不重叠()
+        {
+            yield return SceneManager.LoadSceneAsync(MainSceneName, LoadSceneMode.Single);
+            yield return null;
+
+            Component resultsUi = Object.FindObjectOfType(
+                RuntimeComponentTestUtility.RequireRuntimeType("RunResultsUI")) as Component;
+            Assert.IsNotNull(resultsUi, "MainLevel 缺少 RunResultsUI。");
+
+            Texture2D iconTexture = TrackObject(new Texture2D(2, 2, TextureFormat.RGBA32, false));
+            Sprite testIcon = TrackObject(Sprite.Create(
+                iconTexture,
+                new Rect(0f, 0f, iconTexture.width, iconTexture.height),
+                new Vector2(0.5f, 0.5f)));
+            object snapshot = CreateRunResultsUiSnapshot(testIcon);
+            RuntimeComponentTestUtility.Invoke(resultsUi, "Show", snapshot);
+            Canvas.ForceUpdateCanvases();
+
+            Transform panel = resultsUi.transform.Find("RunResultsOverlay/RunResultsPanel");
+            Assert.IsNotNull(panel, "结果页缺少 RunResultsPanel。");
+            AssertWeaponTableLayout(panel.Find("WeaponTable"), testIcon);
+            AssertLoadoutLayout(panel.Find("Loadout"));
+            AssertCanvasScaleContract(resultsUi, panel);
+        }
+
+        /// <summary>通过真实运行时类型构造六武器、六 Item 和六 Ability 的冻结结果快照。</summary>
+        private object CreateRunResultsUiSnapshot(Sprite testIcon)
+        {
+            Type weaponType = RuntimeComponentTestUtility.RequireRuntimeType("RunResultWeaponSnapshot");
+            Type weaponListType = typeof(List<>).MakeGenericType(weaponType);
+            System.Collections.IList weapons = (System.Collections.IList)Activator.CreateInstance(weaponListType);
+            for (int index = 0; index < 6; index++)
+            {
+                int rowNumber = index + 1;
+                weapons.Add(Activator.CreateInstance(
+                    weaponType,
+                    new object[]
+                    {
+                        $"weapon.ui.{rowNumber}",
+                        $"weapon.ui.{rowNumber}.name",
+                        $"Weapon {rowNumber}",
+                        testIcon,
+                        rowNumber,
+                        6,
+                        120f + index * 10f,
+                        rowNumber,
+                        12f + index
+                    }));
+            }
+
+            Type abilityType = RuntimeComponentTestUtility.RequireRuntimeType("RunResultAbilitySnapshot");
+            Type abilityListType = typeof(List<>).MakeGenericType(abilityType);
+            System.Collections.IList items = (System.Collections.IList)Activator.CreateInstance(abilityListType);
+            System.Collections.IList abilities = (System.Collections.IList)Activator.CreateInstance(abilityListType);
+            Type categoryType = RuntimeComponentTestUtility.RequireRuntimeType("AbilityPresentationCategory");
+            object itemCategory = Enum.Parse(categoryType, "Item");
+            object abilityCategory = Enum.Parse(categoryType, "Ability");
+            for (int index = 0; index < 6; index++)
+            {
+                int cellNumber = index + 1;
+                items.Add(Activator.CreateInstance(
+                    abilityType,
+                    new object[]
+                    {
+                        $"item.ui.{cellNumber}",
+                        $"item.ui.{cellNumber}.name",
+                        $"Item {cellNumber}",
+                        testIcon,
+                        cellNumber,
+                        6,
+                        itemCategory
+                    }));
+                abilities.Add(Activator.CreateInstance(
+                    abilityType,
+                    new object[]
+                    {
+                        $"ability.ui.{cellNumber}",
+                        $"ability.ui.{cellNumber}.name",
+                        $"Ability {cellNumber}",
+                        testIcon,
+                        cellNumber,
+                        6,
+                        abilityCategory
+                    }));
+            }
+
+            Type characterType = RuntimeComponentTestUtility.RequireRuntimeType("RunResultCharacterSnapshot");
+            object character = Activator.CreateInstance(
+                characterType,
+                new object[] { "character.ui", "character.ui.name", "UI Test Character", testIcon });
+
+            Type pickupType = RuntimeComponentTestUtility.RequireRuntimeType("RunResultPickupSnapshot");
+            Type pickupListType = typeof(List<>).MakeGenericType(pickupType);
+            System.Collections.IList pickups = (System.Collections.IList)Activator.CreateInstance(pickupListType);
+
+            Type snapshotType = RuntimeComponentTestUtility.RequireRuntimeType("RunResultSnapshot");
+            object outcome = Enum.Parse(RuntimeComponentTestUtility.RequireRuntimeType("RunOutcome"), "Victory");
+            return Activator.CreateInstance(
+                snapshotType,
+                new object[]
+                {
+                    outcome,
+                    false,
+                    "map.ui",
+                    "UI Test Map",
+                    125f,
+                    123,
+                    456,
+                    6,
+                    character,
+                    weapons,
+                    items,
+                    abilities,
+                    pickups
+                });
+        }
+
+        /// <summary>核对武器表固定五列、表头首位、六行绑定、列宽一致和隐藏模板状态。</summary>
+        private static void AssertWeaponTableLayout(Transform table, Sprite expectedIcon)
+        {
+            Assert.IsNotNull(table, "结果页缺少 WeaponTable。");
+            Transform content = table.Find("Content");
+            Assert.IsNotNull(content, "WeaponTable 缺少 Content。");
+            Transform header = content.Find("WeaponTableHeader");
+            Assert.IsNotNull(header, "WeaponTable 缺少固定表头。");
+            Assert.IsTrue(header.gameObject.activeSelf, "武器表头必须可见。");
+            Assert.IsNull(content.Find("Summary"), "武器表不应保留旧的占位 Summary 文本。");
+
+            string[] columnNames = { "Weapon", "Level", "Damage", "Time", "Dps" };
+            string[] headerTexts = { "武器", "等级", "伤害", "时间", "每秒伤害" };
+            List<Transform> headerColumns = GetActiveDirectChildren(header);
+            Assert.That(headerColumns.Count, Is.EqualTo(columnNames.Length), "表头必须正好包含五列。");
+            for (int index = 0; index < columnNames.Length; index++)
+            {
+                Assert.That(headerColumns[index].name, Is.EqualTo(columnNames[index]));
+                Transform text = headerColumns[index].Find("Text");
+                Assert.IsNotNull(text, $"表头列 {columnNames[index]} 缺少独立文本节点。");
+                Assert.That(GetUiText(text), Is.EqualTo(headerTexts[index]));
+            }
+
+            List<Transform> visibleRows = new List<Transform>();
+            for (int index = 0; index < content.childCount; index++)
+            {
+                Transform child = content.GetChild(index);
+                if (child.gameObject.activeSelf && child != header)
+                {
+                    visibleRows.Add(child);
+                }
+            }
+
+            Assert.That(visibleRows.Count, Is.EqualTo(6), "六武器满载时必须创建六条可见武器行。");
+            Transform hiddenTemplate = content.Find("WeaponRowTemplate");
+            Assert.IsNotNull(hiddenTemplate, "武器表缺少动态行模板。");
+            Assert.IsFalse(hiddenTemplate.gameObject.activeSelf, "武器行模板必须保持隐藏。");
+
+            for (int rowIndex = 0; rowIndex < visibleRows.Count; rowIndex++)
+            {
+                Transform row = visibleRows[rowIndex];
+                List<Transform> columns = GetActiveDirectChildren(row);
+                Assert.That(columns.Count, Is.EqualTo(columnNames.Length), $"第 {rowIndex + 1} 行必须是五列独立结构。");
+                Assert.IsNull(row.Find("Label"), "武器行不得回退到旧双列 Label。");
+                Assert.IsNull(row.Find("Value"), "武器行不得回退到旧拼接 Value。");
+
+                for (int columnIndex = 0; columnIndex < columnNames.Length; columnIndex++)
+                {
+                    Assert.That(columns[columnIndex].name, Is.EqualTo(columnNames[columnIndex]));
+                    float headerWidth = headerColumns[columnIndex].GetComponent<RectTransform>().rect.width;
+                    float rowWidth = columns[columnIndex].GetComponent<RectTransform>().rect.width;
+                    Assert.That(
+                        rowWidth,
+                        Is.EqualTo(headerWidth).Within(0.5f),
+                        $"第 {rowIndex + 1} 行 {columnNames[columnIndex]} 列宽必须与表头一致。");
+                }
+
+                Transform weaponColumn = row.Find("Weapon");
+                Assert.IsNotNull(weaponColumn);
+                List<Transform> weaponParts = GetActiveDirectChildren(weaponColumn);
+                Assert.That(weaponParts.Count, Is.EqualTo(2), "武器列必须独立包含图标和显示名称。");
+                Assert.That(weaponParts[0].name, Is.EqualTo("Icon"));
+                Assert.That(weaponParts[1].name, Is.EqualTo("Text"));
+                Image icon = weaponParts[0].GetComponent<Image>();
+                Assert.IsNotNull(icon);
+                Assert.IsTrue(icon.enabled, "绑定了武器图标时图标节点必须可见。");
+                Assert.AreSame(expectedIcon, icon.sprite);
+                Assert.That(GetUiText(weaponParts[1]), Is.EqualTo($"Weapon {rowIndex + 1}"));
+
+                Assert.That(
+                    GetUiText(row.Find("Level/Text")),
+                    Is.EqualTo($"Lv.{rowIndex + 1}/6"));
+                Assert.That(
+                    GetUiText(row.Find("Damage/Text")),
+                    Is.EqualTo($"{120f + rowIndex * 10f:F0}"));
+                Assert.That(
+                    GetUiText(row.Find("Time/Text")),
+                    Is.EqualTo($"00:{rowIndex + 1:00}"));
+                Assert.That(
+                    GetUiText(row.Find("Dps/Text")),
+                    Is.EqualTo($"{12f + rowIndex:F1}"));
+            }
+        }
+
+        /// <summary>核对角色、Item、Ability 五个纵向区域、六列单行网格和隐藏装备模板。</summary>
+        private static void AssertLoadoutLayout(Transform loadout)
+        {
+            Assert.IsNotNull(loadout, "结果页缺少 Loadout。");
+            Transform content = loadout.Find("Content");
+            Assert.IsNotNull(content, "Loadout 缺少 Content。");
+
+            Transform character = content.Find("Character");
+            Transform itemTitle = content.Find("ItemTitle");
+            Transform itemGrid = content.Find("ItemGrid");
+            Transform abilityTitle = content.Find("AbilityTitle");
+            Transform abilityGrid = content.Find("AbilityGrid");
+            Transform[] regions = { character, itemTitle, itemGrid, abilityTitle, abilityGrid };
+            for (int index = 0; index < regions.Length; index++)
+            {
+                Assert.IsNotNull(regions[index], $"Loadout 缺少第 {index + 1} 个结构区域。");
+            }
+
+            Assert.That(GetUiText(itemTitle), Is.EqualTo("Items  (6)"));
+            Assert.That(GetUiText(abilityTitle), Is.EqualTo("Abilities  (6)"));
+            for (int firstIndex = 0; firstIndex < regions.Length; firstIndex++)
+            {
+                Rect firstRect = GetWorldRect(regions[firstIndex].GetComponent<RectTransform>());
+                for (int secondIndex = firstIndex + 1; secondIndex < regions.Length; secondIndex++)
+                {
+                    AssertNoIntersection(
+                        firstRect,
+                        GetWorldRect(regions[secondIndex].GetComponent<RectTransform>()),
+                        $"Loadout 区域 {regions[firstIndex].name} 与 {regions[secondIndex].name} 不得重叠。");
+                }
+            }
+
+            AssertGridLayout(itemGrid, "ItemGrid");
+            AssertGridLayout(abilityGrid, "AbilityGrid");
+            Transform hiddenCellTemplate = content.Find("LoadoutCellTemplate");
+            Assert.IsNotNull(hiddenCellTemplate, "Loadout 缺少动态单元模板。");
+            Assert.IsFalse(hiddenCellTemplate.gameObject.activeSelf, "装备网格模板必须保持隐藏。");
+        }
+
+        /// <summary>核对网格六列约束、六个可见单元均在容器内并且首行不换行。</summary>
+        private static void AssertGridLayout(Transform gridTransform, string gridName)
+        {
+            GridLayoutGroup grid = gridTransform.GetComponent<GridLayoutGroup>();
+            Assert.IsNotNull(grid, $"{gridName} 缺少 GridLayoutGroup。");
+            Assert.That(grid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+            Assert.That(grid.constraintCount, Is.EqualTo(6), $"{gridName} 必须使用六列约束。");
+
+            List<Transform> cells = GetActiveDirectChildren(gridTransform);
+            Assert.That(cells.Count, Is.EqualTo(6), $"{gridName} 必须包含六个可见单元。");
+            Rect gridRect = GetWorldRect(gridTransform.GetComponent<RectTransform>());
+            float firstCenterY = GetWorldRect(cells[0].GetComponent<RectTransform>()).center.y;
+            for (int index = 0; index < cells.Count; index++)
+            {
+                Rect cellRect = GetWorldRect(cells[index].GetComponent<RectTransform>());
+                AssertRectInside(gridRect, cellRect, $"{gridName} 第 {index + 1} 个单元必须完整位于网格内。");
+                Assert.That(
+                    cellRect.center.y,
+                    Is.EqualTo(firstCenterY).Within(0.5f),
+                    $"{gridName} 六个单元必须保持在同一行。");
+                for (int previousIndex = 0; previousIndex < index; previousIndex++)
+                {
+                    AssertNoIntersection(
+                        cellRect,
+                        GetWorldRect(cells[previousIndex].GetComponent<RectTransform>()),
+                        $"{gridName} 单元不得互相重叠。");
+                }
+            }
+        }
+
+        /// <summary>核对 CanvasScaler 的 1920/1080 基准和 1280/720 同比例缩放契约。</summary>
+        private static void AssertCanvasScaleContract(Component resultsUi, Transform panel)
+        {
+            Canvas canvas = resultsUi.GetComponentInParent<Canvas>();
+            Assert.IsNotNull(canvas, "RunResultsUI 必须位于 Canvas 下。");
+            CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+            Assert.IsNotNull(scaler, "结果页 Canvas 缺少 CanvasScaler。");
+            Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
+            Assert.That(scaler.referenceResolution.x, Is.EqualTo(1920f).Within(FloatTolerance));
+            Assert.That(scaler.referenceResolution.y, Is.EqualTo(1080f).Within(FloatTolerance));
+            Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.MatchWidthOrHeight));
+            Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(1f).Within(FloatTolerance));
+
+            float referenceScale = CalculateCanvasScale(new Vector2(1920f, 1080f), scaler);
+            float compactScale = CalculateCanvasScale(new Vector2(1280f, 720f), scaler);
+            Assert.That(referenceScale, Is.EqualTo(1f).Within(FloatTolerance));
+            Assert.That(compactScale, Is.EqualTo(2f / 3f).Within(FloatTolerance));
+            Assert.That(1920f / 1080f, Is.EqualTo(1280f / 720f).Within(FloatTolerance));
+
+            RectTransform panelRect = panel.GetComponent<RectTransform>();
+            RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+            AssertRectInside(
+                GetWorldRect(canvasRect),
+                GetWorldRect(panelRect),
+                "结果页面板必须位于 Canvas 内，统一 16:9 缩放时该关系保持不变。");
+        }
+
+        /// <summary>按 Unity CanvasScaler MatchWidthOrHeight 公式计算指定分辨率下的结构缩放比例。</summary>
+        private static float CalculateCanvasScale(Vector2 resolution, CanvasScaler scaler)
+        {
+            float logWidth = Mathf.Log(resolution.x / scaler.referenceResolution.x, 2f);
+            float logHeight = Mathf.Log(resolution.y / scaler.referenceResolution.y, 2f);
+            return Mathf.Pow(2f, Mathf.Lerp(logWidth, logHeight, scaler.matchWidthOrHeight));
+        }
+
+        /// <summary>读取父节点下当前可见的直接子节点，排除隐藏模板但保留视觉顺序。</summary>
+        private static List<Transform> GetActiveDirectChildren(Transform parent)
+        {
+            List<Transform> children = new List<Transform>();
+            for (int index = 0; index < parent.childCount; index++)
+            {
+                Transform child = parent.GetChild(index);
+                if (child.gameObject.activeSelf)
+                {
+                    children.Add(child);
+                }
+            }
+
+            return children;
+        }
+
+        /// <summary>把 RectTransform 世界角点转换为轴对齐矩形，供结构化重叠断言使用。</summary>
+        private static Rect GetWorldRect(RectTransform target)
+        {
+            Vector3[] corners = new Vector3[4];
+            target.GetWorldCorners(corners);
+            float minX = Mathf.Min(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+            float maxX = Mathf.Max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+            float minY = Mathf.Min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+            float maxY = Mathf.Max(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+            return Rect.MinMaxRect(minX, minY, maxX, maxY);
+        }
+
+        /// <summary>断言两个 UI 矩形没有面积重叠，允许极小布局浮点误差。</summary>
+        private static void AssertNoIntersection(Rect first, Rect second, string message)
+        {
+            const float LayoutTolerance = 0.5f;
+            bool separated = first.xMax <= second.xMin + LayoutTolerance ||
+                second.xMax <= first.xMin + LayoutTolerance ||
+                first.yMax <= second.yMin + LayoutTolerance ||
+                second.yMax <= first.yMin + LayoutTolerance;
+            Assert.IsTrue(separated, message);
+        }
+
+        /// <summary>断言子矩形完整位于父矩形内，允许 Canvas 布局带来的小量舍入误差。</summary>
+        private static void AssertRectInside(Rect container, Rect child, string message)
+        {
+            const float LayoutTolerance = 0.5f;
+            Assert.That(child.xMin, Is.GreaterThanOrEqualTo(container.xMin - LayoutTolerance), message);
+            Assert.That(child.xMax, Is.LessThanOrEqualTo(container.xMax + LayoutTolerance), message);
+            Assert.That(child.yMin, Is.GreaterThanOrEqualTo(container.yMin - LayoutTolerance), message);
+            Assert.That(child.yMax, Is.LessThanOrEqualTo(container.yMax + LayoutTolerance), message);
+        }
+
+        /// <summary>不增加测试程序集对 TMP 的编译期依赖，按真实组件属性读取结果页文本。</summary>
+        private static string GetUiText(Transform textTransform)
+        {
+            Assert.IsNotNull(textTransform, "UI 文本节点不能为空。");
+            Component[] components = textTransform.GetComponents<Component>();
+            for (int index = 0; index < components.Length; index++)
+            {
+                Component component = components[index];
+                if (component == null || component.GetType().FullName != "TMPro.TextMeshProUGUI")
+                {
+                    continue;
+                }
+
+                System.Reflection.PropertyInfo textProperty = component.GetType().GetProperty(
+                    "text",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                Assert.IsNotNull(textProperty, "TextMeshProUGUI 缺少公开 text 属性。");
+                return (string)textProperty.GetValue(component, null);
+            }
+
+            Assert.Fail($"节点 {textTransform.name} 缺少 TextMeshProUGUI。");
+            return string.Empty;
         }
 
         /// <summary>创建可被统计系统识别的运行时武器测试资产，并配置所需等级数量。</summary>
