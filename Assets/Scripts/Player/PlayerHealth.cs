@@ -139,20 +139,31 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         }
     }
 
-    /// <summary>恢复指定生命；死亡状态、非正数和满血请求不会产生事件。</summary>
+    /// <summary>恢复指定生命；保留旧调用入口，实际结果由 RestoreHealth 统一计算。</summary>
     public void Heal(float amount)
+    {
+        RestoreHealth(amount);
+    }
+
+    /// <summary>
+    /// 恢复指定生命并返回实际增加量；死亡、非正数和满血请求返回 0 且不发布事件。
+    /// </summary>
+    public float RestoreHealth(float amount)
     {
         if (_isDead || amount <= 0f || _currentHealth >= maxHealth)
         {
-            return;
+            return 0f;
         }
 
         float previousHealth = _currentHealth;
         _currentHealth = Mathf.Min(maxHealth, _currentHealth + amount);
-        if (_currentHealth > previousHealth)
+        float restoredHealth = _currentHealth - previousHealth;
+        if (restoredHealth > 0f)
         {
             HealthChanged?.Invoke(_currentHealth, maxHealth);
         }
+
+        return restoredHealth;
     }
 
     /// <summary>

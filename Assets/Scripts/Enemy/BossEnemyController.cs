@@ -84,6 +84,7 @@ public sealed class BossEnemyController : EnemyBase
     {
         if (!isActiveAndEnabled || _runtimeBossData == null ||
             WorldSimulation == null || !WorldSimulation.IsWorldActive ||
+            WorldFreezeController.IsHostileSimulationFrozen ||
             (_runDirector != null && _runDirector.IsResultFrozen))
         {
             return;

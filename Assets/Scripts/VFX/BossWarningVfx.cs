@@ -69,6 +69,11 @@ public sealed class BossWarningVfx : MonoBehaviour, IPoolable
     /// <summary>推进淡出动画；预警只占用极短生命周期，不进入战斗统计。</summary>
     private void Update()
     {
+        if (WorldFreezeController.IsHostileSimulationFrozen)
+        {
+            return;
+        }
+
         _remaining -= Time.deltaTime;
         if (_remaining <= 0f)
         {

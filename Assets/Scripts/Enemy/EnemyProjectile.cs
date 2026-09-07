@@ -15,6 +15,9 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
     private int _defaultLayer = -1;
     private float _remainingLifetime;
     private float _resolvedDamage;
+    private Vector2 _velocityBeforeFreeze;
+    private float _angularVelocityBeforeFreeze;
+    private bool _motionFrozen;
 
     /// <summary>当前投射物已经快照化的实际伤害。</summary>
     public float ResolvedDamage => _resolvedDamage;
@@ -46,6 +49,9 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
     {
         _resolvedDamage = 0f;
         _remainingLifetime = Mathf.Max(0.01f, lifetime);
+        _velocityBeforeFreeze = Vector2.zero;
+        _angularVelocityBeforeFreeze = 0f;
+        _motionFrozen = false;
         if (_rigidbody == null)
         {
             _rigidbody = GetComponent<Rigidbody2D>();
@@ -62,6 +68,9 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
     private void OnDisable()
     {
         _resolvedDamage = 0f;
+        _velocityBeforeFreeze = Vector2.zero;
+        _angularVelocityBeforeFreeze = 0f;
+        _motionFrozen = false;
         if (_rigidbody != null)
         {
             _rigidbody.velocity = Vector2.zero;
@@ -95,13 +104,23 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
         _remainingLifetime = Mathf.Max(0.01f, lifetimeOverride);
         if (_rigidbody != null)
         {
-            _rigidbody.velocity = velocity;
+            _velocityBeforeFreeze = velocity;
+            _angularVelocityBeforeFreeze = 0f;
+            _motionFrozen = WorldFreezeController.IsHostileSimulationFrozen;
+            _rigidbody.velocity = _motionFrozen ? Vector2.zero : velocity;
+            _rigidbody.angularVelocity = 0f;
         }
     }
 
     /// <summary>更新寿命并在超时后回收，避免远程弹体永久占用池实例。</summary>
     private void Update()
     {
+        SynchronizeFreezeMotion();
+        if (_motionFrozen)
+        {
+            return;
+        }
+
         _remainingLifetime -= Time.deltaTime;
         if (_remainingLifetime <= 0f)
         {
@@ -115,7 +134,8 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
     /// </summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (_worldSimulation != null && !_worldSimulation.IsWorldActive)
+        if (WorldFreezeController.IsHostileSimulationFrozen ||
+            (_worldSimulation != null && !_worldSimulation.IsWorldActive))
         {
             return;
         }
@@ -137,6 +157,43 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
         }
 
         ReleaseToPool();
+    }
+
+    /// <summary>
+    /// 在冻结边界保存或恢复 Rigidbody2D 动量；稳定冻结帧只做布尔比较，不产生分配。
+    /// </summary>
+    private void SynchronizeFreezeMotion()
+    {
+        if (_rigidbody == null)
+        {
+            return;
+        }
+
+        bool shouldFreeze = WorldFreezeController.IsHostileSimulationFrozen;
+        if (shouldFreeze == _motionFrozen)
+        {
+            if (_motionFrozen)
+            {
+                _rigidbody.velocity = Vector2.zero;
+                _rigidbody.angularVelocity = 0f;
+            }
+
+            return;
+        }
+
+        if (shouldFreeze)
+        {
+            _velocityBeforeFreeze = _rigidbody.velocity;
+            _angularVelocityBeforeFreeze = _rigidbody.angularVelocity;
+            _rigidbody.velocity = Vector2.zero;
+            _rigidbody.angularVelocity = 0f;
+            _motionFrozen = true;
+            return;
+        }
+
+        _rigidbody.velocity = _velocityBeforeFreeze;
+        _rigidbody.angularVelocity = _angularVelocityBeforeFreeze;
+        _motionFrozen = false;
     }
 
     /// <summary>归还投射物对象池；测试对象缺少池时使用禁用作为安全降级。</summary>

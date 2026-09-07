@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4701000000000000003}
   - component: {fileID: 4701000000000000004}
   - component: {fileID: 4701000000000000005}
+  - component: {fileID: 4701000000000000006}
   m_Layer: 7
   m_Name: CoinPickup
   m_TagString: Untagged
@@ -133,5 +134,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 158b38fa67524e9a832c494860494bce, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+--- !u!114 &4701000000000000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4701000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e35d2658bb54eb49cd77724c04f0cb8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  scatterDuration: 0.18
+  scatterDistance: 0.45
+  lateralDriftRatio: 0.3
   baseFlySpeed: 5
   acceleration: 15

@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 未来地图即时效果拾取物的展示与统计配置。
-/// 本会话只建立接口，不创建鸡肉等具体玩法资产；经验、金币和宝箱不使用此类型。
+/// 地图即时效果拾取物的展示、统计与效果配置。
+/// 经验、金币和宝箱仍保持各自的业务类型，不通过此资产执行。
 /// </summary>
 [CreateAssetMenu(fileName = "NewMapInstantEffectPickup", menuName = "GameData/Map Instant Effect Pickup")]
 public sealed class MapInstantEffectPickupDataSO : ScriptableObject
@@ -17,9 +17,16 @@ public sealed class MapInstantEffectPickupDataSO : ScriptableObject
     public string displayName;
     public Sprite icon;
 
+    [Header("即时效果")]
+    [SerializeField, Tooltip("玩家拾取后执行的无状态效果策略。")]
+    private MapInstantEffectSO effect;
+
     [Header("结果页排序")]
     [Tooltip("数值越小越靠前；相同时按稳定 ID 排序。")]
     public int sortOrder;
+
+    /// <summary>玩家碰到该拾取物时执行的效果策略。</summary>
+    public MapInstantEffectSO Effect => effect;
 
     /// <summary>读取稳定拾取物 ID；旧资产缺失时以资产名安全回退。</summary>
     public string GetStableId()

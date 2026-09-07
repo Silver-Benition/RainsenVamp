@@ -19,6 +19,10 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     private WorldEnemySimulation _worldSimulation;
     private SpriteRenderer[] _spriteRenderers;
     private Color[] _baseRendererColors;
+    private Animator[] _animators;
+    private float[] _baseAnimatorSpeeds;
+    private RigidbodyConstraints2D _constraintsBeforeFreeze;
+    private bool _freezeStateApplied;
 
     /// <summary>当前生命周期剩余生命，供调试和测试只读观察。</summary>
     public float CurrentHealth => _currentHealth;
@@ -55,6 +59,13 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         {
             _baseRendererColors[index] = _spriteRenderers[index].color;
         }
+
+        _animators = GetComponentsInChildren<Animator>(true);
+        _baseAnimatorSpeeds = new float[_animators.Length];
+        for (int index = 0; index < _animators.Length; index++)
+        {
+            _baseAnimatorSpeeds[index] = _animators[index].speed;
+        }
     }
 
     /// <summary>保存对象池使用的原始敌人 Prefab 键。</summary>
@@ -81,6 +92,8 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
 
         transform.localScale = Vector3.one;
         ResolvePlayerTarget();
+        _freezeStateApplied = false;
+        SynchronizeFreezeState();
     }
 
     /// <summary>对象池回收时清空动量，并进入不可造成伤害的停用状态。</summary>
@@ -93,6 +106,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         }
 
         EnterInactivePoolState();
+        RestoreFrozenState();
         _worldSimulation = null;
     }
 
@@ -122,8 +136,16 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     /// </summary>
     protected virtual void FixedUpdate()
     {
+        SynchronizeFreezeState();
         if (_rigidbody == null)
         {
+            return;
+        }
+
+        if (WorldFreezeController.IsHostileSimulationFrozen)
+        {
+            _rigidbody.velocity = Vector2.zero;
+            _rigidbody.angularVelocity = 0f;
             return;
         }
 
@@ -179,7 +201,8 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     {
         // Unity 可能在同一物理步内把碰撞消息送达刚回池的组件。
         // 同时检查组件状态与快照，防止停用对象读取下一生命周期的基础伤害。
-        if (!isActiveAndEnabled || !IsWorldInteractionEnabled || _spawnSnapshot.IsDefanged ||
+        if (!isActiveAndEnabled || !IsWorldInteractionEnabled ||
+            WorldFreezeController.IsHostileSimulationFrozen || _spawnSnapshot.IsDefanged ||
             _spawnSnapshot.CollisionDamage <= 0f)
         {
             return;
@@ -292,7 +315,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         }
     }
 
-    /// <summary>按 Luck 独立判定金币和宝箱，并在成功时从对象池生成。</summary>
+    /// <summary>按 Luck 独立判定金币、宝箱和单件地图即时效果，并在成功时从对象池生成。</summary>
     private void SpawnAdditionalDrops(EnemyDropTableSO dropTable)
     {
         if (dropTable == null)
@@ -320,6 +343,82 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         {
             SpawnPooledDrop(dropTable.chestPrefab);
         }
+
+        if (DropChanceResolver.ShouldDrop(
+                dropTable.baseMapInstantEffectChance,
+                luck,
+                Random.value))
+        {
+            GameObject mapPickupPrefab = MapInstantEffectDropResolver.Select(
+                dropTable.mapInstantEffectDrops,
+                Random.value);
+            SpawnPooledDrop(mapPickupPrefab);
+        }
+    }
+
+    /// <summary>
+    /// 在冻结边界锁定或恢复敌人刚体与 Animator；仅在状态切换时遍历缓存数组。
+    /// FreezeAll 防止玩家碰撞求解推动冻结敌人，解冻后恢复敌人进入冻结前的约束。
+    /// </summary>
+    private void SynchronizeFreezeState()
+    {
+        bool shouldFreeze = WorldFreezeController.IsHostileSimulationFrozen;
+        if (shouldFreeze == _freezeStateApplied)
+        {
+            return;
+        }
+
+        if (_rigidbody != null)
+        {
+            if (shouldFreeze)
+            {
+                _constraintsBeforeFreeze = _rigidbody.constraints;
+                _rigidbody.velocity = Vector2.zero;
+                _rigidbody.angularVelocity = 0f;
+                _rigidbody.constraints = RigidbodyConstraints2D.FreezeAll;
+            }
+            else
+            {
+                _rigidbody.constraints = _constraintsBeforeFreeze;
+            }
+        }
+
+        if (_animators != null)
+        {
+            for (int index = 0; index < _animators.Length; index++)
+            {
+                Animator animator = _animators[index];
+                if (animator != null)
+                {
+                    animator.speed = shouldFreeze ? 0f : _baseAnimatorSpeeds[index];
+                }
+            }
+        }
+
+        _freezeStateApplied = shouldFreeze;
+    }
+
+    /// <summary>回池时恢复敌人刚体约束与初始动画速度，防止冻结状态泄漏到下一生命周期。</summary>
+    private void RestoreFrozenState()
+    {
+        if (_freezeStateApplied && _rigidbody != null)
+        {
+            _rigidbody.constraints = _constraintsBeforeFreeze;
+        }
+
+        if (_animators != null)
+        {
+            for (int index = 0; index < _animators.Length; index++)
+            {
+                Animator animator = _animators[index];
+                if (animator != null)
+                {
+                    animator.speed = _baseAnimatorSpeeds[index];
+                }
+            }
+        }
+
+        _freezeStateApplied = false;
     }
 
     /// <summary>在敌人当前位置生成一个可选池化掉落，并返回实例供额外初始化。</summary>

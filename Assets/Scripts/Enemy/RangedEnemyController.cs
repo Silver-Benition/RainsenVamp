@@ -100,7 +100,7 @@ public sealed class RangedEnemyController : EnemyBase
     /// </summary>
     private void Update()
     {
-        if (!isActiveAndEnabled)
+        if (!isActiveAndEnabled || WorldFreezeController.IsHostileSimulationFrozen)
         {
             return;
         }

@@ -61,6 +61,11 @@ public class WorldWaveManager : MonoBehaviour
     /// <summary>按规则积分生成敌人，避免小数生成速率的时间误差。</summary>
     private void Update()
     {
+        if (WorldFreezeController.IsHostileSimulationFrozen)
+        {
+            return;
+        }
+
         WaveConfigSO config = worldLine != null ? worldLine.WaveConfig : null;
         if (config == null || playerTransform == null || enemySimulation == null) return;
 

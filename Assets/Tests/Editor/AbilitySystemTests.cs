@@ -13,6 +13,8 @@ namespace RainsenVampSur.Tests
         private const string AbilityIconDirectory = "Assets/Art/Sprites/Ability/Icons/";
         private const string RetaliationPulseSpritePath =
             "Assets/Art/Sprites/Ability/VFX/RetaliationPulseRing.png";
+        private const string UpgradeButtonPrefabPath =
+            "Assets/Prefab/UI/UpgradeButton.prefab";
 
         /// <summary>升级应以累计快照替换稳定来源，不把 Lv.1 与 Lv.2 重复相加。</summary>
         [Test]
@@ -129,6 +131,7 @@ namespace RainsenVampSur.Tests
                 Assert.IsNotNull(ability.icon, $"能力 {ability.name} 缺少正式图标。");
                 Assert.IsTrue(formalIcons.Add(ability.icon), $"能力 {ability.name} 复用了其他能力图标。");
                 AssertPixelSpriteImportContract(ability.icon, AbilityIconDirectory);
+                AssertBinaryAlphaChannel(AssetDatabase.GetAssetPath(ability.icon));
 
                 string upgradePath = paths[index].Replace(".asset", "_Upgrade.asset");
                 UpgradeDataSO upgrade = AssetDatabase.LoadAssetAtPath<UpgradeDataSO>(upgradePath);
@@ -151,6 +154,24 @@ namespace RainsenVampSur.Tests
                 AssetDatabase.GetAssetPath(pulseRenderer.sprite),
                 Is.EqualTo(RetaliationPulseSpritePath));
             AssertPixelSpriteImportContract(pulseRenderer.sprite, "Assets/Art/Sprites/Ability/VFX/");
+        }
+
+        /// <summary>
+        /// 升级选项必须以 96×96 容器显示 48×48 能力图标，保证默认缩放严格为 2 倍整数倍率。
+        /// </summary>
+        [Test]
+        public void UpgradeButtonPrefab_能力图标使用两倍整数显示尺寸()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UpgradeButtonPrefabPath);
+            Assert.IsNotNull(prefab, $"缺少升级选项 Prefab：{UpgradeButtonPrefabPath}");
+
+            Transform iconTransform = prefab.transform.Find("UpgradeIcon");
+            Assert.IsNotNull(iconTransform, "升级选项缺少 UpgradeIcon 子对象。");
+
+            RectTransform iconRect = iconTransform.GetComponent<RectTransform>();
+            Assert.IsNotNull(iconRect, "UpgradeIcon 缺少 RectTransform。");
+            Assert.That(iconRect.sizeDelta.x, Is.EqualTo(96f).Within(FloatTolerance));
+            Assert.That(iconRect.sizeDelta.y, Is.EqualTo(96f).Within(FloatTolerance));
         }
 
         /// <summary>
@@ -178,6 +199,42 @@ namespace RainsenVampSur.Tests
                 "spriteGenerateFallbackPhysicsShape: 0",
                 importerMetadata,
                 $"Sprite 必须禁用回退物理形状：{spritePath}");
+        }
+
+        /// <summary>
+        /// 验证正式能力图标只包含全透明或全不透明像素，防止半透明软边在整数倍放大后重新产生模糊。
+        /// </summary>
+        private static void AssertBinaryAlphaChannel(string spritePath)
+        {
+            byte[] pngBytes = File.ReadAllBytes(spritePath);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, false);
+
+            try
+            {
+                Assert.IsTrue(
+                    ImageConversion.LoadImage(texture, pngBytes, false),
+                    $"无法读取能力图标 PNG：{spritePath}");
+
+                Color32[] pixels = texture.GetPixels32();
+                int partialAlphaPixelCount = 0;
+                for (int index = 0; index < pixels.Length; index++)
+                {
+                    byte alpha = pixels[index].a;
+                    if (alpha > 0 && alpha < byte.MaxValue)
+                    {
+                        partialAlphaPixelCount++;
+                    }
+                }
+
+                Assert.That(
+                    partialAlphaPixelCount,
+                    Is.Zero,
+                    $"能力图标含有半透明软边像素：{spritePath}");
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
         }
 
         /// <summary>创建并显式初始化玩家属性、生命和能力管理器夹具。</summary>
