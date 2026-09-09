@@ -57,6 +57,7 @@ public sealed class PerformanceSampler : IDisposable
     private float _minimumCoverage;
     private float _stageElapsed;
     private bool _stageInstrumentationEnabled;
+    private bool _countersActive;
     private bool _disposed;
     private int _gpuCounterAnomalyCount;
     private bool _gpuCounterInvalidated;
@@ -156,6 +157,13 @@ public sealed class PerformanceSampler : IDisposable
         float minimumCoverage,
         bool instrumentationEnabled)
     {
+        if (_stageInstrumentationEnabled != instrumentationEnabled ||
+            (!instrumentationEnabled && _countersActive) ||
+            (instrumentationEnabled && !_countersActive))
+        {
+            SetInstrumentationEnabled(instrumentationEnabled);
+        }
+
         _frameCount = 0;
         _droppedFrameCount = 0;
         _lowFrequencyCount = 0;
@@ -166,7 +174,9 @@ public sealed class PerformanceSampler : IDisposable
         _minimumCoverage = Mathf.Clamp01(minimumCoverage);
         _stageElapsed = 0f;
         _stageInstrumentationEnabled = instrumentationEnabled;
-        _support = _availableSupport;
+        _support = instrumentationEnabled
+            ? _availableSupport
+            : default(MainWorldPerformanceCounterSupport);
         _gpuCounterAnomalyCount = 0;
         _gpuCounterInvalidated = false;
         _gpuCounterInvalidReason = null;
@@ -184,16 +194,38 @@ public sealed class PerformanceSampler : IDisposable
         _instrumentationEnabledFrames = 0;
     }
 
-    /// <summary>切换后续阶段是否读取计数器；控制窗口结束后由运行器显式打开。</summary>
+    /// <summary>
+    /// 切换后续阶段是否读取计数器。
+    /// 关闭时释放全部 ProfilerRecorder 原生资源，使 A/B 对照只保留帧时和权威敌人数；
+    /// 开启时重新探测当前平台可用计数器，不把关闭阶段的旧 support 状态带入报告。
+    /// </summary>
     public void SetInstrumentationEnabled(bool enabled)
     {
-        _stageInstrumentationEnabled = enabled;
-        if (!enabled)
+        if (_disposed)
         {
             return;
         }
 
-        _instrumentationControlActive = false;
+        if (enabled)
+        {
+            if (!_countersActive)
+            {
+                StartCounters();
+            }
+
+            _support = _availableSupport;
+            _stageInstrumentationEnabled = true;
+            _instrumentationControlActive = false;
+            return;
+        }
+
+        if (_countersActive)
+        {
+            StopCounters();
+        }
+
+        _support = default(MainWorldPerformanceCounterSupport);
+        _stageInstrumentationEnabled = false;
     }
 
     /// <summary>
@@ -409,22 +441,13 @@ public sealed class PerformanceSampler : IDisposable
         }
 
         _disposed = true;
-        DisposeRecorder(ref _mainThreadRecorder);
-        DisposeRecorder(ref _renderThreadRecorder);
-        DisposeRecorder(ref _gpuRecorder);
-        DisposeRecorder(ref _gcAllocatedRecorder);
-        DisposeRecorder(ref _systemMemoryRecorder);
-        DisposeRecorder(ref _totalMemoryRecorder);
-        DisposeRecorder(ref _graphicsUsedMemoryRecorder);
-        DisposeRecorder(ref _textureMemoryRecorder);
-        DisposeRecorder(ref _batchesRecorder);
-        DisposeRecorder(ref _setPassCallsRecorder);
-        DisposeRecorder(ref _drawCallsRecorder);
+        StopCounters();
     }
 
     /// <summary>启动可用的 Unity 计数器；不同平台缺少 GPU 或渲染计数器时保留 false。</summary>
     private void StartCounters()
     {
+        StopCounters();
         _support.mainThread = TryStartCounter(ProfilerCategory.Internal, "Main Thread", out _mainThreadRecorder);
         _support.renderThread = TryStartCounter(ProfilerCategory.Internal, "Render Thread", out _renderThreadRecorder);
         _support.gpu = TryStartCounter(ProfilerCategory.Render, "GPU Frame Time", out _gpuRecorder);
@@ -437,6 +460,25 @@ public sealed class PerformanceSampler : IDisposable
         _support.setPassCalls = TryStartCounter(ProfilerCategory.Render, "SetPass Calls Count", out _setPassCallsRecorder);
         _support.drawCalls = TryStartCounter(ProfilerCategory.Render, "Draw Calls Count", out _drawCallsRecorder);
         _availableSupport = _support;
+        _countersActive = true;
+    }
+
+    /// <summary>停止全部计数器并把当前 support 清空；只在阶段切换或 Dispose 时调用。</summary>
+    private void StopCounters()
+    {
+        DisposeRecorder(ref _mainThreadRecorder);
+        DisposeRecorder(ref _renderThreadRecorder);
+        DisposeRecorder(ref _gpuRecorder);
+        DisposeRecorder(ref _gcAllocatedRecorder);
+        DisposeRecorder(ref _systemMemoryRecorder);
+        DisposeRecorder(ref _totalMemoryRecorder);
+        DisposeRecorder(ref _graphicsUsedMemoryRecorder);
+        DisposeRecorder(ref _textureMemoryRecorder);
+        DisposeRecorder(ref _batchesRecorder);
+        DisposeRecorder(ref _setPassCallsRecorder);
+        DisposeRecorder(ref _drawCallsRecorder);
+        _support = default(MainWorldPerformanceCounterSupport);
+        _countersActive = false;
     }
 
     /// <summary>尝试启动单个计数器；平台没有该计数器时安全返回 false。</summary>

@@ -15,15 +15,29 @@ namespace RainsenVampSur.Tests.PlayMode
         private const string TestMagnetModifier = "session21-performance-playmode-magnet";
         private Scene _loadedPerformanceScene;
         private Component _loadedRunner;
+        private object _loadedDropTable;
 
         /// <summary>测试失败或断言提前退出时也停止 Runner、卸载整场景并恢复内存账号。</summary>
         [UnityTearDown]
         public IEnumerator UnloadPerformanceScene()
         {
+            bool hadControlledOverride = _loadedRunner != null &&
+                RuntimeComponentTestUtility.GetProperty<bool>(_loadedRunner, "ControlledDropOverrideApplied");
+            bool hasRestoredChestChance = false;
+            float restoredChestChance = 0f;
             if (_loadedRunner != null)
             {
                 Behaviour behaviour = _loadedRunner as Behaviour;
                 if (behaviour != null) behaviour.enabled = false;
+            }
+
+            if (hadControlledOverride && _loadedDropTable != null)
+            {
+                yield return null;
+                restoredChestChance = RuntimeComponentTestUtility.GetFieldValue<float>(
+                    _loadedDropTable,
+                    "baseChestChance");
+                hasRestoredChestChance = true;
             }
 
             if (_loadedPerformanceScene.IsValid() && _loadedPerformanceScene.isLoaded)
@@ -40,9 +54,14 @@ namespace RainsenVampSur.Tests.PlayMode
             }
 
             _loadedRunner = null;
+            _loadedDropTable = null;
             _loadedPerformanceScene = default(Scene);
             Time.timeScale = 1f;
             InstallInMemoryAccount();
+            if (hasRestoredChestChance)
+            {
+                Assert.That(restoredChestChance, Is.EqualTo(0.01f).Within(0.0001f));
+            }
             yield return null;
         }
 
@@ -63,6 +82,9 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNotNull(RuntimeComponentTestUtility.GetProperty<object>(coordinator, "SubWorldWaveManager"));
             Assert.IsNotNull(subWorld);
             Assert.IsFalse(subWorld.activeSelf);
+
+            yield return new WaitForSecondsRealtime(0.1f);
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(runner, "ControlledDropOverrideApplied"));
 
             yield return null;
         }
@@ -181,6 +203,9 @@ namespace RainsenVampSur.Tests.PlayMode
             yield return null;
             _loadedPerformanceScene = SceneManager.GetActiveScene();
             _loadedRunner = FindRuntimeComponent("MainWorldPerformanceRunner");
+            _loadedDropTable = _loadedRunner != null
+                ? RuntimeComponentTestUtility.GetProperty<object>(_loadedRunner, "GeneratedDropTable")
+                : null;
         }
 
         /// <summary>通过受限测试入口安装内存后端，不让 PlayMode asmdef 依赖运行时程序集。</summary>

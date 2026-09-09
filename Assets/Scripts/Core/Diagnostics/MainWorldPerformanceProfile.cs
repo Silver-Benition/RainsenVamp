@@ -11,6 +11,17 @@ public enum MainWorldPerformanceRunMode
     FreezeTransition = 3
 }
 
+/// <summary>
+/// 性能运行期间对随机奖励事件的处理方式。
+/// Natural 保留生成副本的正式掉落概率；Controlled 只关闭宝箱和地图即时效果掉落，
+/// 继续使用真实敌人死亡、经验、金币和对象池链路，避免随机奖励改变固定武器或冻结阶段。
+/// </summary>
+public enum MainWorldPerformanceEventMode
+{
+    Natural = 0,
+    Controlled = 1
+}
+
 /// <summary>性能采样阶段；阶段名称会直接写入 JSON 报告。</summary>
 public enum MainWorldPerformanceStageKind
 {
@@ -24,7 +35,9 @@ public enum MainWorldPerformanceStageKind
     PickupBurst = 7,
     Manual = 8,
     Completed = 9,
-    Interrupted = 10
+    Interrupted = 10,
+    InstrumentationControl = 11,
+    InstrumentationEnabled = 12
 }
 
 /// <summary>单个容量阶梯的目标和显示名称。</summary>
@@ -54,13 +67,15 @@ public sealed class MainWorldPerformanceSamplingSettings
     [Min(0.1f)] public float severeFrameTimeMilliseconds = 66.67f;
     [Min(0.1f)] public float severeFrameTimeAbortSeconds = 5f;
     [Min(0f)] public float instrumentationControlSeconds = 2f;
+    [Min(1f)] public float instrumentationComparisonSeconds = 5f;
     [Min(1)] public int maximumPickupBurstCount = 1000;
 
     /// <summary>根据阶段秒数与预期最高帧率计算固定的帧样本容量。</summary>
     public int CalculateFrameCapacity()
     {
         float totalSeconds = warmupSeconds + rampSeconds + steadySeconds +
-            transitionSeconds + freezeSeconds + thawSeconds + pickupSeconds + 10f;
+            transitionSeconds + freezeSeconds + thawSeconds + pickupSeconds +
+            instrumentationComparisonSeconds * 4f + 10f;
         float safeRate = Mathf.Max(30f, expectedMaximumFramesPerSecond);
         return Mathf.Max(1024, Mathf.CeilToInt(totalSeconds * safeRate));
     }
@@ -73,6 +88,8 @@ public sealed class MainWorldPerformanceProfile : ScriptableObject
     [Header("运行入口")]
     public string profileId = "main-world-capacity-baseline";
     public MainWorldPerformanceRunMode defaultMode = MainWorldPerformanceRunMode.CapacitySweep;
+    [Tooltip("自动压测默认使用受控掉落；manual 模式始终恢复 Natural 正常事件。")]
+    public MainWorldPerformanceEventMode defaultEventMode = MainWorldPerformanceEventMode.Controlled;
     [Tooltip("只会作用于包含本 Profile 的生成测试场景；普通 MainLevel 没有 Runner，因此不会自动启动。")]
     public bool enableHarness = true;
     public bool autoStart = true;
@@ -81,6 +98,7 @@ public sealed class MainWorldPerformanceProfile : ScriptableObject
     [Header("生成测试资产")]
     public WorldLineDataSO generatedMainWorld;
     public WaveConfigSO generatedWaveConfig;
+    public EnemyDropTableSO generatedDropTable;
     public CharacterDataSO normalCharacter;
     public CharacterDataSO capacityCharacter;
     public BossEncounterDataSO delayedBossEncounter;
@@ -99,7 +117,7 @@ public sealed class MainWorldPerformanceProfile : ScriptableObject
     [Min(1)] public int fullLoadoutLevel = 8;
     [Min(1f)] public float capacityMaximumHealthOverride = 100000f;
     [Min(1f)] public float capacityExperienceRequirementOverride = 100000000f;
-    [Min(1f)] public float capacityWaveSupplementalRateMultiplier = 2f;
+    [Min(1f)] public float capacityWaveSupplementalRateMultiplier = 4f;
 
     [Header("采样设置")]
     public MainWorldPerformanceSamplingSettings sampling = new MainWorldPerformanceSamplingSettings();
@@ -177,6 +195,7 @@ public sealed class MainWorldPerformanceStageReport
     public int frameSampleCount;
     public int droppedFrameSampleCount;
     public int lowFrequencySampleCount;
+    public bool auxiliaryCountsCollected;
     public string loadoutDescription;
     public int gpuCounterAnomalyCount;
     public string gpuCounterInvalidReason;
@@ -225,6 +244,7 @@ public sealed class MainWorldPerformanceReport
     public string reportId;
     public string profileId;
     public MainWorldPerformanceRunMode mode;
+    public MainWorldPerformanceEventMode eventMode;
     public string outcome;
     public string generatedAtUtc;
     public string unityVersion;
@@ -256,6 +276,8 @@ public sealed class MainWorldPerformanceReport
     public float capacityMaximumHealthOverride;
     public float capacityExperienceRequirementOverride;
     public float capacityWaveSupplementalRateMultiplier;
+    public bool controlledEventsApplied;
+    public bool naturalEventsRetained;
     public int pickupBurstRequested;
     public int pickupBurstSpawnedCount;
     public int maximumTrackedBurstPickups;
@@ -280,6 +302,18 @@ public sealed class MainWorldPerformanceReport
     public float instrumentationControlAverageMilliseconds = -1f;
     public float instrumentationEnabledAverageMilliseconds = -1f;
     public float instrumentationOverheadMilliseconds = -1f;
+    public bool instrumentationAbCaptured;
+    public bool instrumentationAbLoadMatched;
+    public string instrumentationAbDescription;
+    public float instrumentationAbControlAverageMilliseconds = -1f;
+    public float instrumentationAbEnabledAverageMilliseconds = -1f;
+    public float instrumentationAbOverheadMilliseconds = -1f;
+    public float instrumentationAbControlP95Milliseconds = -1f;
+    public float instrumentationAbEnabledP95Milliseconds = -1f;
+    public int instrumentationAbControlMinimumActiveEnemies;
+    public int instrumentationAbControlMaximumActiveEnemies;
+    public int instrumentationAbEnabledMinimumActiveEnemies;
+    public int instrumentationAbEnabledMaximumActiveEnemies;
     public int gpuCounterAnomalyCount;
     public string gpuCounterInvalidReason;
     public List<MainWorldPerformanceStageReport> stages = new List<MainWorldPerformanceStageReport>();
@@ -335,5 +369,32 @@ public static class MainWorldPerformanceReportEvaluator
         return stageReport != null && !stageReport.interrupted &&
             !stageReport.insufficientSamples && !stageReport.capacityOverflowed && !stageReport.insufficientLoad &&
             !stageReport.contaminated && stageReport.frameSampleCount > 0;
+    }
+
+    /// <summary>
+    /// 判断两个采样器窗口是否处于可比负载；污染、武器快照变化、覆盖不足和时长偏差都会拒绝匹配。
+    /// </summary>
+    public static bool IsComparableInstrumentationWindow(
+        MainWorldPerformanceStageReport first,
+        MainWorldPerformanceStageReport second,
+        float minimumSampleCoverage,
+        float durationToleranceSeconds)
+    {
+        if (first == null || second == null || first.interrupted || second.interrupted ||
+            first.insufficientSamples || second.insufficientSamples ||
+            first.capacityOverflowed || second.capacityOverflowed ||
+            first.insufficientLoad || second.insufficientLoad ||
+            first.contaminated || second.contaminated ||
+            first.frameSampleCount <= 0 || second.frameSampleCount <= 0)
+        {
+            return false;
+        }
+
+        return first.requestedTargetActiveEnemies == second.requestedTargetActiveEnemies &&
+            string.Equals(first.loadoutDescription, second.loadoutDescription, StringComparison.Ordinal) &&
+            Mathf.Abs(first.observedDurationSeconds - second.observedDurationSeconds) <=
+                Mathf.Max(0.1f, durationToleranceSeconds) &&
+            first.targetCoverageRatio >= Mathf.Clamp01(minimumSampleCoverage) &&
+            second.targetCoverageRatio >= Mathf.Clamp01(minimumSampleCoverage);
     }
 }

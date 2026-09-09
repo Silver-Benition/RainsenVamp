@@ -22,6 +22,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     private const string HealthModifierId = "session21-performance-capacity-health";
     private const string OutputArgument = "--perf-output";
     private const string ModeArgument = "--perf-mode";
+    private const string EventModeArgument = "--perf-events";
     private const string SeedArgument = "--perf-seed";
     private const string DurationArgument = "--perf-duration";
     private const string TierArgument = "--perf-tier";
@@ -32,6 +33,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     [SerializeField] private bool runOnStart = true;
 
     private MainWorldPerformanceRunMode _mode;
+    private MainWorldPerformanceEventMode _eventMode;
     private MainWorldPerformanceStageKind _currentStage;
     private MainWorldPerformanceReport _report;
     private PerformanceSampler _sampler;
@@ -40,6 +42,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     private string _currentStageLabel;
     private string _interruptReason;
     private string _modeOverride;
+    private string _eventModeOverride;
     private float _durationScale = 1f;
     private int _seedOverride;
     private int _tierOverride = -1;
@@ -95,6 +98,11 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     private float _freezeEventStartUnscaledTime;
     private float _freezeObservedDuration;
     private bool _reportWriteFailed;
+    private bool _dropTableOverrideApplied;
+    private float _originalChestDropChance;
+    private float _originalMapInstantEffectDropChance;
+    private EnemyDropTableSO _generatedDropTable;
+    private readonly List<float> _originalMapInstantEffectDropWeights = new List<float>(8);
     private float _lastStageObservedDuration;
     private string _lastStageStartedAtUtc;
     private int[] _expectedWeaponLevels;
@@ -118,6 +126,15 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
 
     /// <summary>实际使用的模式，便于自动化测试确认命令行覆盖是否生效。</summary>
     public MainWorldPerformanceRunMode ActiveMode => _mode;
+
+    /// <summary>实际使用的随机事件模式；manual 始终报告 Natural。</summary>
+    public MainWorldPerformanceEventMode ActiveEventMode => _eventMode;
+
+    /// <summary>受控掉落是否已应用到明确的生成副本。</summary>
+    public bool ControlledDropOverrideApplied => _dropTableOverrideApplied;
+
+    /// <summary>供 PlayMode 清理测试读取明确的生成掉落副本。</summary>
+    public EnemyDropTableSO GeneratedDropTable => profile != null ? profile.generatedDropTable : null;
 
     /// <summary>供生成场景测试断言主世界真实模拟器存在。</summary>
     public WorldEnemySimulation MainSimulation => _mainSimulation;
@@ -166,6 +183,12 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         CaptureOriginalSettings();
         InstallEditorAccountIsolation();
         _mode = ResolveMode();
+        _eventMode = ResolveEventMode();
+        if (_mode == MainWorldPerformanceRunMode.NormalManual)
+        {
+            // 手动模式必须保留正常奖励、升级和冻结行为，即使 Profile 默认使用 controlled。
+            _eventMode = MainWorldPerformanceEventMode.Natural;
+        }
         int seed = _hasSeedOverride ? _seedOverride : profile.fixedRandomSeed;
         UnityEngine.Random.InitState(seed);
         ApplyRuntimeFrameSettings();
@@ -192,6 +215,13 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         if (!ResolveRuntimeDependencies())
         {
             InterruptRun("runtime-dependency-missing");
+            FinalizeReport("incomplete");
+            yield break;
+        }
+
+        if (!ApplyEventMode())
+        {
+            InterruptRun("controlled-drop-table-missing");
             FinalizeReport("incomplete");
             yield break;
         }
@@ -253,9 +283,20 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         if (_lowFrequencyTimer <= 0f)
         {
             _activeEnemyCount = _mainSimulation != null ? Mathf.Max(0, _mainSimulation.ActiveEnemyCount) : 0;
-            _activeProjectileCount = _mainSimulation != null ? Mathf.Max(0, _mainSimulation.ActiveProjectileCount) : 0;
-            _activePickupCount = CountActivePickups();
-            _visibleEnemyEstimate = CountVisibleEnemyEstimate();
+            if (_sampler.InstrumentationEnabled)
+            {
+                _activeProjectileCount = _mainSimulation != null ? Mathf.Max(0, _mainSimulation.ActiveProjectileCount) : 0;
+                _activePickupCount = CountActivePickups();
+                _visibleEnemyEstimate = CountVisibleEnemyEstimate();
+            }
+            else
+            {
+                // A 对照只保留最小帧时和 WorldEnemySimulation 权威敌人数；
+                // 弹体、拾取物和相机可见估算会触发额外遍历，必须在 control 窗口关闭。
+                _activeProjectileCount = 0;
+                _activePickupCount = 0;
+                _visibleEnemyEstimate = 0;
+            }
             _lowFrequencyTimer = Mathf.Max(0.05f, profile.sampling.lowFrequencySampleInterval);
             lowFrequencySample = true;
             RecordContaminationState();
@@ -320,6 +361,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         }
 
         RestoreWaveDefaults();
+        RestoreDropTableDefaults();
         RestoreAutomatedRuntimeOverrides();
         RestoreOriginalSettings();
     }
@@ -340,6 +382,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         }
         CleanupBurstPickups();
         RestoreWaveDefaults();
+        RestoreDropTableDefaults();
         RestoreAutomatedRuntimeOverrides();
         if (_sampler != null)
         {
@@ -422,6 +465,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         MainWorldPerformanceTier[] tiers = profile.capacityTiers;
         int startTier = _tierOverride >= 0 ? Mathf.Clamp(_tierOverride, 0, tiers.Length - 1) : 0;
         int endTier = _tierOverride >= 0 ? startTier : tiers.Length - 1;
+        bool fullLoadoutMeasured = false;
         for (int tierIndex = startTier; tierIndex <= endTier; tierIndex++)
         {
             MainWorldPerformanceTier tier = tiers[tierIndex];
@@ -450,6 +494,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             if (tierIndex == profile.GetSafeNearLimitTierIndex())
             {
                 EnsureFullLoadout();
+                fullLoadoutMeasured = true;
                 yield return RunTimedStage(
                     MainWorldPerformanceStageKind.Transition,
                     label + "-full-loadout-setup",
@@ -473,6 +518,11 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             }
         }
 
+        if (!_interrupted && fullLoadoutMeasured)
+        {
+            yield return RunInstrumentationComparison(GetNearLimitTarget());
+        }
+
         for (int repeatIndex = 0; repeatIndex < _repeatCount; repeatIndex++)
         {
             if (_interrupted) yield break;
@@ -483,6 +533,48 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             if (_interrupted) yield break;
             if (_repeatCount > 1) yield return RunFreezeMode();
         }
+    }
+
+    /// <summary>
+    /// 在固定近限目标和同一满武器组合下执行 ABBA 采样器开关对照。
+    /// A 窗口关闭全部 ProfilerRecorder、弹体/拾取物/可见估算扫描，只保留帧时和权威敌人数；
+    /// B 窗口恢复计数器与辅助低频采集。四个窗口使用相同持续时间和目标，阶段报告保留实际负载。
+    /// </summary>
+    private IEnumerator RunInstrumentationComparison(int target)
+    {
+        float duration = GetScaledDuration(profile.sampling.instrumentationComparisonSeconds);
+
+        _sampler.SetInstrumentationEnabled(false);
+        yield return RunTimedStage(
+            MainWorldPerformanceStageKind.InstrumentationControl,
+            "ab-control-a",
+            duration,
+            target);
+        if (_interrupted) yield break;
+
+        _sampler.SetInstrumentationEnabled(true);
+        yield return RunTimedStage(
+            MainWorldPerformanceStageKind.InstrumentationEnabled,
+            "ab-enabled-b",
+            duration,
+            target);
+        if (_interrupted) yield break;
+
+        _sampler.SetInstrumentationEnabled(true);
+        yield return RunTimedStage(
+            MainWorldPerformanceStageKind.InstrumentationEnabled,
+            "ab-enabled-b2",
+            duration,
+            target);
+        if (_interrupted) yield break;
+
+        _sampler.SetInstrumentationEnabled(false);
+        yield return RunTimedStage(
+            MainWorldPerformanceStageKind.InstrumentationControl,
+            "ab-control-a2",
+            duration,
+            target);
+        _sampler.SetInstrumentationEnabled(true);
     }
 
     /// <summary>生成半经验半金币的真实池化拾取物，并通过 PlayerMagnet 完成合法磁吸。</summary>
@@ -662,6 +754,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             frameSampleCount = _sampler.FrameCount,
             droppedFrameSampleCount = _sampler.DroppedFrameCount,
             lowFrequencySampleCount = _sampler.LowFrequencyCount,
+            auxiliaryCountsCollected = _sampler.InstrumentationEnabled,
             frame = frame,
             loadoutDescription = BuildLoadoutDescription(),
             gpuCounterAnomalyCount = _sampler.GpuCounterAnomalyCount,
@@ -724,6 +817,91 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
 
         return _playerStats != null && _playerHealth != null && _levelUpManager != null &&
             _coordinator != null && _mainSimulation != null && _mainWaveManager != null && PoolManager.Instance != null;
+    }
+
+    /// <summary>
+    /// 应用生成副本的随机事件控制。
+    /// Controlled 仅关闭宝箱并把 WorldFreezeMapInstantEffectSO 条目权重置零；Captain 等
+    /// 真实地图即时效果仍可掉落，经验、金币、敌人死亡和对象池生命周期不被绕过。
+    /// </summary>
+    private bool ApplyEventMode()
+    {
+        if (_mode == MainWorldPerformanceRunMode.NormalManual ||
+            _eventMode == MainWorldPerformanceEventMode.Natural)
+        {
+            _eventMode = MainWorldPerformanceEventMode.Natural;
+            return true;
+        }
+
+        _generatedDropTable = profile.generatedDropTable;
+        if (_generatedDropTable == null)
+        {
+            return false;
+        }
+
+        if (_dropTableOverrideApplied)
+        {
+            return true;
+        }
+
+        _originalChestDropChance = _generatedDropTable.baseChestChance;
+        _originalMapInstantEffectDropChance = _generatedDropTable.baseMapInstantEffectChance;
+        _originalMapInstantEffectDropWeights.Clear();
+        if (_generatedDropTable.mapInstantEffectDrops != null)
+        {
+            for (int index = 0; index < _generatedDropTable.mapInstantEffectDrops.Count; index++)
+            {
+                MapInstantEffectDropEntry entry = _generatedDropTable.mapInstantEffectDrops[index];
+                _originalMapInstantEffectDropWeights.Add(entry != null ? entry.weight : 0f);
+                if (entry == null || entry.prefab == null)
+                {
+                    continue;
+                }
+
+                // Reporter 的 PickupData 是序列化引用，读取 Prefab 本身不会触发池实例 Awake。
+                MapInstantEffectPickupReporter reporter =
+                    entry.prefab.GetComponent<MapInstantEffectPickupReporter>();
+                MapInstantEffectPickupDataSO pickupData = reporter != null ? reporter.PickupData : null;
+                if (pickupData != null && pickupData.Effect is WorldFreezeMapInstantEffectSO)
+                {
+                    entry.weight = 0f;
+                }
+            }
+        }
+
+        _generatedDropTable.baseChestChance = 0f;
+        _dropTableOverrideApplied = true;
+        return true;
+    }
+
+    /// <summary>恢复生成副本掉落表的原始概率和地图即时效果权重，避免污染后续场景测试。</summary>
+    private void RestoreDropTableDefaults()
+    {
+        if (!_dropTableOverrideApplied || _generatedDropTable == null)
+        {
+            return;
+        }
+
+        _generatedDropTable.baseChestChance = _originalChestDropChance;
+        _generatedDropTable.baseMapInstantEffectChance = _originalMapInstantEffectDropChance;
+        if (_generatedDropTable.mapInstantEffectDrops != null)
+        {
+            int count = Mathf.Min(
+                _generatedDropTable.mapInstantEffectDrops.Count,
+                _originalMapInstantEffectDropWeights.Count);
+            for (int index = 0; index < count; index++)
+            {
+                MapInstantEffectDropEntry entry = _generatedDropTable.mapInstantEffectDrops[index];
+                if (entry != null)
+                {
+                    entry.weight = _originalMapInstantEffectDropWeights[index];
+                }
+            }
+        }
+
+        _originalMapInstantEffectDropWeights.Clear();
+        _generatedDropTable = null;
+        _dropTableOverrideApplied = false;
     }
 
     /// <summary>自动容量/事件模式锁定主世界并关闭输入移动，保证站桩负载可复现。</summary>
@@ -1124,6 +1302,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             reportId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture),
             profileId = profile.profileId,
             mode = _mode,
+            eventMode = _eventMode,
             generatedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
             unityVersion = Application.unityVersion,
             applicationVersion = Application.version,
@@ -1158,13 +1337,23 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             capacityMaximumHealthOverride = profile.capacityMaximumHealthOverride,
             capacityExperienceRequirementOverride = profile.capacityExperienceRequirementOverride,
             capacityWaveSupplementalRateMultiplier = profile.capacityWaveSupplementalRateMultiplier,
+            controlledEventsApplied = _eventMode == MainWorldPerformanceEventMode.Controlled,
+            naturalEventsRetained = _eventMode == MainWorldPerformanceEventMode.Natural,
             pickupBurstRequested = 0,
             pickupBurstSpawnedCount = 0,
             maximumTrackedBurstPickups = 0,
             maximumObservedNaturalPickups = 0,
             pickupSourceBreakdownIsEstimate = true,
             workloadDescription = "GrassWorldLine MainWorld only; real WorldWaveManager -> WorldEnemySimulation -> PoolManager chain; SubWorldRuntime inactive.",
-            settingsDescription = "fixedSeed=" + seed.ToString(CultureInfo.InvariantCulture) + "; activeCounts=authoritative; visibleCounts=camera estimate; pickupCounts=all MagneticPickupMotion plus burst peak; pickupSourceBreakdown=estimate-after-pool-reuse; profilerControl=unavailable-unmatched-windows; GPU support flag required; waveSupplementalRateMultiplier=" + profile.capacityWaveSupplementalRateMultiplier.ToString(CultureInfo.InvariantCulture),
+            settingsDescription = "fixedSeed=" + seed.ToString(CultureInfo.InvariantCulture) + "; eventMode=" + _eventMode + "; activeCounts=authoritative; visibleCounts=camera estimate; pickupCounts=all MagneticPickupMotion plus burst peak; pickupSourceBreakdown=estimate-after-pool-reuse; profilerControl=unavailable-unmatched-windows; GPU support flag required; waveSupplementalRateMultiplier=" + profile.capacityWaveSupplementalRateMultiplier.ToString(CultureInfo.InvariantCulture),
+            instrumentationAbCaptured = false,
+            instrumentationAbLoadMatched = false,
+            instrumentationAbDescription = "unavailable-unmatched-windows",
+            instrumentationAbControlAverageMilliseconds = MainWorldPerformanceCounterSupport.UnavailableValue,
+            instrumentationAbEnabledAverageMilliseconds = MainWorldPerformanceCounterSupport.UnavailableValue,
+            instrumentationAbOverheadMilliseconds = MainWorldPerformanceCounterSupport.UnavailableValue,
+            instrumentationAbControlP95Milliseconds = MainWorldPerformanceCounterSupport.UnavailableValue,
+            instrumentationAbEnabledP95Milliseconds = MainWorldPerformanceCounterSupport.UnavailableValue,
             accountIsolationApplied = _accountIsolationApplied,
             automaticBossDisabledForHorizon = profile.delayedBossEncounter != null &&
                 profile.delayedBossEncounter.GetSafeTriggerTime() > profile.sampling.warmupSeconds + profile.sampling.steadySeconds,
@@ -1237,6 +1426,101 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         }
     }
 
+    /// <summary>按阶段标签读取 ABBA 对照窗口，避免把启动控制窗口与战斗窗口相减。</summary>
+    private MainWorldPerformanceStageReport FindStageReport(string label)
+    {
+        if (_report == null || _report.stages == null || string.IsNullOrWhiteSpace(label))
+        {
+            return null;
+        }
+
+        for (int index = 0; index < _report.stages.Count; index++)
+        {
+            MainWorldPerformanceStageReport stage = _report.stages[index];
+            if (stage != null && string.Equals(stage.label, label, StringComparison.Ordinal))
+            {
+                return stage;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 汇总同一 500 满武器负载下的 ABBA 采样器增量，并保留负差值作为测量结果。
+    /// A 只采集帧时与权威敌人数；B 额外开启 ProfilerRecorder、弹体/拾取物/可见估算扫描。
+    /// </summary>
+    private void CalculateInstrumentationComparison()
+    {
+        MainWorldPerformanceStageReport controlA = FindStageReport("ab-control-a");
+        MainWorldPerformanceStageReport enabledB = FindStageReport("ab-enabled-b");
+        MainWorldPerformanceStageReport enabledB2 = FindStageReport("ab-enabled-b2");
+        MainWorldPerformanceStageReport controlA2 = FindStageReport("ab-control-a2");
+        bool captured = controlA != null && enabledB != null && enabledB2 != null && controlA2 != null &&
+            IsCompleteInstrumentationWindow(controlA) && IsCompleteInstrumentationWindow(enabledB) &&
+            IsCompleteInstrumentationWindow(enabledB2) && IsCompleteInstrumentationWindow(controlA2);
+        if (!captured)
+        {
+            _report.instrumentationAbCaptured = false;
+            _report.instrumentationAbLoadMatched = false;
+            _report.instrumentationAbDescription = "incomplete-abba-windows";
+            return;
+        }
+
+        _report.instrumentationAbCaptured = true;
+        _report.instrumentationAbControlAverageMilliseconds =
+            (controlA.frame.averageMilliseconds + controlA2.frame.averageMilliseconds) * 0.5f;
+        _report.instrumentationAbEnabledAverageMilliseconds =
+            (enabledB.frame.averageMilliseconds + enabledB2.frame.averageMilliseconds) * 0.5f;
+        _report.instrumentationAbOverheadMilliseconds =
+            _report.instrumentationAbEnabledAverageMilliseconds - _report.instrumentationAbControlAverageMilliseconds;
+        _report.instrumentationAbControlP95Milliseconds =
+            (controlA.frame.p95Milliseconds + controlA2.frame.p95Milliseconds) * 0.5f;
+        _report.instrumentationAbEnabledP95Milliseconds =
+            (enabledB.frame.p95Milliseconds + enabledB2.frame.p95Milliseconds) * 0.5f;
+        _report.instrumentationAbControlMinimumActiveEnemies = Mathf.Min(
+            controlA.minimumObservedActiveEnemies,
+            controlA2.minimumObservedActiveEnemies);
+        _report.instrumentationAbControlMaximumActiveEnemies = Mathf.Max(
+            controlA.maximumObservedActiveEnemies,
+            controlA2.maximumObservedActiveEnemies);
+        _report.instrumentationAbEnabledMinimumActiveEnemies = Mathf.Min(
+            enabledB.minimumObservedActiveEnemies,
+            enabledB2.minimumObservedActiveEnemies);
+        _report.instrumentationAbEnabledMaximumActiveEnemies = Mathf.Max(
+            enabledB.maximumObservedActiveEnemies,
+            enabledB2.maximumObservedActiveEnemies);
+        _report.instrumentationAbLoadMatched =
+            MatchesInstrumentationLoad(controlA, enabledB) &&
+            MatchesInstrumentationLoad(enabledB, enabledB2) &&
+            MatchesInstrumentationLoad(enabledB2, controlA2);
+        _report.instrumentationAbDescription = _report.instrumentationAbLoadMatched
+            ? "ABBA matched target=" + controlA.requestedTargetActiveEnemies.ToString(CultureInfo.InvariantCulture) +
+              "; A=frame+authoritative-enemy-only; B=ProfilerRecorder+projectile/pickup/visible scans; " +
+              "negative overhead retained as measurement noise"
+            : "ABBA captured but unmatched due to contamination, loadout, coverage, target, or duration mismatch; " +
+              "raw window values retained for diagnosis";
+    }
+
+    /// <summary>判断一个 AB 窗口是否具备足够帧数、时长且没有数组溢出或中断。</summary>
+    private static bool IsCompleteInstrumentationWindow(MainWorldPerformanceStageReport stage)
+    {
+        return stage != null && !stage.interrupted && !stage.insufficientSamples &&
+            !stage.capacityOverflowed && stage.frameSampleCount > 0;
+    }
+
+    /// <summary>以目标和低频覆盖率判断两个 AB 窗口是否处于可比负载。</summary>
+    private bool MatchesInstrumentationLoad(
+        MainWorldPerformanceStageReport first,
+        MainWorldPerformanceStageReport second)
+    {
+        return MainWorldPerformanceReportEvaluator.IsComparableInstrumentationWindow(
+            first,
+            second,
+            profile.sampling.minimumTargetSampleCoverage,
+            profile.sampling.instrumentationComparisonSeconds * 0.1f);
+    }
+
     /// <summary>写入最终结果并停止运行器。</summary>
     private void FinalizeReport(string outcome)
     {
@@ -1261,6 +1545,7 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         _report.instrumentationControlAverageMilliseconds = MainWorldPerformanceCounterSupport.UnavailableValue;
         _report.instrumentationEnabledAverageMilliseconds = MainWorldPerformanceCounterSupport.UnavailableValue;
         _report.instrumentationOverheadMilliseconds = MainWorldPerformanceCounterSupport.UnavailableValue;
+        CalculateInstrumentationComparison();
 
         bool hasCapacitySteadyStage = false;
         bool capacityStagesValid = true;
@@ -1388,6 +1673,10 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             {
                 _modeOverride = mode;
             }
+            else if (TryReadArgument(arguments, ref index, EventModeArgument, out string eventMode))
+            {
+                _eventModeOverride = eventMode;
+            }
             else if (TryReadArgument(arguments, ref index, SeedArgument, out string seedText) &&
                 int.TryParse(seedText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int seed))
             {
@@ -1464,6 +1753,31 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             default:
                 Debug.LogWarning("[MainWorldPerformance] 未知 --perf-mode，使用 Profile 默认模式：" + _modeOverride, this);
                 return profile.defaultMode;
+        }
+    }
+
+    /// <summary>把命令行或 Profile 的事件文本解析成 Natural/Controlled 枚举。</summary>
+    private MainWorldPerformanceEventMode ResolveEventMode()
+    {
+        if (string.IsNullOrWhiteSpace(_eventModeOverride))
+        {
+            return profile.defaultEventMode;
+        }
+
+        switch (_eventModeOverride.Trim().ToLowerInvariant())
+        {
+            case "natural":
+            case "real":
+                return MainWorldPerformanceEventMode.Natural;
+            case "controlled":
+            case "control":
+                return MainWorldPerformanceEventMode.Controlled;
+            default:
+                Debug.LogWarning(
+                    "[MainWorldPerformance] 未知 --perf-events，使用 Profile 默认事件模式：" +
+                    _eventModeOverride,
+                    this);
+                return profile.defaultEventMode;
         }
     }
 

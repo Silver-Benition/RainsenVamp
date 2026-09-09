@@ -23,6 +23,8 @@ namespace RainsenVampSur.Tests
             Assert.IsTrue(profile.IsValid);
             Assert.IsNotNull(profile.normalCharacter);
             Assert.IsNotNull(profile.capacityCharacter);
+            Assert.IsNotNull(profile.generatedDropTable);
+            Assert.AreEqual(MainWorldPerformanceEventMode.Controlled, profile.defaultEventMode);
             Assert.AreSame(profile.generatedWaveConfig, profile.generatedMainWorld.WaveConfig);
             Assert.That(profile.sourceRevision, Does.Match("^[0-9a-f]{40}$"));
             Assert.AreNotEqual("unknown", profile.sourceRevision.ToLowerInvariant());
@@ -116,6 +118,38 @@ namespace RainsenVampSur.Tests
             Assert.That(MainWorldPerformanceCounterSupport.UnavailableValue, Is.EqualTo(-1f));
         }
 
+        /// <summary>AB 对照必须拒绝污染、武器快照变化和不可比窗口，避免把差值伪报成开销。</summary>
+        [Test]
+        public void ReportEvaluator_RejectsUnmatchedInstrumentationWindows()
+        {
+            MainWorldPerformanceStageReport first = new MainWorldPerformanceStageReport
+            {
+                observedDurationSeconds = 5f,
+                requestedTargetActiveEnemies = 500,
+                targetCoverageRatio = 1f,
+                frameSampleCount = 300,
+                loadoutDescription = "ownedCount=5;known=full"
+            };
+            MainWorldPerformanceStageReport second = new MainWorldPerformanceStageReport
+            {
+                observedDurationSeconds = 5.01f,
+                requestedTargetActiveEnemies = 500,
+                targetCoverageRatio = 1f,
+                frameSampleCount = 300,
+                loadoutDescription = "ownedCount=5;known=full"
+            };
+
+            Assert.IsTrue(MainWorldPerformanceReportEvaluator.IsComparableInstrumentationWindow(
+                first, second, 0.95f, 0.5f));
+            second.contaminated = true;
+            Assert.IsFalse(MainWorldPerformanceReportEvaluator.IsComparableInstrumentationWindow(
+                first, second, 0.95f, 0.5f));
+            second.contaminated = false;
+            second.loadoutDescription = "ownedCount=4;known=starter";
+            Assert.IsFalse(MainWorldPerformanceReportEvaluator.IsComparableInstrumentationWindow(
+                first, second, 0.95f, 0.5f));
+        }
+
         /// <summary>用固定帧时长验证均值、分位数、比例、原始时间和容量溢出语义。</summary>
         [Test]
         public void PerformanceSampler_UsesKnownValuesAndRejectsOverflow()
@@ -192,6 +226,38 @@ namespace RainsenVampSur.Tests
                     Assert.That(nextStats.averageGpuMilliseconds, Is.EqualTo(-1f));
                 }
                 StringAssert.Contains("\"gpuMs\":8", sampler.CreateRawSamplesJson());
+            }
+            finally
+            {
+                sampler.Dispose();
+            }
+        }
+
+        /// <summary>采样器关闭阶段应释放额外计数器并保留最小帧时/敌人数采样，随后可重新开启。</summary>
+        [Test]
+        public void PerformanceSampler_ControlWindowDisablesCountersAndReopens()
+        {
+            PerformanceSampler sampler = new PerformanceSampler(64);
+            try
+            {
+                sampler.BeginStage(MainWorldPerformanceStageKind.InstrumentationControl, 100, 0.9f, false);
+                Assert.IsFalse(sampler.InstrumentationEnabled);
+                sampler.RecordFrame(0.01f, 95, 12, 34, 56, true);
+                MainWorldPerformanceFrameStatistics control = sampler.EndStage(out int minimum, out int maximum);
+
+                Assert.That(control.averageMilliseconds, Is.EqualTo(10f).Within(0.001f));
+                Assert.That(minimum, Is.EqualTo(95));
+                Assert.That(maximum, Is.EqualTo(95));
+                Assert.That(control.averageMainThreadMilliseconds, Is.EqualTo(-1f));
+                Assert.That(control.averageGpuMilliseconds, Is.EqualTo(-1f));
+                Assert.IsFalse(control.support.mainThread);
+                Assert.IsFalse(control.support.gpu);
+
+                sampler.BeginStage(MainWorldPerformanceStageKind.InstrumentationEnabled, 100, 0.9f, true);
+                Assert.IsTrue(sampler.InstrumentationEnabled);
+                sampler.RecordFrame(0.01f, 95, 12, 34, 56, true);
+                MainWorldPerformanceFrameStatistics enabled = sampler.EndStage(out _, out _);
+                Assert.That(enabled.averageMilliseconds, Is.EqualTo(10f).Within(0.001f));
             }
             finally
             {

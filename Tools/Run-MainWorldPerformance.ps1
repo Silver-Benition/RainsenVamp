@@ -6,6 +6,9 @@ param(
     [ValidateSet('capacity', 'normal', 'pickup', 'freeze')]
     [string]$Mode = 'capacity',
 
+    [ValidateSet('controlled', 'natural')]
+    [string]$EventMode = 'controlled',
+
     [int]$Tier = -1,
     [ValidateSet(300, 1000)]
     [int]$PickupCount = 1000,
@@ -159,6 +162,7 @@ $playerArguments = @(
     '-screen-height', '1080',
     '-screen-fullscreen', '0',
     '--perf-mode', $Mode,
+    '--perf-events', $EventMode,
     '--perf-output', $OutputPath,
     '--perf-duration', $durationText,
     '--perf-seed', $Seed.ToString([System.Globalization.CultureInfo]::InvariantCulture),

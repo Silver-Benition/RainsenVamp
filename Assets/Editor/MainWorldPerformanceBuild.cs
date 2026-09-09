@@ -275,11 +275,13 @@ public static class MainWorldPerformanceBuild
 
         profile.profileId = "session21-main-world-performance";
         profile.defaultMode = MainWorldPerformanceRunMode.CapacitySweep;
+        profile.defaultEventMode = MainWorldPerformanceEventMode.Controlled;
         profile.enableHarness = true;
         profile.autoStart = true;
         profile.fixedRandomSeed = 21021;
         profile.generatedMainWorld = LoadRequired<WorldLineDataSO>(WorldPath);
         profile.generatedWaveConfig = LoadRequired<WaveConfigSO>(WavePath);
+        profile.generatedDropTable = LoadRequired<EnemyDropTableSO>(DropTablePath);
         profile.normalCharacter = LoadRequired<CharacterDataSO>(DefaultCharacterSource);
         profile.capacityCharacter = LoadRequired<CharacterDataSO>(CapacityCharacterPath);
         profile.delayedBossEncounter = LoadRequired<BossEncounterDataSO>(BossEncounterPath);
@@ -297,7 +299,7 @@ public static class MainWorldPerformanceBuild
         profile.capacityExperienceRequirementOverride = 100000000f;
         // 仅提高生成测试副本的补充速率，保持敌人生命、武器和正式掉落表不变，
         // 以便近限完整武器阶段能维持目标人口并明确记录该测试覆盖条件。
-        profile.capacityWaveSupplementalRateMultiplier = 2f;
+        profile.capacityWaveSupplementalRateMultiplier = 4f;
         profile.sampling.expectedMaximumFramesPerSecond = 2048;
         profile.sourceRevision = ReadGitRevision();
         profile.sourceHash = ComputeSourceHash();

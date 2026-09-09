@@ -14,11 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   profileId: session21-main-world-performance
   defaultMode: 1
+  defaultEventMode: 1
   enableHarness: 1
   autoStart: 1
   fixedRandomSeed: 21021
   generatedMainWorld: {fileID: 11400000, guid: f847c77d350a7fe41ad4d4bb8650a48c, type: 2}
   generatedWaveConfig: {fileID: 11400000, guid: 22a66a38e6ee28f43b7d1cbcd724ed51, type: 2}
+  generatedDropTable: {fileID: 11400000, guid: 15062b43f925bd443a543ba39d41408b, type: 2}
   normalCharacter: {fileID: 11400000, guid: a1f0e4c7d2b34513a4c98fcd12000105, type: 2}
   capacityCharacter: {fileID: 11400000, guid: 67e629add499fae43b237eefaf1c173f, type: 2}
   delayedBossEncounter: {fileID: 11400000, guid: a20b30d3cd06d0b4297b28bed41cb836, type: 2}
@@ -41,7 +43,7 @@ MonoBehaviour:
   fullLoadoutLevel: 8
   capacityMaximumHealthOverride: 100000
   capacityExperienceRequirementOverride: 100000000
-  capacityWaveSupplementalRateMultiplier: 2
+  capacityWaveSupplementalRateMultiplier: 4
   sampling:
     warmupSeconds: 15
     rampSeconds: 15
@@ -57,10 +59,11 @@ MonoBehaviour:
     severeFrameTimeMilliseconds: 66.67
     severeFrameTimeAbortSeconds: 5
     instrumentationControlSeconds: 2
+    instrumentationComparisonSeconds: 5
     maximumPickupBurstCount: 1000
   throughputSweep: 1
   normalModeTargetEnemies: 10
   normalModeTargetFrameRate: 60
-  sourceRevision: 169c2cf277fd5997e811dd00cd74eebc6f5dd3bc
-  sourceHash: f513414325f703e4325ea1eeaef729b97dd47d4ffdc8c7e627e046afe0ea5bff
+  sourceRevision: bf10ad50adc4a3723c38bc951a06ac542ee16068
+  sourceHash: d2090ed82e779465bc36d35281e444d5a1c8950a88f798218b7ffd201497e42e
   generatedByUnityVersion: 2022.3.62f3c1
