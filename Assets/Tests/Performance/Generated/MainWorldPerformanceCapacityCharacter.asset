@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1f0e4c7d2b34513a4c98fcd12000103, type: 3}
+  m_Name: DefaultCharacter
+  m_EditorClassIdentifier: 
+  characterID: character_default
+  characterNameKey: character.default.name
+  characterDisplayName: "\u9ED8\u8BA4\u89D2\u8272"
+  selectionIcon: {fileID: -1311292811, guid: bbe32c98e41a46c44aa6e724aaba40b5, type: 3}
+  portraitSprite: {fileID: -1311292811, guid: bbe32c98e41a46c44aa6e724aaba40b5, type: 3}
+  previewFrames:
+  - {fileID: -1311292811, guid: bbe32c98e41a46c44aa6e724aaba40b5, type: 3}
+  - {fileID: 1607492120, guid: bbe32c98e41a46c44aa6e724aaba40b5, type: 3}
+  baseStats:
+    maxHealth: 100000
+    recovery: 0
+    armor: 0
+    moveSpeed: 3
+    might: 1
+    area: 1
+    projectileSpeed: 1
+    duration: 1
+    amount: 0
+    cooldown: 1
+    luck: 1
+    growth: 1
+    greed: 1
+    curse: 1
+    magnet: 3
+    revival: 0
+    reroll: 0
+    skip: 0
+    banish: 0
+    charm: 0
+    defang: 0
+  startingWeapon: {fileID: 11400000, guid: 2285ad58e73c87f419e0f64a3b0b0ee7, type: 2}
+  passive:
+    passiveID: passive_traveler_instinct
+    passiveNameKey: passive.traveler_instinct.name
+    passiveDisplayName: "\u65C5\u8005\u76F4\u89C9"
+    descriptionKey: passive.traveler_instinct.description
+    description: "\u6BCF\u5C40\u5F00\u59CB\u65F6\u83B7\u5F97 1 \u6B21\u989D\u5916\u91CD\u63B7\u673A\u4F1A\u3002"
+    modifiers:
+    - statType: 16
+      mode: 0
+      value: 1
+  unlock:
+    conditionType: 0
+    requiredAmount: 0
+    descriptionKey: character.default.unlock
+    description: "\u9ED8\u8BA4\u89E3\u9501"

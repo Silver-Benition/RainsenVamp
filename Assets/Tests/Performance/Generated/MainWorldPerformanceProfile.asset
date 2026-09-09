@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ba05f44bb3005a429fb1898068388c3, type: 3}
+  m_Name: MainWorldPerformanceProfile
+  m_EditorClassIdentifier: 
+  profileId: session21-main-world-performance
+  defaultMode: 1
+  enableHarness: 1
+  autoStart: 1
+  fixedRandomSeed: 21021
+  generatedMainWorld: {fileID: 11400000, guid: f847c77d350a7fe41ad4d4bb8650a48c, type: 2}
+  generatedWaveConfig: {fileID: 11400000, guid: 22a66a38e6ee28f43b7d1cbcd724ed51, type: 2}
+  normalCharacter: {fileID: 11400000, guid: a1f0e4c7d2b34513a4c98fcd12000105, type: 2}
+  capacityCharacter: {fileID: 11400000, guid: 67e629add499fae43b237eefaf1c173f, type: 2}
+  delayedBossEncounter: {fileID: 11400000, guid: a20b30d3cd06d0b4297b28bed41cb836, type: 2}
+  expPickupPrefab: {fileID: 4754037072693363561, guid: d13aa15b6d2a3b5429389ce6fc3a2bf2, type: 3}
+  coinPickupPrefab: {fileID: 4701000000000000001, guid: 593fb8d31da64c44948c4948fce5b9d5, type: 3}
+  fullLoadout:
+  - {fileID: 11400000, guid: 2285ad58e73c87f419e0f64a3b0b0ee7, type: 2}
+  - {fileID: 11400000, guid: 371eb58fcc131b94b91baf65154dbb24, type: 2}
+  - {fileID: 11400000, guid: 7f9c4488bc7eae54cabb2e1298db4f47, type: 2}
+  - {fileID: 11400000, guid: 839ee33455b2d0140a9f9684a5b1a556, type: 2}
+  - {fileID: 11400000, guid: 7095642dd94da0a4ea850c8c5377f1cd, type: 2}
+  capacityTiers:
+  - targetActiveEnemies: 100
+    label: tier-100
+  - targetActiveEnemies: 300
+    label: tier-300
+  - targetActiveEnemies: 500
+    label: tier-500
+  nearLimitTierIndex: 2
+  fullLoadoutLevel: 8
+  capacityMaximumHealthOverride: 100000
+  capacityExperienceRequirementOverride: 100000000
+  capacityWaveSupplementalRateMultiplier: 2
+  sampling:
+    warmupSeconds: 15
+    rampSeconds: 15
+    steadySeconds: 60
+    transitionSeconds: 2
+    freezeSeconds: 15
+    thawSeconds: 5
+    pickupSeconds: 15
+    lowFrequencySampleInterval: 0.25
+    expectedMaximumFramesPerSecond: 2048
+    minimumTargetCoverage: 0.9
+    minimumTargetSampleCoverage: 0.95
+    severeFrameTimeMilliseconds: 66.67
+    severeFrameTimeAbortSeconds: 5
+    instrumentationControlSeconds: 2
+    maximumPickupBurstCount: 1000
+  throughputSweep: 1
+  normalModeTargetEnemies: 10
+  normalModeTargetFrameRate: 60
+  sourceRevision: 169c2cf277fd5997e811dd00cd74eebc6f5dd3bc
+  sourceHash: f513414325f703e4325ea1eeaef729b97dd47d4ffdc8c7e627e046afe0ea5bff
+  generatedByUnityVersion: 2022.3.62f3c1

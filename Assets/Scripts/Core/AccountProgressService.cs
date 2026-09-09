@@ -284,8 +284,11 @@ public sealed class AccountProgressService
         return true;
     }
 
-#if UNITY_EDITOR
-    /// <summary>仅供 Editor 自动化为静态入口注入隔离存储，防止用例之间共享账号状态。</summary>
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// 仅供 Editor 自动化或专用 Development Build 注入隔离存储，防止性能采样和测试写入真实账号。
+    /// 普通 Release 构建不会包含此入口，因此不会扩大正式运行时 API。
+    /// </summary>
     public static void SetStorageForTests(IAccountProgressStorage storage)
     {
         _current = new AccountProgressService(storage ?? new InMemoryAccountProgressStorage());
