@@ -9,6 +9,42 @@ namespace RainsenVampSur.Tests
     /// <summary>验证 Session 21 生成资产隔离、报告语义和普通场景未自动注入 Runner。</summary>
     public sealed class MainWorldPerformanceTests
     {
+        /// <summary>连续记录必须保留工具边界帧，并在溢出时明确报出证据缺口。</summary>
+        [Test]
+        public void DiagnosticTrace_PreservesBoundaryFramesAndReportsOverflow()
+        {
+            MainWorldPerformanceDiagnosticTrace trace = new MainWorldPerformanceDiagnosticTrace(2);
+            trace.Record(101, 1.25d, 437f, 3, 499, true);
+            trace.Record(102, 1.26d, 10f, 4, 500, false);
+            trace.Record(103, 1.27d, 10f, 4, 500, false);
+            using (System.IO.StringWriter writer = new System.IO.StringWriter())
+            {
+                trace.WriteCsv(writer);
+                StringAssert.Contains("101,1.25,437,3,499,1,", writer.ToString());
+                StringAssert.Contains("102,1.26,10,4,500,0,", writer.ToString());
+                StringAssert.DoesNotContain("103,", writer.ToString());
+            }
+            Assert.AreEqual(2, trace.Count);
+            Assert.AreEqual(1, trace.Dropped);
+        }
+
+        /// <summary>长帧诊断额外记录百毫秒比例，同时保留原有分位数和五十毫秒口径。</summary>
+        [Test]
+        public void Sampler_ReportsLongFrameThresholdsWithoutDroppingOutliers()
+        {
+            using (PerformanceSampler sampler = new PerformanceSampler(1024))
+            {
+                sampler.BeginStage(MainWorldPerformanceStageKind.Steady, 500, 0.9f, false);
+                sampler.RecordFrame(0.01f, 500, 0, 0, 0, true);
+                sampler.RecordFrame(0.06f, 500, 0, 0, 0, true);
+                sampler.RecordFrame(0.437f, 500, 0, 0, 0, true);
+                MainWorldPerformanceFrameStatistics result = sampler.EndStage(out int minimum, out int maximum);
+                Assert.That(result.ratioOver100Milliseconds, Is.EqualTo(1f / 3f).Within(0.0001f));
+                Assert.That(result.ratioOver50Milliseconds, Is.EqualTo(2f / 3f).Within(0.0001f));
+                Assert.That(result.maximumMilliseconds, Is.EqualTo(437f).Within(0.01f));
+            }
+        }
+
         private const string GeneratedRoot = "Assets/Tests/Performance/Generated/";
         private const string GeneratedScenePath = GeneratedRoot + "MainWorldPerformance.unity";
         private const string ProfilePath = GeneratedRoot + "MainWorldPerformanceProfile.asset";

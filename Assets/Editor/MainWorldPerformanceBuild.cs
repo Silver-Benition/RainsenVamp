@@ -102,6 +102,89 @@ public static class MainWorldPerformanceBuild
         Debug.Log("[MainWorldPerformance] Windows Development Player built: " + options.locationPathName);
     }
 
+    /// <summary>
+    /// 批处理读取本次 CPU 原始记录，输出逐帧时间和慢帧内的耗时样本。
+    /// 只在离线分析阶段使用，绝不在被测 Player 中遍历或格式化 Profiler 数据。
+    /// </summary>
+    public static void AnalyzeDiagnosticCapture()
+    {
+        if (!Application.isBatchMode) throw new InvalidOperationException("Offline capture analysis requires batch mode.");
+        string path = null;
+        string[] arguments = Environment.GetCommandLineArgs();
+        for (int index = 0; index + 1 < arguments.Length; index++)
+            if (arguments[index] == "--perf-analyze") path = Path.GetFullPath(arguments[index + 1]);
+        string allowedRoot = Path.GetFullPath(Path.Combine(ProjectRoot, "Logs", "Performance")) + Path.DirectorySeparatorChar;
+        if (string.IsNullOrWhiteSpace(path) || !path.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            throw new InvalidOperationException("Capture must exist under this QA project's Logs/Performance directory.");
+        UnityEditorInternal.ProfilerDriver.enabled = false;
+        // Unity 2022.3 默认只保留最后 300 帧，直接加载会漏掉切换前后的关键证据。
+        // 这里使用该版本参考源码中确认的内部入口，仅改变即将退出的 batch 进程内存，
+        // 不写 EditorPrefs。入口缺失时明确失败，不把末尾短片段冒充完整记录。
+        System.Reflection.MethodInfo setHistory = typeof(UnityEditorInternal.ProfilerDriver).GetMethod(
+            "SetMaxFrameHistoryLength", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        if (setHistory == null) throw new MissingMethodException("Unity 2022.3 SetMaxFrameHistoryLength unavailable.");
+        setHistory.Invoke(null, new object[] { 65536 });
+        if (!UnityEditorInternal.ProfilerDriver.LoadProfile(path, false))
+            throw new InvalidOperationException("Profiler could not load capture: " + path);
+        int first = UnityEditorInternal.ProfilerDriver.firstFrameIndex;
+        int last = UnityEditorInternal.ProfilerDriver.lastFrameIndex;
+        if (first < 0 || last < first) throw new InvalidOperationException("Capture contains no readable frames.");
+        if (first > 1) throw new InvalidOperationException("Capture prefix was truncated by Profiler history: " + first);
+
+        int validFrames = 0;
+        using (StreamWriter frames = new StreamWriter(path + "-frames.csv"))
+        using (StreamWriter samples = new StreamWriter(path + "-samples.csv"))
+        {
+            frames.WriteLine("profilerFrame,startMs,frameMs,sampleCount");
+            samples.WriteLine("profilerFrame,thread,sampleIndex,startMs,durationMs,childrenRecursive,name");
+            for (int frame = first; frame <= last; frame++)
+            {
+                using (UnityEditor.Profiling.RawFrameDataView data = UnityEditorInternal.ProfilerDriver.GetRawFrameDataView(frame, 0))
+                {
+                    if (!data.valid) continue;
+                    validFrames++;
+                    frames.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},{1:R},{2:R},{3}",
+                        frame, data.frameStartTimeMs, data.frameTimeMs, data.sampleCount));
+                    // 慢帧保留完整耗时树的索引关系；正常帧仅保留诊断标记用于对齐时间轴。
+                    bool slow = data.frameTimeMs > 33.33f;
+                    WriteDiagnosticSamples(samples, data, frame, slow);
+                    if (!slow) continue;
+                    for (int thread = 1; thread < 128; thread++)
+                    {
+                        using (UnityEditor.Profiling.RawFrameDataView other = UnityEditorInternal.ProfilerDriver.GetRawFrameDataView(frame, thread))
+                        {
+                            if (!other.valid) break;
+                            WriteDiagnosticSamples(samples, other, frame, true);
+                        }
+                    }
+                }
+            }
+        }
+        if (validFrames == 0) throw new InvalidOperationException("No valid main-thread frames were decoded.");
+        File.WriteAllText(path + "-analysis.txt", string.Format(CultureInfo.InvariantCulture,
+            "firstFrame={0}\nlastFrame={1}\nvalidFrames={2}\nSample durations are inclusive; do not sum parent and child times.\n", first, last, validFrames));
+        Debug.Log("[MainWorldPerformance] CPU capture decoded: " + validFrames + " frames; " + path);
+    }
+
+    /// <summary>按原始样本序号导出包含关系；名称只在离线阶段解析，CSV 引号按标准转义。</summary>
+    private static void WriteDiagnosticSamples(StreamWriter writer, UnityEditor.Profiling.RawFrameDataView data, int frame, bool slow)
+    {
+        int observation = data.GetMarkerId("PerformanceDiagnostic.FrameObservation");
+        int flush = data.GetMarkerId("PerformanceDiagnostic.StageReportAndRawIO");
+        int loadout = data.GetMarkerId("PerformanceDiagnostic.EnsureFullLoadout");
+        for (int index = 0; index < data.sampleCount; index++)
+        {
+            int marker = data.GetSampleMarkerId(index);
+            bool diagnostic = marker == observation || marker == flush || marker == loadout;
+            float duration = data.GetSampleTimeMs(index);
+            if (!diagnostic && (!slow || duration < 2f)) continue;
+            string name = data.GetSampleName(index) ?? string.Empty;
+            writer.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},\"{1}\",{2},{3:R},{4:R},{5},\"{6}\"",
+                frame, data.threadName.Replace("\"", "\"\""), index, data.GetSampleStartTimeMs(index), duration,
+                data.GetSampleChildrenCountRecursive(index), name.Replace("\"", "\"\"")));
+        }
+    }
+
     private static string ProjectRoot => Directory.GetParent(Application.dataPath).FullName;
 
     /// <summary>创建生成目录，所有后续写入均限制在该目录或 Builds/Performance、Logs/Performance。</summary>

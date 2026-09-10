@@ -128,7 +128,14 @@ namespace RainsenVampSur.Tests
             Assert.That(
                 serializedToast.FindProperty("rewardTitleKey").stringValue,
                 Is.EqualTo("ui.treasure.reward"));
-            Assert.IsNotNull(serializedToast.FindProperty("font").objectReferenceValue);
+            Object fontReference = serializedToast.FindProperty("font").objectReferenceValue;
+            Assert.IsInstanceOf<TMPro.TMP_FontAsset>(fontReference,
+                "宝箱提示需要 TMP 字体资产，不能把原始 Unity Font 绑定到该字段。");
+            TMPro.TMP_FontAsset font = (TMPro.TMP_FontAsset)fontReference;
+            Assert.That(AssetDatabase.GetAssetPath(font), Is.EqualTo("Assets/Fonts/msyh SDF.asset"));
+            Assert.IsNotNull(font.atlasTexture, "正式字体必须具有已生成的图集。");
+            Assert.IsNotNull(font.material);
+            Assert.That(font.material.GetTexture("_MainTex"), Is.SameAs(font.atlasTexture));
             Assert.That(
                 serializedToast.FindProperty("maxQueuedRewards").intValue,
                 Is.EqualTo(8));

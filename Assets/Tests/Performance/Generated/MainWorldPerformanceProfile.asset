@@ -64,6 +64,6 @@ MonoBehaviour:
   throughputSweep: 1
   normalModeTargetEnemies: 10
   normalModeTargetFrameRate: 60
-  sourceRevision: bf10ad50adc4a3723c38bc951a06ac542ee16068
-  sourceHash: d2090ed82e779465bc36d35281e444d5a1c8950a88f798218b7ffd201497e42e
+  sourceRevision: d8a3b935738b174fd42856d8a9975085b23cc595
+  sourceHash: a92ea67f0dc09486b8b02ce87984af61c5f56641f026f9ed0cd066495d179477
   generatedByUnityVersion: 2022.3.62f3c1

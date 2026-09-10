@@ -4317,7 +4317,7 @@ MonoBehaviour:
   borderColor: {r: 0.93, g: 0.72, b: 0.22, a: 0.98}
   backgroundColor: {r: 0.08, g: 0.07, b: 0.05, a: 0.94}
   textColor: {r: 1, g: 0.93, b: 0.68, a: 1}
-  font: {fileID: 12800000, guid: 908fbcfb17a61464bba8832bb24f2c92, type: 3}
+  font: {fileID: 11400000, guid: 7883150a38a2c3842b0a8c7aaf9e631c, type: 2}
 --- !u!114 &3200000320
 MonoBehaviour:
   m_ObjectHideFlags: 0

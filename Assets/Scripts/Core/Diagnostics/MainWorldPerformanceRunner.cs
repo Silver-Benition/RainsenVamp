@@ -5,6 +5,8 @@ using System.Globalization;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Unity.Profiling;
+using UnityEngine.Profiling;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -111,6 +113,19 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     private int _pickupBurstSpawnedCount;
     private Camera _mainCamera;
     private int _enemyLayerMask = -1;
+    private MainWorldPerformanceDiagnosticTrace _diagnosticTrace;
+    private bool _diagnosticOriginalPrefix;
+    private bool _diagnosticCpuRequested;
+    private bool _diagnosticCaptureActive;
+    private bool _originalProfilerEnabled;
+    private bool _originalProfilerBinaryLog;
+    private string _originalProfilerLogFile;
+    private int _originalProfilerMemory;
+    private double _diagnosticCaptureDeadline;
+    private int _diagnosticStageOrdinal = -1;
+    private static readonly ProfilerMarker DiagnosticFrameMarker = new ProfilerMarker("PerformanceDiagnostic.FrameObservation");
+    private static readonly ProfilerMarker DiagnosticFlushMarker = new ProfilerMarker("PerformanceDiagnostic.StageReportAndRawIO");
+    private static readonly ProfilerMarker DiagnosticLoadoutMarker = new ProfilerMarker("PerformanceDiagnostic.EnsureFullLoadout");
 
     /// <summary>当前使用的性能 Profile。</summary>
     public MainWorldPerformanceProfile Profile => profile;
@@ -199,6 +214,14 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         _sampler.BeginInstrumentationControl(profile.sampling.instrumentationControlSeconds);
         _sampler.BeginStage(MainWorldPerformanceStageKind.Startup, 0, profile.sampling.minimumTargetCoverage, false);
         _report = CreateReport(seed);
+        if (_mode == MainWorldPerformanceRunMode.LongFrameDiagnostic)
+        {
+            // 独立启动时预分配；只在诊断入口启用，不增加普通验收和生产场景的内存成本。
+            _diagnosticTrace = new MainWorldPerformanceDiagnosticTrace(1048576);
+            _report.diagnosticRun = true;
+            _report.diagnosticOriginalPrefix = _diagnosticOriginalPrefix;
+            _report.diagnosticCpuCaptureRequested = _diagnosticCpuRequested;
+        }
         _currentStage = MainWorldPerformanceStageKind.Startup;
         _currentStageLabel = "startup-control";
     }
@@ -244,6 +267,18 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         if (!_running || _sampler == null || _completed)
         {
             return;
+        }
+
+        if (_diagnosticTrace != null)
+        {
+            using (DiagnosticFrameMarker.Auto())
+            {
+                _diagnosticTrace.Record(Time.frameCount, Time.realtimeSinceStartupAsDouble,
+                    Time.unscaledDeltaTime * 1000f, _diagnosticStageOrdinal,
+                    _mainSimulation != null ? _mainSimulation.ActiveEnemyCount : 0, _excludeNextFrameSample);
+            }
+            if (_diagnosticCaptureActive && Time.realtimeSinceStartupAsDouble >= _diagnosticCaptureDeadline)
+                StopDiagnosticCapture();
         }
 
         if (_excludeNextFrameSample)
@@ -404,6 +439,9 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
 
         switch (_mode)
         {
+            case MainWorldPerformanceRunMode.LongFrameDiagnostic:
+                yield return RunLongFrameDiagnostic();
+                break;
             case MainWorldPerformanceRunMode.NormalManual:
                 yield return RunNormalManualMode();
                 break;
@@ -442,6 +480,130 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             "normal-manual",
             GetScaledDuration(profile.sampling.steadySeconds),
             profile.normalModeTargetEnemies);
+    }
+
+    /// <summary>
+    /// 主世界短程诊断：保留正式补怪和伤害链路，先观察 starter，再连续观察两段满武器。
+    /// 可选原阶梯前缀用于检查累积状态；不额外生成拾取、冻结或随机奖励，不改变原容量模式。
+    /// </summary>
+    private IEnumerator RunLongFrameDiagnostic()
+    {
+        RestoreWaveDefaults();
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Warmup, "diagnostic-warmup",
+            GetScaledDuration(profile.sampling.warmupSeconds), 0);
+        if (_interrupted) yield break;
+        if (_diagnosticOriginalPrefix)
+        {
+            yield return RunTimedStage(MainWorldPerformanceStageKind.Steady, "diagnostic-original-baseline",
+                GetScaledDuration(profile.sampling.steadySeconds), 0);
+            for (int index = 0; index < profile.GetSafeNearLimitTierIndex() && !_interrupted; index++)
+            {
+                int prefixTarget = profile.capacityTiers[index].targetActiveEnemies;
+                ApplyWaveTarget(prefixTarget);
+                yield return RunTimedStage(MainWorldPerformanceStageKind.Ramp, "diagnostic-original-ramp-" + prefixTarget,
+                    GetScaledDuration(profile.sampling.rampSeconds), prefixTarget);
+                if (_interrupted) yield break;
+                yield return RunTimedStage(MainWorldPerformanceStageKind.Steady, "diagnostic-original-steady-" + prefixTarget,
+                    GetScaledDuration(profile.sampling.steadySeconds), prefixTarget);
+            }
+        }
+        if (_interrupted) yield break;
+        int target = GetNearLimitTarget();
+        ApplyWaveTarget(target);
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Ramp, "diagnostic-500-starter-ramp",
+            GetScaledDuration(profile.sampling.rampSeconds), target);
+        if (_interrupted) yield break;
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Steady, "diagnostic-500-starter-steady",
+            GetScaledDuration(profile.sampling.steadySeconds), target);
+        if (_interrupted) yield break;
+
+        StartDiagnosticCapture();
+        AddDiagnosticEvent("loadout-setup-begin", 0d);
+        double setupStart = Time.realtimeSinceStartupAsDouble;
+        using (DiagnosticLoadoutMarker.Auto()) EnsureFullLoadout();
+        AddDiagnosticEvent("loadout-setup-end", (Time.realtimeSinceStartupAsDouble - setupStart) * 1000d);
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Transition, "diagnostic-full-setup",
+            GetScaledDuration(profile.sampling.transitionSeconds), target);
+        if (_interrupted) yield break;
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Ramp, "diagnostic-full-ramp",
+            GetScaledDuration(profile.sampling.rampSeconds), target);
+        if (_interrupted) yield break;
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Steady, "diagnostic-full-first",
+            GetScaledDuration(profile.sampling.steadySeconds), target);
+        if (_interrupted) yield break;
+        yield return RunTimedStage(MainWorldPerformanceStageKind.Steady, "diagnostic-full-repeat",
+            GetScaledDuration(profile.sampling.steadySeconds), target);
+    }
+
+    /// <summary>记录少量阶段标记；字符串只在阶段边界生成，不进入逐帧分配路径。</summary>
+    private void AddDiagnosticEvent(string operation, double durationMilliseconds)
+    {
+        if (_diagnosticTrace == null || _report == null) return;
+        _report.diagnosticEvents.Add(new MainWorldPerformanceDiagnosticEvent
+        {
+            unityFrame = Time.frameCount, realtimeSeconds = Time.realtimeSinceStartupAsDouble,
+            stageOrdinal = _diagnosticStageOrdinal, label = _currentStageLabel,
+            operation = operation, durationMilliseconds = durationMilliseconds
+        });
+    }
+
+    /// <summary>仅显式诊断参数允许写 CPU 原始记录；保存原设置并限定到首次满武器窗口前二十秒。</summary>
+    private void StartDiagnosticCapture()
+    {
+        if (!_diagnosticCpuRequested || _diagnosticTrace == null || _diagnosticCaptureActive) return;
+        Directory.CreateDirectory(_outputPath);
+        _originalProfilerEnabled = Profiler.enabled;
+        _originalProfilerBinaryLog = Profiler.enableBinaryLog;
+        _originalProfilerLogFile = Profiler.logFile;
+        _originalProfilerMemory = Profiler.maxUsedMemory;
+        _report.diagnosticCpuCaptureFile = _report.reportId + "-cpu.raw";
+        _diagnosticCaptureActive = true;
+        AddDiagnosticEvent("cpu-capture-begin", 0d);
+        Profiler.enabled = false;
+        Profiler.logFile = Path.Combine(_outputPath, _report.diagnosticCpuCaptureFile);
+        Profiler.maxUsedMemory = 128 * 1024 * 1024;
+        Profiler.enableBinaryLog = true;
+        Profiler.enabled = true;
+        _diagnosticCaptureDeadline = Time.realtimeSinceStartupAsDouble +
+            GetScaledDuration(profile.sampling.transitionSeconds + profile.sampling.rampSeconds + 20f);
+    }
+
+    /// <summary>关闭并刷新 CPU 记录，然后恢复启动前的 Profiler 设置；中断和停用也调用此入口。</summary>
+    private void StopDiagnosticCapture()
+    {
+        if (!_diagnosticCaptureActive) return;
+        _diagnosticCaptureActive = false;
+        Profiler.enabled = false;
+        Profiler.enableBinaryLog = false;
+        Profiler.logFile = string.Empty;
+        Profiler.maxUsedMemory = _originalProfilerMemory;
+        Profiler.logFile = _originalProfilerLogFile;
+        Profiler.enableBinaryLog = _originalProfilerBinaryLog;
+        Profiler.enabled = _originalProfilerEnabled;
+        AddDiagnosticEvent("cpu-capture-end", 0d);
+        string path = Path.Combine(_outputPath, _report.diagnosticCpuCaptureFile);
+        _report.diagnosticCpuCaptureWritten = File.Exists(path) && new FileInfo(path).Length > 0;
+    }
+
+    /// <summary>最终退出前写连续帧证据，容量溢出和 IO 失败必须让报告标为未完成。</summary>
+    private void WriteDiagnosticTrace()
+    {
+        if (_diagnosticTrace == null || _report == null) return;
+        _report.diagnosticContinuousFrames = _diagnosticTrace.Count;
+        _report.diagnosticDroppedFrames = _diagnosticTrace.Dropped;
+        _report.diagnosticContinuousFile = _report.reportId + "-continuous.csv";
+        try
+        {
+            Directory.CreateDirectory(_outputPath);
+            using (StreamWriter writer = new StreamWriter(Path.Combine(_outputPath, _report.diagnosticContinuousFile)))
+                _diagnosticTrace.WriteCsv(writer);
+            if (_diagnosticTrace.Dropped > 0) InterruptRun("diagnostic-buffer-overflow");
+        }
+        catch (Exception exception)
+        {
+            _reportWriteFailed = true;
+            Debug.LogError("[MainWorldPerformance] 连续诊断记录写入失败：" + exception.Message, this);
+        }
     }
 
     /// <summary>执行容量阶梯，并只在选定近限阶梯注入完整武器组合。</summary>
@@ -707,6 +869,11 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     {
         _currentStage = stage;
         _currentStageLabel = label;
+        if (_diagnosticTrace != null)
+        {
+            _diagnosticStageOrdinal++;
+            AddDiagnosticEvent("stage-begin", 0d);
+        }
         _stageUnexpectedFreeze = !_expectedFreezeStage && WorldFreezeController.IsHostileSimulationFrozen;
         _lowFrequencyTimer = 0f;
         _sampler.BeginStage(stage, requestedTarget, profile.sampling.minimumTargetCoverage, _sampler.InstrumentationEnabled);
@@ -715,7 +882,19 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         float safeDuration = Mathf.Max(0.1f, duration);
         while (!_interrupted && Time.unscaledTime - start < safeDuration) yield return null;
         _lastStageObservedDuration = Mathf.Max(0f, Time.unscaledTime - start);
-        FlushCurrentStageReport(stage, label, requestedTarget, safeDuration, _lastStageObservedDuration);
+        if (_diagnosticTrace != null)
+        {
+            AddDiagnosticEvent("stage-end", 0d);
+            double flushStart = Time.realtimeSinceStartupAsDouble;
+            AddDiagnosticEvent("report-flush-begin", 0d);
+            using (DiagnosticFlushMarker.Auto())
+                FlushCurrentStageReport(stage, label, requestedTarget, safeDuration, _lastStageObservedDuration);
+            AddDiagnosticEvent("report-flush-end", (Time.realtimeSinceStartupAsDouble - flushStart) * 1000d);
+        }
+        else
+        {
+            FlushCurrentStageReport(stage, label, requestedTarget, safeDuration, _lastStageObservedDuration);
+        }
 
         // 文件写入、排序和 JSON 序列化属于 harness 边界开销。跳过下一次 Update 的
         // 帧样本，避免把这段边界工作误报成游戏阶段尖峰；事件生成发生在该 yield 之后，
@@ -1525,9 +1704,12 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
     private void FinalizeReport(string outcome)
     {
         if (_completed) return;
+        StopDiagnosticCapture();
+        WriteDiagnosticTrace();
         _completed = true;
         _running = false;
         string resolvedOutcome = string.IsNullOrWhiteSpace(outcome) ? "incomplete" : outcome;
+        if (_diagnosticTrace != null && _diagnosticTrace.Dropped > 0) resolvedOutcome = "incomplete";
         if (_reportWriteFailed && string.Equals(resolvedOutcome, "complete", StringComparison.OrdinalIgnoreCase))
         {
             resolvedOutcome = "incomplete";
@@ -1703,6 +1885,14 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
             {
                 _repeatCount = Mathf.Clamp(repeats, 1, 12);
             }
+            else if (TryReadArgument(arguments, ref index, "--perf-diagnostic-prefix", out string prefix))
+            {
+                _diagnosticOriginalPrefix = string.Equals(prefix, "true", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (TryReadArgument(arguments, ref index, "--perf-capture-cpu", out string capture))
+            {
+                _diagnosticCpuRequested = string.Equals(capture, "true", StringComparison.OrdinalIgnoreCase);
+            }
             else if (TryReadArgument(arguments, ref index, OutputArgument, out string output))
             {
                 _outputPath = output;
@@ -1738,6 +1928,8 @@ public sealed class MainWorldPerformanceRunner : MonoBehaviour
         if (string.IsNullOrWhiteSpace(_modeOverride)) return profile.defaultMode;
         switch (_modeOverride.Trim().ToLowerInvariant())
         {
+            case "diagnostic":
+                return MainWorldPerformanceRunMode.LongFrameDiagnostic;
             case "normal":
             case "manual":
                 return MainWorldPerformanceRunMode.NormalManual;

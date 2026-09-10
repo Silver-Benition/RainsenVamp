@@ -350,6 +350,7 @@ public sealed class PerformanceSampler : IDisposable
             ratioOver16Point67Milliseconds = RatioAbove(_frameMilliseconds, _frameCount, 16.67f),
             ratioOver33Point33Milliseconds = RatioAbove(_frameMilliseconds, _frameCount, 33.33f),
             ratioOver50Milliseconds = RatioAbove(_frameMilliseconds, _frameCount, 50f),
+            ratioOver100Milliseconds = RatioAbove(_frameMilliseconds, _frameCount, 100f),
             averageMainThreadMilliseconds = Average(_mainThreadMilliseconds, _frameCount, true),
             averageRenderThreadMilliseconds = Average(_renderThreadMilliseconds, _frameCount, true),
             averageGpuMilliseconds = !_availableSupport.gpu || _gpuCounterInvalidated
@@ -713,5 +714,73 @@ public sealed class PerformanceSampler : IDisposable
         }
 
         recorder = default(ProfilerRecorder);
+    }
+}
+
+
+/// <summary>
+/// 诊断模式的连续帧旁路记录。数组在启动时一次性分配，阶段切换不重置、不丢弃工具边界帧。
+/// Unity 的 deltaTime 描述前一帧间隔，因此记录观测时的 frameCount，不能直接等同于同一行的 CPU 样本。
+/// </summary>
+public sealed class MainWorldPerformanceDiagnosticTrace
+{
+    private struct Frame
+    {
+        public int unityFrame;
+        public double realtime;
+        public float milliseconds;
+        public int stage;
+        public int enemies;
+        public bool excluded;
+        public int gc0;
+        public int gc1;
+        public int gc2;
+    }
+
+    private readonly Frame[] _frames;
+    private int _count;
+    private int _dropped;
+
+    /// <summary>建立有硬上限的连续缓冲；满载后记录丢帧数量，禁止静默覆盖已有证据。</summary>
+    public MainWorldPerformanceDiagnosticTrace(int capacity)
+    {
+        _frames = new Frame[Mathf.Max(1, capacity)];
+    }
+
+    /// <summary>已保留的连续帧数。</summary>
+    public int Count => _count;
+
+    /// <summary>缓冲区容量不足时未保存的帧数；非零时诊断完整性不成立。</summary>
+    public int Dropped => _dropped;
+
+    /// <summary>每帧只写值类型，不格式化字符串、不分配集合、不进行文件 IO。</summary>
+    public void Record(int unityFrame, double realtime, float milliseconds, int stage, int enemies, bool excluded)
+    {
+        if (_count >= _frames.Length) { _dropped++; return; }
+        _frames[_count++] = new Frame
+        {
+            unityFrame = unityFrame, realtime = realtime, milliseconds = milliseconds,
+            stage = stage, enemies = enemies, excluded = excluded,
+            gc0 = GC.CollectionCount(0), gc1 = GC.CollectionCount(1), gc2 = GC.CollectionCount(2)
+        };
+    }
+
+    /// <summary>采样全部结束后顺序写出 CSV；包含被正式阶段统计排除的边界帧和累计 GC 次数。</summary>
+    public void WriteCsv(System.IO.TextWriter writer)
+    {
+        writer.WriteLine("unityFrame,realtimeSeconds,frameMs,stageOrdinal,activeEnemies,excludedFromStage,gc0,gc1,gc2");
+        for (int index = 0; index < _count; index++)
+        {
+            Frame frame = _frames[index];
+            writer.Write(frame.unityFrame.ToString(CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.realtime.ToString("R", CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.milliseconds.ToString("R", CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.stage.ToString(CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.enemies.ToString(CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.excluded ? '1' : '0'); writer.Write(',');
+            writer.Write(frame.gc0.ToString(CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.gc1.ToString(CultureInfo.InvariantCulture)); writer.Write(',');
+            writer.Write(frame.gc2.ToString(CultureInfo.InvariantCulture)); writer.WriteLine();
+        }
     }
 }

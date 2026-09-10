@@ -8,7 +8,8 @@ public enum MainWorldPerformanceRunMode
     NormalManual = 0,
     CapacitySweep = 1,
     PickupBurst = 2,
-    FreezeTransition = 3
+    FreezeTransition = 3,
+    LongFrameDiagnostic = 4
 }
 
 /// <summary>
@@ -213,6 +214,7 @@ public struct MainWorldPerformanceFrameStatistics
     public float ratioOver16Point67Milliseconds;
     public float ratioOver33Point33Milliseconds;
     public float ratioOver50Milliseconds;
+    public float ratioOver100Milliseconds;
     public float averageMainThreadMilliseconds;
     public float averageRenderThreadMilliseconds;
     public float averageGpuMilliseconds;
@@ -236,10 +238,31 @@ public struct MainWorldPerformanceFrameStatistics
     public MainWorldPerformanceCounterSupport support;
 }
 
+/// <summary>连续诊断时间轴中的阶段和工具工作标记；时间为 Player 启动后的单调实时时间。</summary>
+[Serializable]
+public struct MainWorldPerformanceDiagnosticEvent
+{
+    public int unityFrame;
+    public double realtimeSeconds;
+    public int stageOrdinal;
+    public string label;
+    public string operation;
+    public double durationMilliseconds;
+}
+
 /// <summary>运行期间采集的设备、构建、设置和阶段列表。</summary>
 [Serializable]
 public sealed class MainWorldPerformanceReport
 {
+    public bool diagnosticRun;
+    public bool diagnosticOriginalPrefix;
+    public bool diagnosticCpuCaptureRequested;
+    public bool diagnosticCpuCaptureWritten;
+    public string diagnosticCpuCaptureFile;
+    public int diagnosticContinuousFrames;
+    public int diagnosticDroppedFrames;
+    public string diagnosticContinuousFile;
+    public List<MainWorldPerformanceDiagnosticEvent> diagnosticEvents = new List<MainWorldPerformanceDiagnosticEvent>(64);
     public string schemaVersion = "session-21-main-world-performance-v1";
     public string reportId;
     public string profileId;

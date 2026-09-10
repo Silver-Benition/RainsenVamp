@@ -3,7 +3,7 @@ param(
     [ValidateSet('Build', 'Run', 'All')]
     [string]$Action = 'All',
 
-    [ValidateSet('capacity', 'normal', 'pickup', 'freeze')]
+    [ValidateSet('capacity', 'normal', 'pickup', 'freeze', 'diagnostic')]
     [string]$Mode = 'capacity',
 
     [ValidateSet('controlled', 'natural')]
@@ -22,7 +22,9 @@ param(
     [string]$ProjectPath,
     [string]$BuildPath,
     [string]$OutputPath,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$DiagnosticPrefix,
+    [switch]$CaptureCpu
 )
 
 Set-StrictMode -Version Latest
@@ -169,6 +171,11 @@ $playerArguments = @(
     '--perf-pickups', $PickupCount.ToString([System.Globalization.CultureInfo]::InvariantCulture),
     '--perf-repeats', $Repeats.ToString([System.Globalization.CultureInfo]::InvariantCulture)
 )
+if ($DiagnosticPrefix -or $CaptureCpu) {
+    if ($Mode -ne 'diagnostic') { throw 'DiagnosticPrefix and CaptureCpu require -Mode diagnostic.' }
+}
+if ($DiagnosticPrefix) { $playerArguments += @('--perf-diagnostic-prefix', 'true') }
+if ($CaptureCpu) { $playerArguments += @('--perf-capture-cpu', 'true') }
 $playerArguments += '-logFile'
 $playerArguments += (Join-Path $OutputPath 'UnityPlayer.log')
 if ($Tier -ge 0) {
