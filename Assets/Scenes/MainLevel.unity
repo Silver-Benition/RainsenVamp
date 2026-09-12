@@ -1357,6 +1357,7 @@ MonoBehaviour:
   - 43
   - 52
   experienceFallbackGrowth: 1.2
+  accountUpgradeCatalog: {fileID: 11400000, guid: 5211af051b8b8c74590c42db531d0090, type: 2}
 --- !u!114 &1127848273
 MonoBehaviour:
   m_ObjectHideFlags: 0

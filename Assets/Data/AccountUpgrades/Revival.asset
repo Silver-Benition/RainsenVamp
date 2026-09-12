@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c905504789135724e998c92030ae45bf, type: 3}
+  m_Name: Revival
+  m_EditorClassIdentifier:
+  stableId: account_revival
+  nameKey: account.upgrade.Revival.name
+  descriptionKey: account.upgrade.Revival.description
+  fallbackName: "\u590D\u6D3B"
+  fallbackDescription: "\u6240\u6709\u89D2\u8272\u5F00\u5C40\u83B7\u5F97\u6B64\u9879\u52A0\u6210\u3002\u53EF\u9010\u7EA7\u8D2D\u4E70\u6216\u9000\u6B3E\u3002"
+  icon: {fileID: 0}
+  statType: 15
+  maxLevel: 3
+  levels:
+  - cost: 100
+    modifiers:
+    - statType: 15
+      mode: 0
+      value: 1
+  - cost: 200
+    modifiers:
+    - statType: 15
+      mode: 0
+      value: 2
+  - cost: 300
+    modifiers:
+    - statType: 15
+      mode: 0
+      value: 3

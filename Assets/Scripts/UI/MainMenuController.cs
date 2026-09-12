@@ -21,6 +21,9 @@ public sealed class MainMenuController : MonoBehaviour
     [SerializeField] private CharacterSelectionUI characterSelectionUI;
     [SerializeField] private CollectionUI collectionUI;
 
+    [SerializeField] private Button shopButton;
+    [SerializeField] private AccountShopUI shopUI;
+
     [Header("Version")]
     [SerializeField] private TMP_Text versionText;
     [SerializeField] private string versionFormat = "v{0}";
@@ -67,6 +70,8 @@ public sealed class MainMenuController : MonoBehaviour
     /// <summary>绑定按钮事件、刷新版本文本，并在下一帧建立键盘与手柄焦点。</summary>
     private void OnEnable()
     {
+        if (shopButton != null) shopButton.onClick.AddListener(OpenShop);
+        if (shopUI != null) shopUI.Closed += HandleShopClosed;
         startButton.onClick.AddListener(StartGame);
         collectionButton.onClick.AddListener(OpenCollection);
         quitButton.onClick.AddListener(QuitGame);
@@ -87,6 +92,8 @@ public sealed class MainMenuController : MonoBehaviour
     /// <summary>解除运行时事件和待执行协程，防止组件反复启用后产生重复回调。</summary>
     private void OnDisable()
     {
+        if (shopButton != null) shopButton.onClick.RemoveListener(OpenShop);
+        if (shopUI != null) shopUI.Closed -= HandleShopClosed;
         if (startButton != null)
         {
             startButton.onClick.RemoveListener(StartGame);
@@ -215,6 +222,22 @@ public sealed class MainMenuController : MonoBehaviour
         _selectionCoroutine = StartCoroutine(SelectDefaultButtonNextFrame());
     }
 
+    /// <summary>从菜单进入商店，屏蔽背后所有入口。</summary>
+    private void OpenShop()
+    {
+        if (_isLoading || shopUI == null) return;
+        SetControlsInteractable(false);
+        shopUI.Show();
+    }
+
+    /// <summary>返回后恢复入口焦点，支持连续手柄导航。</summary>
+    private void HandleShopClosed()
+    {
+        SetControlsInteractable(true);
+        if (EventSystem.current != null && shopButton != null)
+            EventSystem.current.SetSelectedGameObject(shopButton.gameObject);
+    }
+
     /// <summary>锁定主菜单按钮并打开收藏页面。</summary>
     private void OpenCollection()
     {
@@ -256,6 +279,7 @@ public sealed class MainMenuController : MonoBehaviour
     /// <param name="interactable">按钮是否允许交互。</param>
     private void SetControlsInteractable(bool interactable)
     {
+        if (shopButton != null) shopButton.interactable = interactable;
         startButton.interactable = interactable;
         if (collectionButton != null)
         {

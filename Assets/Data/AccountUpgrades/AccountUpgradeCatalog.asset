@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7fbd311e79e3c043b97a34739e01c27, type: 3}
+  m_Name: AccountUpgradeCatalog
+  m_EditorClassIdentifier:
+  upgrades:
+  - {fileID: 11400000, guid: 32d25c90e237c9743991bfe101d946c9, type: 2}
+  - {fileID: 11400000, guid: 7715bde3a5136284183cd01e9dcc06f4, type: 2}
+  - {fileID: 11400000, guid: c84552d2451cde346a5d829cf98cbe0a, type: 2}
+  - {fileID: 11400000, guid: 2df4560d4b4a7b54e88c3d7a173791ab, type: 2}
+  - {fileID: 11400000, guid: ae1305c44e4bfae4abefedd6e7898c49, type: 2}
+  - {fileID: 11400000, guid: 5b05c8d4851c0e946943ddfd9c991f69, type: 2}
+  - {fileID: 11400000, guid: 51ae5d65b5814b14da4b83f2108983fe, type: 2}
+  - {fileID: 11400000, guid: dd648c6fd92a5a34d839d3a90e241250, type: 2}
+  - {fileID: 11400000, guid: fd90a2fecc456674fbcb7a37aa0004ba, type: 2}
+  - {fileID: 11400000, guid: cb7866683601f9545abc3896908a3dd3, type: 2}
+  - {fileID: 11400000, guid: d1d23aee8b437da48bc594836a4791ab, type: 2}
+  - {fileID: 11400000, guid: 32916650abb3b8343a35d6de8ee1d460, type: 2}
+  - {fileID: 11400000, guid: da443976ab9721b4993c12e93d971367, type: 2}
+  - {fileID: 11400000, guid: 778f5b95985dcdb42a31664aca5520ad, type: 2}
+  - {fileID: 11400000, guid: 59a78c47802089f4bb93b561010967e8, type: 2}
+  - {fileID: 11400000, guid: 6506ee37b9e67a84ba427c0907ed35cf, type: 2}
+  - {fileID: 11400000, guid: 856668a78ce5d5d4e80549b3d805b51c, type: 2}
+  - {fileID: 11400000, guid: f94925f2231d9924da4072d42650ba0e, type: 2}
+  - {fileID: 11400000, guid: 9b06b6c4b4e4ec043b9af7b902af246a, type: 2}
+  - {fileID: 11400000, guid: 3dee65785c8c5c94da52746d07956ed5, type: 2}
+  - {fileID: 11400000, guid: a650c9847b237634fbba2601c6108eeb, type: 2}
+  maxSealSlotLevel: 4
+  sealSlotCosts: 64000000fa000000f4010000e8030000

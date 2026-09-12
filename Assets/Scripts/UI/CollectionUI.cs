@@ -282,7 +282,7 @@ public sealed class CollectionUI : MonoBehaviour
         }
 
         _goldText.text = $"账号金币  {_accountProgress.Gold}";
-        _sealText.text = $"Seal  {_accountProgress.ActiveSealCount} / {_accountProgress.SealCapacity}";
+        _sealText.text = "图鉴";
         ClearEntries();
         if (contentCatalog == null)
         {
@@ -368,8 +368,8 @@ public sealed class CollectionUI : MonoBehaviour
                 discovered,
                 discovered ? GetUpgradeCollectionName(upgrade) : "？？？",
                 discovered ? GetUpgradeCollectionDescription(upgrade) : "在升级候选中出现后发现",
-                upgradeId,
-                discovered);
+                null,
+                false);
         }
     }
 

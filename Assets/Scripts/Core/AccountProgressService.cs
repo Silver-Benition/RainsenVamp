@@ -93,6 +93,115 @@ public sealed class AccountProgressService
     /// <summary>未来版本存档是否使当前服务进入禁止覆盖的只读模式。</summary>
     public bool IsReadOnly => _isReadOnly;
 
+    /// <summary>最近一次商店操作失败原因；成功操作清空，可由 UI 明确显示。</summary>
+    public string LastTransactionError { get; private set; } = string.Empty;
+
+    /// <summary>查询保存的购买等级；异常或重复记录不产生属性或可消费容量。</summary>
+    public int GetUpgradeLevel(string id)
+    {
+        return AccountProgressMigrator.FindValidPurchase(_data, id)?.paidCosts.Count ?? 0;
+    }
+
+    /// <summary>查询最高一级实付金额，不使用当前配置价格计算退款。</summary>
+    public int GetLastPaidCost(string id)
+    {
+        AccountUpgradePurchaseRecord record = AccountProgressMigrator.FindValidPurchase(_data, id);
+        return record != null && record.paidCosts.Count > 0 ? record.paidCosts[record.paidCosts.Count - 1] : 0;
+    }
+
+    /// <summary>购买一级成长或排除槽；先验证完整配置，再原子发布金币与实付记录。</summary>
+    public bool TryPurchaseUpgrade(AccountUpgradeCatalogSO catalog, string id)
+    {
+        if (_isReadOnly) return RejectTransaction("账号为只读状态，无法购买");
+        if (catalog == null || !catalog.Validate(out _)) return RejectTransaction("升级配置不可用");
+        if (HasAmbiguousPurchase(id)) return RejectTransaction("购买记录异常，请先恢复有效存档");
+        int level = GetUpgradeLevel(id);
+        int cost;
+        if (id == AccountUpgradeCatalogSO.SealSlotId)
+        {
+            if (level >= catalog.maxSealSlotLevel) return RejectTransaction("排除槽已达购买上限");
+            cost = catalog.sealSlotCosts[level];
+        }
+        else
+        {
+            AccountUpgradeDataSO definition = catalog.Find(id);
+            if (definition == null) return RejectTransaction("升级项目不存在");
+            if (level >= definition.maxLevel) return RejectTransaction("已达购买上限");
+            cost = definition.levels[level].cost;
+        }
+        if (Gold < cost) return RejectTransaction("金币不足");
+        AccountProgressData candidate = CloneData();
+        AccountUpgradePurchaseRecord record = AccountProgressMigrator.FindValidPurchase(candidate, id);
+        if (record == null)
+        {
+            record = new AccountUpgradePurchaseRecord { stableId = id };
+            candidate.upgradePurchases.Add(record);
+        }
+        record.paidCosts.Add(cost);
+        candidate.accountGold -= cost;
+        if (id == AccountUpgradeCatalogSO.SealSlotId) candidate.sealCapacity++;
+        return TryCommitCandidate(candidate);
+    }
+
+    /// <summary>退还最高一级实际支付，配置删除或降上限后仍可退款；不增加累计金币。</summary>
+    public bool TryRefundUpgrade(string id)
+    {
+        if (_isReadOnly) return RejectTransaction("账号为只读状态，无法退款");
+        if (HasAmbiguousPurchase(id)) return RejectTransaction("购买记录异常，请先恢复有效存档");
+        int level = GetUpgradeLevel(id);
+        if (level == 0) return RejectTransaction("尚未购买，无法退款");
+        if (id == AccountUpgradeCatalogSO.SealSlotId && ActiveSealCount >= SealCapacity)
+            return RejectTransaction("请先解除排除，再退还槽位");
+        int paid = GetLastPaidCost(id);
+        if ((long)Gold + paid > int.MaxValue) return RejectTransaction("金币已达存储上限，无法退款");
+        AccountProgressData candidate = CloneData();
+        AccountProgressMigrator.FindValidPurchase(candidate, id).paidCosts.RemoveAt(level - 1);
+        candidate.accountGold += paid;
+        if (id == AccountUpgradeCatalogSO.SealSlotId) candidate.sealCapacity--;
+        return TryCommitCandidate(candidate);
+    }
+
+    /// <summary>区分未购买与有记录但不可安全解释的异常状态，保留全部异常历史。</summary>
+    private bool HasAmbiguousPurchase(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return true;
+        foreach (AccountUpgradePurchaseRecord record in _data.upgradePurchases)
+            if (record != null && record.stableId == id)
+                return AccountProgressMigrator.FindValidPurchase(_data, id) == null;
+        return false;
+    }
+
+    /// <summary>复制低频事务候选，后端失败时不会污染当前内存。</summary>
+    private AccountProgressData CloneData()
+    {
+        return JsonUtility.FromJson<AccountProgressData>(JsonUtility.ToJson(_data));
+    }
+
+    /// <summary>保存成功后一起替换快照、重建索引并发布一次事件；失败保持旧状态。</summary>
+    private bool TryCommitCandidate(AccountProgressData candidate)
+    {
+        try
+        {
+            if (!_storage.Save(candidate)) return RejectTransaction("保存失败，操作未生效，请重试");
+        }
+        catch (Exception)
+        {
+            return RejectTransaction("保存失败，操作未生效，请重试");
+        }
+        _data = candidate;
+        RebuildIndexes();
+        LastTransactionError = string.Empty;
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>记录可展示错误并返回失败，不发布成功变化事件。</summary>
+    private bool RejectTransaction(string message)
+    {
+        LastTransactionError = message;
+        return false;
+    }
+
     /// <summary>查询角色是否已经永久解锁。</summary>
     public bool IsCharacterUnlocked(string characterId)
     {
@@ -238,36 +347,17 @@ public sealed class AccountProgressService
     /// </summary>
     public bool TrySetUpgradeSealed(string upgradeId, bool sealedState)
     {
-        if (_isReadOnly || !IsValidId(upgradeId))
-        {
-            return false;
-        }
-
+        if (_isReadOnly) return RejectTransaction("账号为只读状态，无法更改排除");
+        if (!IsValidId(upgradeId)) return RejectTransaction("升级项目不存在");
         string normalized = upgradeId.Trim();
-        if (sealedState)
-        {
-            if (!_discoveredUpgradeIds.Contains(normalized) ||
-                _sealedUpgradeIds.Contains(normalized) ||
-                _sealedUpgradeIds.Count >= _data.sealCapacity)
-            {
-                return false;
-            }
-
-            _sealedUpgradeIds.Add(normalized);
-            _data.sealedUpgradeIds.Add(normalized);
-        }
-        else
-        {
-            if (!_sealedUpgradeIds.Remove(normalized))
-            {
-                return false;
-            }
-
-            _data.sealedUpgradeIds.Remove(normalized);
-        }
-
-        PersistAndNotify();
-        return true;
+        if (!_discoveredUpgradeIds.Contains(normalized)) return RejectTransaction("发现此项目后才可更改排除");
+        if (sealedState && (_sealedUpgradeIds.Contains(normalized) || ActiveSealCount >= SealCapacity))
+            return RejectTransaction("排除槽不足或项目已经排除");
+        if (!sealedState && !_sealedUpgradeIds.Contains(normalized)) return RejectTransaction("项目尚未排除");
+        AccountProgressData candidate = CloneData();
+        if (sealedState) candidate.sealedUpgradeIds.Add(normalized);
+        else candidate.sealedUpgradeIds.Remove(normalized);
+        return TryCommitCandidate(candidate);
     }
 
     /// <summary>把账号恢复为首版默认值，并通过正式存储路径保留旧主档备份。</summary>

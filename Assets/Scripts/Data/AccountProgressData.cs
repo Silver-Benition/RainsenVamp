@@ -9,10 +9,12 @@ using System.Collections.Generic;
 public sealed class AccountProgressData
 {
     /// <summary>当前客户端支持的账号存档版本。</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>默认直接解锁角色的稳定 ID。</summary>
     public const string DefaultCharacterId = "character_default";
+
+    public List<AccountUpgradePurchaseRecord> upgradePurchases = new List<AccountUpgradePurchaseRecord>();
 
     public int saveVersion = CurrentVersion;
     public int accountGold;
@@ -42,8 +44,8 @@ public static class AccountProgressRules
     /// <summary>新账号初始可同时启用的 Seal 数量。</summary>
     public const int InitialSealCapacity = 1;
 
-    /// <summary>Session 14 首版 Seal 上限；本阶段不提供第二个槽位。</summary>
-    public const int MaxSealCapacity = 1;
+    /// <summary>容量整数安全上限；实际可购买等级由成长目录配置。</summary>
+    public const int MaxSealCapacity = int.MaxValue;
 }
 
 /// <summary>负责把旧存档逐版本迁移并修复可安全纠正的数据边界。</summary>
@@ -66,6 +68,11 @@ public static class AccountProgressMigrator
             data.saveVersion = 1;
         }
 
+        if (data.saveVersion < 2)
+        {
+            data.upgradePurchases = new List<AccountUpgradePurchaseRecord>();
+            data.sealCapacity = AccountProgressRules.InitialSealCapacity;
+        }
         Normalize(data);
         data.saveVersion = AccountProgressData.CurrentVersion;
         return data;
@@ -82,9 +89,11 @@ public static class AccountProgressMigrator
         data.accountGold = Math.Max(0, data.accountGold);
         data.lifetimeGoldEarned = Math.Max(0L, data.lifetimeGoldEarned);
         data.lifetimeKills = Math.Max(0, data.lifetimeKills);
-        data.sealCapacity = Math.Max(
-            AccountProgressRules.InitialSealCapacity,
-            Math.Min(AccountProgressRules.MaxSealCapacity, data.sealCapacity));
+        if (data.upgradePurchases == null) data.upgradePurchases = new List<AccountUpgradePurchaseRecord>();
+        // 不裁剪购买记录：配置降上限、重复或异常记录均保留原始历史。
+        // 槽位只从唯一且合法的实付记录推导，不信任可被篡改的旧容量字段。
+        AccountUpgradePurchaseRecord slots = FindValidPurchase(data, AccountUpgradeCatalogSO.SealSlotId);
+        data.sealCapacity = AccountProgressRules.InitialSealCapacity + (slots != null ? slots.paidCosts.Count : 0);
 
         data.unlockedCharacterIds = NormalizeIds(data.unlockedCharacterIds);
         data.discoveredCharacterIds = NormalizeIds(data.discoveredCharacterIds);
@@ -110,6 +119,21 @@ public static class AccountProgressMigrator
         {
             data.lastSelectedCharacterId = data.lastSelectedCharacterId.Trim();
         }
+    }
+
+    /// <summary>只返回唯一且逐级金额非负的记录；异常历史原样保留，拒绝在歧义记录上继续交易。</summary>
+    public static AccountUpgradePurchaseRecord FindValidPurchase(AccountProgressData data, string id)
+    {
+        AccountUpgradePurchaseRecord found = null;
+        if (data.upgradePurchases == null) return null;
+        foreach (AccountUpgradePurchaseRecord record in data.upgradePurchases)
+        {
+            if (record == null || record.stableId != id) continue;
+            if (found != null || record.paidCosts == null) return null;
+            foreach (int cost in record.paidCosts) if (cost < 0) return null;
+            found = record;
+        }
+        return found;
     }
 
     /// <summary>返回去除空白和重复项后的稳定 ID 列表，并保持第一次出现的顺序。</summary>
@@ -148,4 +172,12 @@ public static class AccountProgressMigrator
             target.Add(id);
         }
     }
+}
+
+/// <summary>每级实付金额是退款权威；列表长度是购买等级，不随配置变化裁剪。</summary>
+[Serializable]
+public sealed class AccountUpgradePurchaseRecord
+{
+    public string stableId;
+    public List<int> paidCosts = new List<int>();
 }

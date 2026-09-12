@@ -37,6 +37,8 @@ public class PlayerStats : MonoBehaviour
     private readonly float[] _flatTotals = new float[StatCount];
     private readonly float[] _additivePercentTotals = new float[StatCount];
     private readonly float[] _multiplicativeTotals = new float[StatCount];
+    [SerializeField] private AccountUpgradeCatalogSO accountUpgradeCatalog;
+    private bool _accountSnapshotResolved;
     private bool _statsInitialized;
     private bool _sessionCharacterResolved;
     private CharacterDataSO _passiveCharacter;
@@ -257,6 +259,13 @@ public class PlayerStats : MonoBehaviour
     /// </summary>
     private void EnsureStatsInitialized()
     {
+        if (!_accountSnapshotResolved)
+        {
+            // 必须先于任何最终值计算，兼容 PlayerHealth/RunState 抢先读取的 Awake 顺序。
+            _accountSnapshotResolved = true;
+            _modifierSources[AccountUpgradeResolver.SourceId] = AccountUpgradeResolver.CreateSnapshot(
+                AccountProgressService.Current, accountUpgradeCatalog);
+        }
         ResolveSessionCharacterOnce();
         SynchronizeCharacterPassiveSource();
         if (_statsInitialized) return;

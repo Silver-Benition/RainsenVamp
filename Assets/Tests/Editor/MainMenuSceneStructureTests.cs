@@ -41,7 +41,7 @@ namespace RainsenVampSur.Tests
             Assert.IsNotNull(menuFrame);
             Assert.IsNotNull(buttonGroup);
             Assert.IsNotNull(buttonGroup.GetComponent<VerticalLayoutGroup>());
-            Assert.That(buttonGroup.childCount, Is.EqualTo(3));
+            Assert.That(buttonGroup.childCount, Is.EqualTo(4));
             Assert.That(startButton.transform.parent, Is.SameAs(buttonGroup));
             Assert.That(collectionButton.transform.parent, Is.SameAs(buttonGroup));
             Assert.That(quitButton.transform.parent, Is.SameAs(buttonGroup));

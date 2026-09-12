@@ -59,6 +59,13 @@ public sealed class JsonAccountProgressStorage : IAccountProgressStorage
     /// <summary>优先读取主档；损坏时回退备份，新版本档则只读保护。</summary>
     public AccountProgressLoadResult Load()
     {
+        // 即使主档仍可读取，也不能在旧客户端运行期间覆盖未来版本备份。
+        if (TryRead(_backupPath, out AccountProgressData futureBackup, out _) &&
+            futureBackup.saveVersion > AccountProgressData.CurrentVersion)
+        {
+            return new AccountProgressLoadResult(AccountProgressData.CreateDefault(), false, true,
+                "备份来自未来版本，已保留全部存档并进入只读模式。");
+        }
         if (TryRead(_savePath, out AccountProgressData primary, out string primaryError))
         {
             if (primary.saveVersion > AccountProgressData.CurrentVersion)
@@ -89,6 +96,11 @@ public sealed class JsonAccountProgressStorage : IAccountProgressStorage
                 $"账号主档读取失败，已恢复上一份有效备份。{primaryError}");
         }
 
+        if (backup != null && backup.saveVersion > AccountProgressData.CurrentVersion)
+        {
+            return new AccountProgressLoadResult(AccountProgressData.CreateDefault(), false, true,
+                "备份来自未来版本，已保留全部存档并进入只读模式。");
+        }
         PreserveCorruptPrimary();
         return new AccountProgressLoadResult(
             AccountProgressData.CreateDefault(),
@@ -110,6 +122,10 @@ public sealed class JsonAccountProgressStorage : IAccountProgressStorage
         try
         {
             Directory.CreateDirectory(_directoryPath);
+            // 保存不修改调用者对象；同时防止载入后外部换入未来版本档被覆盖。
+            if ((TryRead(_savePath, out AccountProgressData existing, out _) && existing.saveVersion > AccountProgressData.CurrentVersion) ||
+                (TryRead(_backupPath, out AccountProgressData existingBackup, out _) && existingBackup.saveVersion > AccountProgressData.CurrentVersion)) return false;
+            data = JsonUtility.FromJson<AccountProgressData>(JsonUtility.ToJson(data));
             AccountProgressMigrator.Normalize(data);
             data.saveVersion = AccountProgressData.CurrentVersion;
             string json = JsonUtility.ToJson(data, true);
@@ -122,12 +138,14 @@ public sealed class JsonAccountProgressStorage : IAccountProgressStorage
                 return false;
             }
 
-            if (TryRead(_savePath, out _, out _))
+            // 同目录原子替换，避免 File.Copy 中途失败后主档只写入半份。
+            // 旧主档损坏时保留原有有效备份，不把损坏文件写入备份。
+            if (File.Exists(_savePath))
             {
-                File.Copy(_savePath, _backupPath, true);
+                bool validPrimary = TryRead(_savePath, out _, out _);
+                File.Replace(_temporaryPath, _savePath, validPrimary ? _backupPath : null);
             }
-
-            File.Copy(_temporaryPath, _savePath, true);
+            else File.Move(_temporaryPath, _savePath);
             SafeDeleteTemporary();
             return true;
         }
