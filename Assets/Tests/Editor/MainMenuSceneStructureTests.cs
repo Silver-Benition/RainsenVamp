@@ -71,6 +71,33 @@ namespace RainsenVampSur.Tests
                 Is.SameAs(collectionUI));
         }
 
+        /// <summary>正式资产与作者工具都必须持有完整四按钮循环，不能遗留克隆自收藏的三按钮引用。</summary>
+        [Test]
+        public void MainMenuNavigation_SerializedAndAuthoring_IncludeShopInBothDirections()
+        {
+            _openedScene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Additive);
+            string[] names = { "StartButton", "CollectionButton", "ShopButton", "QuitButton" };
+            var buttons = new Button[names.Length];
+            for (int i = 0; i < names.Length; i++) buttons[i] = FindInScene<Button>(_openedScene, names[i]);
+            AssertNavigationRing(buttons);
+            // 在未保存的测试场景中故意破坏接线，证明作者入口能修复已经存在的页面。
+            for (int i = 0; i < buttons.Length; i++) buttons[i].navigation = new Navigation();
+            AccountUpgradeSetup.ConfigureMainMenuNavigation(FindComponentInScene<MainMenuController>(_openedScene));
+            AssertNavigationRing(buttons);
+        }
+
+        /// <summary>检查上下双向循环与显式模式，防止任一按钮被遗漏或形成不可达分支。</summary>
+        private static void AssertNavigationRing(Button[] buttons)
+        {
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                Assert.IsNotNull(buttons[i]);
+                Assert.That(buttons[i].navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
+                Assert.That(buttons[i].navigation.selectOnUp, Is.SameAs(buttons[(i + buttons.Length - 1) % buttons.Length]));
+                Assert.That(buttons[i].navigation.selectOnDown, Is.SameAs(buttons[(i + 1) % buttons.Length]));
+            }
+        }
+
         /// <summary>所有武器型升级在收藏页都应复用对应 WeaponDataSO 的权威名称与描述。</summary>
         [Test]
         public void Collection_武器型升级_复用武器权威词条()

@@ -138,6 +138,7 @@ public static class AccountUpgradeSetup
             serialized.FindProperty("shopUI").objectReferenceValue = shop;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
+        ConfigureMainMenuNavigation(controller);
         EditorSceneManager.SaveScene(menu);
         var main = EditorSceneManager.OpenScene("Assets/Scenes/MainLevel.unity");
         foreach (PlayerStats stats in UnityEngine.Object.FindObjectsOfType<PlayerStats>(true))
@@ -149,6 +150,30 @@ public static class AccountUpgradeSetup
         EditorSceneManager.SaveScene(main);
         AssetDatabase.SaveAssets();
         Debug.Log("Session 22 商店与 21 项配置已生成并验证。");
+    }
+
+    /// <summary>按视觉顺序接好四个主菜单按钮的上下循环；重跑作者工具也会修复已有页面的旧导航。</summary>
+    public static void ConfigureMainMenuNavigation(MainMenuController controller)
+    {
+        var serialized = new SerializedObject(controller);
+        string[] fields = { "startButton", "collectionButton", "shopButton", "quitButton" };
+        var buttons = new Button[fields.Length];
+        for (int i = 0; i < fields.Length; i++)
+        {
+            buttons[i] = serialized.FindProperty(fields[i]).objectReferenceValue as Button;
+            if (buttons[i] == null) throw new InvalidOperationException("主菜单导航缺少按钮：" + fields[i]);
+        }
+        // 不继承克隆按钮的显式引用：上下邻居必须对应最终四按钮顺序。
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            buttons[i].navigation = new Navigation
+            {
+                mode = Navigation.Mode.Explicit,
+                selectOnUp = buttons[(i + buttons.Length - 1) % buttons.Length],
+                selectOnDown = buttons[(i + 1) % buttons.Length]
+            };
+            EditorUtility.SetDirty(buttons[i]);
+        }
     }
 
     /// <summary>建立归一化锚点布局，继承 UI Layer，保持多分辨率缩放。</summary>

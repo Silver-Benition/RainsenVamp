@@ -83,6 +83,48 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(GameObject.Find("StartButton").GetComponent<Button>().interactable);
         }
 
+        /// <summary>从默认 Start 经真实方向与提交事件进入商店，返回后验证焦点及上下循环。</summary>
+        [UnityTest]
+        public IEnumerator DefaultFocus_MoveAndSubmit_OpensShopAndReturnsToNavigationRing()
+        {
+            yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+            EventSystem events = EventSystem.current;
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("StartButton"));
+            MoveFocus(events, MoveDirection.Down);
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("CollectionButton"));
+            MoveFocus(events, MoveDirection.Down);
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("ShopButton"));
+            ExecuteEvents.Execute(events.currentSelectedGameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
+            yield return null;
+            Assert.IsTrue(Get<bool>(Find("AccountShopUI"), "IsVisible"));
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("ShopBasicTab"));
+            // 返回按钮同样经过 Button.OnSubmit，不绕过按钮调用业务方法或 onClick。
+            events.SetSelectedGameObject(GameObject.Find("ShopBack"));
+            ExecuteEvents.Execute(events.currentSelectedGameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
+            yield return null;
+            Assert.IsFalse(Get<bool>(Find("AccountShopUI"), "IsVisible"));
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("ShopButton"));
+            MoveFocus(events, MoveDirection.Down);
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("QuitButton"));
+            MoveFocus(events, MoveDirection.Down);
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("StartButton"));
+            MoveFocus(events, MoveDirection.Up);
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("QuitButton"));
+            MoveFocus(events, MoveDirection.Up);
+            Assert.That(events.currentSelectedGameObject.name, Is.EqualTo("ShopButton"));
+        }
+
+        /// <summary>发送与键盘/手柄导航共用的 Move 事件，检查实际序列化导航而非直接选择目标。</summary>
+        private static void MoveFocus(EventSystem events, MoveDirection direction)
+        {
+            var movement = new AxisEventData(events)
+            {
+                moveDir = direction,
+                moveVector = direction == MoveDirection.Down ? Vector2.down : Vector2.up
+            };
+            ExecuteEvents.Execute(events.currentSelectedGameObject, movement, ExecuteEvents.moveHandler);
+        }
+
         /// <summary>金币不足时按钮禁用且详情说明原因，玩家无需点击禁用按钮才能知道结果。</summary>
         [UnityTest]
         public IEnumerator InsufficientGold_ShowsReasonOnDisabledPurchase()
