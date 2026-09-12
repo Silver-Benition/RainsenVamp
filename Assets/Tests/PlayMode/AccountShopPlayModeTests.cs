@@ -42,45 +42,132 @@ namespace RainsenVampSur.Tests.PlayMode
                 Activator.CreateInstance(RuntimeComponentTestUtility.RequireRuntimeType("InMemoryAccountProgressStorage")));
         }
 
-        /// <summary>三页签、列表滚动、进阶不可购买、退款和返回焦点使用真实控件。</summary>
+        /// <summary>基础22卡含槽位、三列滚动、买退与免费排除均走新两阶段事件链。</summary>
         [UnityTest]
         public IEnumerator RealMenu_TabsScrollPurchaseRefundAndReturnFocus()
         {
             yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
-            GameObject.Find("ShopButton").GetComponent<Button>().onClick.Invoke();
+            Submit(GameObject.Find("ShopButton"));
             Component shop = Find("AccountShopUI");
-            Assert.IsTrue(Get<bool>(shop, "IsVisible"));
-            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopBasicTab"));
-            yield return CaptureIfRequested("shop-basic");
             ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
-            Assert.That(scroll.content.childCount, Is.EqualTo(21));
-            EventSystem.current.SetSelectedGameObject(scroll.content.GetChild(20).gameObject);
-            yield return null;
-            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(0.1f));
-            GameObject.Find("ShopAdvancedTab").GetComponent<Button>().onClick.Invoke();
-            Assert.IsFalse(GameObject.Find("ShopBuy").GetComponent<Button>().interactable);
-            Assert.IsFalse(GameObject.Find("ShopRefund").GetComponent<Button>().interactable);
-            yield return CaptureIfRequested("shop-advanced");
-            GameObject.Find("ShopExclusionTab").GetComponent<Button>().onClick.Invoke();
-            GameObject.Find("ShopBuy").GetComponent<Button>().onClick.Invoke();
-            Assert.That(Get<int>(_account, "SealCapacity"), Is.EqualTo(2));
-            yield return CaptureIfRequested("shop-exclusions");
-            GameObject.Find("ShopRefund").GetComponent<Button>().onClick.Invoke();
+            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(22));
+            Assert.That(scroll.content.GetComponent<GridLayoutGroup>().constraintCount, Is.EqualTo(3));
+            Assert.IsNotNull(scroll.verticalScrollbar);
+            Assert.IsFalse(Field<Button>(shop, "buyButton").gameObject.activeSelf);
+            MoveFocus(EventSystem.current, MoveDirection.Right);
+            for (int i = 0; i < 7; i++) MoveFocus(EventSystem.current, MoveDirection.Down);
+            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_21"));
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_seal_slots"));
+            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(0.05f));
+            Submit(); yield return null;
+            Assert.That(State(shop), Is.EqualTo("Locked"));
             Assert.That(Get<int>(_account, "SealCapacity"), Is.EqualTo(1));
-            GameObject.Find("ShopBasicTab").GetComponent<Button>().onClick.Invoke();
-            GameObject.Find("ShopBuy").GetComponent<Button>().onClick.Invoke();
-            Assert.That((int)Call(_account, "GetUpgradeLevel", "account_maxhealth"), Is.EqualTo(1));
-            GameObject.Find("ShopRefund").GetComponent<Button>().onClick.Invoke();
+            Submit(); yield return null;
+            Assert.That(Get<int>(_account, "SealCapacity"), Is.EqualTo(2));
+            MoveFocus(EventSystem.current, MoveDirection.Right); Submit(); yield return null;
+            Assert.That(Get<int>(_account, "SealCapacity"), Is.EqualTo(1));
+            Assert.That(State(shop), Is.EqualTo("Locked"));
+            Cancel(); yield return null;
+            Submit(GameObject.Find("ShopAdvancedTab"));
+            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(4));
+            Assert.IsFalse(Field<Button>(shop, "buyButton").gameObject.activeSelf);
+            Submit(scroll.content.GetChild(0).gameObject); yield return null;
+            Assert.IsFalse(Field<Button>(shop, "buyButton").interactable);
+            Assert.That(Text(shop, "statusText"), Does.Contain("尚未开放"));
+            Cancel(); yield return null;
+            object content = Field<object>(shop, "contentCatalog");
+            IList upgrades = (IList)Get<object>(content, "Upgrades");
+            string id = (string)Call(upgrades[0], "GetStableId");
+            Call(_account, "DiscoverUpgrade", id);
+            Submit(GameObject.Find("ShopExclusionTab"));
+            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(1));
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo(id));
+            Submit(scroll.content.GetChild(0).gameObject); yield return null;
+            Assert.IsFalse(Field<Button>(shop, "refundButton").gameObject.activeSelf);
+            Submit(); yield return null;
+            Assert.IsTrue((bool)Call(_account, "IsUpgradeSealed", id));
+            Submit(); yield return null;
+            Assert.IsFalse((bool)Call(_account, "IsUpgradeSealed", id));
             Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
-            GameObject.Find("ShopBack").GetComponent<Button>().onClick.Invoke();
+            Cancel(); yield return null; Cancel(); yield return null;
             Assert.IsFalse(Get<bool>(shop, "IsVisible"));
             Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopButton"));
-            GameObject.Find("CollectionButton").GetComponent<Button>().onClick.Invoke();
-            GameObject.Find("UpgradeTab").GetComponent<Button>().onClick.Invoke();
+            Submit(GameObject.Find("CollectionButton"));
+            Submit(GameObject.Find("UpgradeTab"));
             Assert.IsNull(GameObject.Find("SealButton"));
-            GameObject.Find("CollectionBackButton").GetComponent<Button>().onClick.Invoke();
-            yield return null;
+            Submit(GameObject.Find("CollectionBackButton")); yield return null;
             Assert.IsTrue(GameObject.Find("StartButton").GetComponent<Button>().interactable);
+        }
+
+        /// <summary>悬停只预览，确认只锁定；锁定后的导航可滚动但不偷偷改变交易目标。</summary>
+        [UnityTest]
+        public IEnumerator PointerAndNavigation_LockDoesNotBuy_CancelUnwindsOneLayer()
+        {
+            yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+            Submit(GameObject.Find("ShopButton"));
+            Component shop = Find("AccountShopUI");
+            ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
+            GameObject first = scroll.content.GetChild(0).gameObject;
+            GameObject second = scroll.content.GetChild(1).gameObject;
+            Hover(second);
+            Assert.That(State(shop), Is.EqualTo("Browsing"));
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_recovery"));
+            Assert.IsFalse(Field<Button>(shop, "buyButton").gameObject.activeSelf);
+            Click(first);
+            Assert.That(State(shop), Is.EqualTo("Locked"));
+            Submit(); // 同帧对已转移焦点的按钮再次发事件也不得购买。
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
+            Hover(second);
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_maxhealth"));
+            Click(first); yield return null;
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
+            Click(second); yield return null;
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_recovery"));
+            Submit(); yield return null;
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(9900));
+            Assert.That(State(shop), Is.EqualTo("Locked"));
+            MoveFocus(EventSystem.current, MoveDirection.Up);
+            for (int i = 0; i < 7; i++) MoveFocus(EventSystem.current, MoveDirection.Down);
+            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_21"));
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_recovery"));
+            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(0.05f));
+            Submit(); yield return null;
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_seal_slots"));
+            Cancel(); Cancel(); // 同帧去重：第二个 Cancel 不能关闭页面。
+            Assert.That(State(shop), Is.EqualTo("Browsing"));
+            Assert.IsTrue(Get<bool>(shop, "IsVisible"));
+            yield return null;
+            Cancel(); yield return null;
+            Assert.IsFalse(Get<bool>(shop, "IsVisible"));
+            Submit(Field<Button>(shop, "buyButton").gameObject);
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(9900));
+        }
+
+        /// <summary>满级价格、买退锁定和切页清理保持一致，隐藏按钮不能交易。</summary>
+        [UnityTest]
+        public IEnumerator MaxLevelAndTabChange_RefreshCardsAndPreventHiddenPurchase()
+        {
+            yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+            Submit(GameObject.Find("ShopButton"));
+            Component shop = Find("AccountShopUI");
+            ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
+            Submit(scroll.content.GetChild(0).gameObject); yield return null;
+            for (int i = 0; i < 3; i++) { Submit(Field<Button>(shop, "buyButton").gameObject); yield return null; }
+            Assert.That(State(shop), Is.EqualTo("Locked"));
+            Assert.IsFalse(Field<Button>(shop, "buyButton").interactable);
+            Assert.That(Text(shop, "statusText"), Does.Contain("已满级"));
+            Component entry = scroll.content.GetChild(0).GetComponent(RuntimeComponentTestUtility.RequireRuntimeType("AccountShopEntryUI"));
+            Assert.That(Get<int>(entry, "VisibleLevelCount"), Is.EqualTo(3));
+            Assert.That(Get<string>(Field<object>(entry, "label"), "text"), Is.EqualTo("已满级"));
+            Submit(Field<Button>(shop, "refundButton").gameObject); yield return null;
+            Assert.That((int)Call(_account, "GetUpgradeLevel", "account_maxhealth"), Is.EqualTo(2));
+            Assert.That(Get<string>(Field<object>(entry, "label"), "text"), Is.EqualTo("300"));
+            Assert.That(State(shop), Is.EqualTo("Locked"));
+            int gold = Get<int>(_account, "Gold");
+            Submit(GameObject.Find("ShopAdvancedTab"));
+            Assert.That(State(shop), Is.EqualTo("Browsing"));
+            Submit(Field<Button>(shop, "buyButton").gameObject);
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(gold));
         }
 
         /// <summary>从默认 Start 经真实方向与提交事件进入商店，返回后验证焦点及上下循环。</summary>
@@ -120,7 +207,7 @@ namespace RainsenVampSur.Tests.PlayMode
             var movement = new AxisEventData(events)
             {
                 moveDir = direction,
-                moveVector = direction == MoveDirection.Down ? Vector2.down : Vector2.up
+                moveVector = direction == MoveDirection.Down ? Vector2.down : direction == MoveDirection.Up ? Vector2.up : direction == MoveDirection.Left ? Vector2.left : Vector2.right
             };
             ExecuteEvents.Execute(events.currentSelectedGameObject, movement, ExecuteEvents.moveHandler);
         }
@@ -134,8 +221,11 @@ namespace RainsenVampSur.Tests.PlayMode
                 Activator.CreateInstance(RuntimeComponentTestUtility.RequireRuntimeType("InMemoryAccountProgressStorage")));
             yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
             GameObject.Find("ShopButton").GetComponent<Button>().onClick.Invoke();
-            Assert.IsFalse(GameObject.Find("ShopBuy").GetComponent<Button>().interactable);
-            Assert.That(Get<string>(Field<object>(Find("AccountShopUI"), "detailText"), "text"), Does.Contain("金币不足"));
+            Component shop = Find("AccountShopUI");
+            Assert.IsFalse(Field<Button>(shop, "buyButton").gameObject.activeSelf);
+            Assert.That(Text(shop, "statusText"), Does.Contain("金币不足"));
+            Submit(Field<ScrollRect>(shop, "scroll").content.GetChild(0).gameObject);
+            Assert.IsFalse(Field<Button>(shop, "buyButton").interactable);
         }
 
         /// <summary>购买后直接进入 MainLevel，验证生命与四种资源；重算不补次数，重开只获得一份成长。</summary>
@@ -215,65 +305,146 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue((bool)Call(state, "IsBanished", Call(upgrades[1], "GetStableId")));
         }
 
-        /// <summary>仅显式图形验证运行保存截图；无图形门禁不冒充视觉验收。</summary>
-        private static IEnumerator CaptureIfRequested(string name)
+        /// <summary>已占用槽位和只读账号提前禁用按钮并显示原因，迟到确认不能绕过限制。</summary>
+        [UnityTest]
+        public IEnumerator UnavailableActions_ShowReadonlyAndOccupiedSlotReasons()
         {
-            bool requested = Array.IndexOf(Environment.GetCommandLineArgs(), "-session22Capture") >= 0;
-            string requestedPage = "shop-basic";
-            foreach (string argument in Environment.GetCommandLineArgs())
-                if (argument.StartsWith("-session22CaptureOnly=")) requestedPage = argument.Substring("-session22CaptureOnly=".Length);
-            // 每个进程只捕获一个页面，避免 Unity 批处理复用 Canvas 绘制批次造成静态控件漏绘。
-            if (!requested || requestedPage != name) yield break;
-            yield return null;
-            Canvas canvas = UnityEngine.Object.FindObjectOfType<Canvas>();
-            var cameraObject = new GameObject("Session22CaptureCamera");
-            Camera camera = cameraObject.AddComponent<Camera>();
-            camera.enabled = false;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = Color.black;
-            camera.cullingMask = 1 << 5;
-            var render = new RenderTexture(1920, 1080, 24);
-            var image = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
-            RenderMode mode = canvas.renderMode;
-            Camera priorCamera = canvas.worldCamera;
-            float distance = canvas.planeDistance;
-            RenderTexture priorTarget = RenderTexture.active;
-            try
+            yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+            Component shop = Find("AccountShopUI");
+            Assert.IsTrue((bool)Call(_account, "TryPurchaseUpgrade", Field<object>(shop, "catalog"), "account_seal_slots"));
+            foreach (string id in new[] { "occupied_a", "occupied_b" })
             {
-                camera.targetTexture = render;
+                Call(_account, "DiscoverUpgrade", id);
+                Assert.IsTrue((bool)Call(_account, "TrySetUpgradeSealed", id, true));
+            }
+            Submit(GameObject.Find("ShopButton"));
+            Submit(Field<ScrollRect>(shop, "scroll").content.GetChild(21).gameObject); yield return null;
+            Assert.IsFalse(Field<Button>(shop, "refundButton").interactable);
+            Assert.That(Text(shop, "statusText"), Does.Contain("先解除排除"));
+            int gold = Get<int>(_account, "Gold");
+            Submit(Field<Button>(shop, "refundButton").gameObject);
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(gold));
+            Assert.IsTrue((bool)Call(_account, "TrySetUpgradeSealed", "occupied_a", false));
+            Assert.IsTrue(Field<Button>(shop, "refundButton").interactable);
+            // 服务的只读存储载入行为另由 EditMode 覆盖；此处仅注入状态验证真实页面的按钮与解释。
+            RuntimeComponentTestUtility.SetField(_account, "_isReadOnly", true);
+            Call(shop, "Refresh");
+            Assert.IsFalse(Field<Button>(shop, "buyButton").interactable);
+            Assert.IsFalse(Field<Button>(shop, "refundButton").interactable);
+            Assert.That(Text(shop, "statusText"), Does.Contain("账号只读"));
+            Submit(Field<Button>(shop, "buyButton").gameObject);
+            Submit(Field<Button>(shop, "refundButton").gameObject);
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(gold));
+        }
+
+        /// <summary>在全高清参考尺寸验证三列、方形图标和详情文本，并按显式参数输出截图。</summary>
+        [UnityTest]
+        public IEnumerator Layout_1920x1080() { yield return VerifyLayout(1920, 1080); }
+
+        /// <summary>在720p验证缩放后的实际布局，防止小分辨率下卡片或操作文字溢出。</summary>
+        [UnityTest]
+        public IEnumerator Layout_1280x720() { yield return VerifyLayout(1280, 720); }
+
+        /// <summary>测试专用相机在页面激活前固定画布尺寸；每页重新加载场景，截图不修改生产资产。</summary>
+        private IEnumerator VerifyLayout(int width, int height)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            int flag = Array.IndexOf(args, "-session22ShopScreenshots");
+            string directory = flag >= 0 && flag + 1 < args.Length ? args[flag + 1] : null;
+            foreach (string page in new[] { "basic", "locked", "advanced", "exclusion", "slots" })
+            {
+                yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+                Component shop = Find("AccountShopUI");
+                Canvas canvas = shop.GetComponent<Canvas>();
+                var cameraObject = new GameObject("Session22LayoutCamera", typeof(Camera));
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = Color.black;
+                camera.orthographic = true;
+                camera.nearClipPlane = 0.01f;
+                camera.farClipPlane = 100;
+                var target = new RenderTexture(width, height, 24);
+                camera.targetTexture = target;
+                canvas.enabled = false;
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = 1;
-                canvas.enabled = false;
                 canvas.enabled = true;
-                foreach (Graphic graphic in canvas.GetComponentsInChildren<Graphic>()) graphic.SetAllDirty();
+                Submit(GameObject.Find("ShopButton"));
+                ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
+                if (page == "basic") Hover(scroll.content.GetChild(0).gameObject);
+                if (page == "locked")
+                {
+                    Submit(scroll.content.GetChild(0).gameObject); yield return null;
+                    Submit(Field<Button>(shop, "buyButton").gameObject);
+                }
+                if (page == "advanced") Submit(GameObject.Find("ShopAdvancedTab"));
+                if (page == "exclusion")
+                {
+                    IList upgrades = (IList)Get<object>(Field<object>(shop, "contentCatalog"), "Upgrades");
+                    for (int i = 0; i < Math.Min(6, upgrades.Count); i++) Call(_account, "DiscoverUpgrade", Call(upgrades[i], "GetStableId"));
+                    Submit(GameObject.Find("ShopExclusionTab"));
+                    Submit(scroll.content.GetChild(0).gameObject);
+                }
+                if (page == "slots") Submit(scroll.content.GetChild(21).gameObject);
                 Canvas.ForceUpdateCanvases();
-                Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
-                foreach (Component text in canvas.GetComponentsInChildren(textType, true))
-                    RuntimeComponentTestUtility.Invoke(text, "ForceMeshUpdate", true, true);
-                foreach (CanvasRenderer renderer in canvas.GetComponentsInChildren<CanvasRenderer>()) renderer.cull = false;
-                Canvas.ForceUpdateCanvases();
-                camera.Render();
-                RenderTexture.active = render;
-                image.ReadPixels(new Rect(0, 0, 1920, 1080), 0, 0);
-                image.Apply();
-                string path = System.IO.Path.Combine(Application.dataPath, "../Logs/session22-" + name + ".png");
-                System.IO.File.WriteAllBytes(path, image.EncodeToPNG());
+                for (int i = 0; i < 4; i++) yield return null;
+                try
+                {
+                    Assert.That(camera.pixelWidth, Is.EqualTo(width));
+                    Assert.That(camera.pixelHeight, Is.EqualTo(height));
+                    Assert.That(scroll.content.GetComponent<GridLayoutGroup>().constraintCount, Is.EqualTo(3));
+                    RectTransform first = (RectTransform)scroll.content.GetChild(0);
+                    RectTransform iconFrame = (RectTransform)first.Find("IconSlot/IconFrame");
+                    Assert.That(iconFrame.rect.width, Is.EqualTo(iconFrame.rect.height).Within(0.1f));
+                    Assert.That(first.rect.width * 3 + 48, Is.LessThanOrEqualTo(scroll.viewport.rect.width + 0.1f));
+                    foreach (string field in new[] { "detailName", "detailText", "statusText", "inputHints", "goldText", "buyLabel", "refundLabel" })
+                        Assert.IsFalse(Get<bool>(Field<object>(shop, field), "isTextOverflowing"), page + "/" + field + " at " + width);
+                    if (directory != null)
+                    {
+                        Assert.That(SystemInfo.graphicsDeviceType, Is.Not.EqualTo(UnityEngine.Rendering.GraphicsDeviceType.Null), "截图必须使用图形模式。");
+                        System.IO.Directory.CreateDirectory(directory);
+                        RenderTexture previous = RenderTexture.active;
+                        var pixels = new Texture2D(width, height, TextureFormat.RGB24, false);
+                        try
+                        {
+                            RenderTexture.active = target;
+                            pixels.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                            pixels.Apply();
+                            System.IO.File.WriteAllBytes(System.IO.Path.Combine(directory, page + "-" + width + "x" + height + ".png"), pixels.EncodeToPNG());
+                        }
+                        finally { RenderTexture.active = previous; UnityEngine.Object.Destroy(pixels); }
+                    }
+                }
+                finally
+                {
+                    canvas.worldCamera = null;
+                    camera.targetTexture = null;
+                    target.Release();
+                    UnityEngine.Object.Destroy(target);
+                    UnityEngine.Object.Destroy(cameraObject);
+                }
             }
-            finally
-            {
-                canvas.renderMode = mode;
-                canvas.worldCamera = priorCamera;
-                canvas.planeDistance = distance;
-                RenderTexture.active = priorTarget;
-                camera.targetTexture = null;
-                UnityEngine.Object.Destroy(cameraObject);
-                UnityEngine.Object.Destroy(image);
-                render.Release();
-                UnityEngine.Object.Destroy(render);
-            }
-
         }
+
+        /// <summary>通过真实 Button.OnSubmit 确认当前焦点或指定控件。</summary>
+        private static void Submit(GameObject target = null) { ExecuteEvents.Execute(target != null ? target : EventSystem.current.currentSelectedGameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler); }
+        /// <summary>通过选中控件的 ICancelHandler 返回，覆盖真实 EventSystem 路径。</summary>
+        private static void Cancel() { ExecuteEvents.Execute(EventSystem.current.currentSelectedGameObject, new BaseEventData(EventSystem.current), ExecuteEvents.cancelHandler); }
+        /// <summary>模拟鼠标悬停。</summary>
+        private static void Hover(GameObject target) { ExecuteEvents.Execute(target, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler); }
+        /// <summary>鼠标按下产生 OnSelect 后才触发点击，验证 OnSelect 不提前确认。</summary>
+        private static void Click(GameObject target)
+        {
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerDownHandler);
+            ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerUpHandler);
+            ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerClickHandler);
+        }
+        /// <summary>读取当前状态名称。</summary>
+        private static string State(object shop) { return Get<object>(shop, "State").ToString(); }
+        /// <summary>通过运行时 TMP 属性读取展示结果。</summary>
+        private static string Text(object shop, string field) { return Get<string>(Field<object>(shop, field), "text"); }
 
         /// <summary>定位真实场景组件。</summary>
         private static Component Find(string type) { return UnityEngine.Object.FindObjectOfType(RuntimeComponentTestUtility.RequireRuntimeType(type)) as Component; }

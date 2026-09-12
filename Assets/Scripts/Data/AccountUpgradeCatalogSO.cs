@@ -8,6 +8,10 @@ public sealed class AccountUpgradeCatalogSO : ScriptableObject
 {
     public const string SealSlotId = "account_seal_slots";
     public List<AccountUpgradeDataSO> upgrades = new List<AccountUpgradeDataSO>();
+    [Header("商店展示")]
+    public Sprite sealSlotIcon;
+    public Sprite goldIcon;
+    public List<Sprite> advancedIcons = new List<Sprite>();
     public int maxSealSlotLevel = 4;
     public List<int> sealSlotCosts = new List<int> { 100, 250, 500, 1000 };
 

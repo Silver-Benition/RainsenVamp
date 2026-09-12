@@ -256,16 +256,15 @@ namespace RainsenVampSur.Tests
             Assert.That(stats.MaxHealth, Is.EqualTo(first + 5));
         }
 
-        /// <summary>倍率 Flat 使用百分点，概率与恢复分别带正确单位。</summary>
-        [TestCase(PlayerStatType.Might, 0.05f, "+5 个百分点")]
-        [TestCase(PlayerStatType.Defang, 0.03f, "+3 个百分点")]
+        /// <summary>倍率和概率统一使用百分号，恢复保留每秒单位。</summary>
+        [TestCase(PlayerStatType.Might, 0.05f, "+5%")]
+        [TestCase(PlayerStatType.Defang, 0.03f, "+3%")]
         [TestCase(PlayerStatType.Recovery, 0.1f, "+0.1/秒")]
         public void EffectText_ReflectsStatUnits(PlayerStatType stat, float value, string expected)
         {
             var definition = _catalog.upgrades.Find(item => item.statType == stat);
             definition.levels[0].modifiers[0] = new PlayerStatModifier(stat, PlayerStatModifierMode.Flat, value);
-            var method = typeof(AccountShopUI).GetMethod("FormatEffect", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-            Assert.That(method.Invoke(null, new object[] { definition, 1 }), Is.EqualTo(expected));
+            Assert.That(AccountShopEffectPresentation.Format(definition, 1, false), Is.EqualTo(expected));
         }
 
         /// <summary>可注入保存失败的内存存储，用于验证交易发布顺序。</summary>

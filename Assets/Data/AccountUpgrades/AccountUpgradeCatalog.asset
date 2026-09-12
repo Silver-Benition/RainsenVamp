@@ -34,5 +34,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 9b06b6c4b4e4ec043b9af7b902af246a, type: 2}
   - {fileID: 11400000, guid: 3dee65785c8c5c94da52746d07956ed5, type: 2}
   - {fileID: 11400000, guid: a650c9847b237634fbba2601c6108eeb, type: 2}
+  sealSlotIcon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
+  goldIcon: {fileID: 21300000, guid: 238bc5b7fb12c0349895fbf6a12f1983, type: 3}
+  advancedIcons:
+  - {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
+  - {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+  - {fileID: 21300000, guid: 30c141d8445b4e458c729da7e03afcdd, type: 3}
+  - {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
   maxSealSlotLevel: 4
   sealSlotCosts: 64000000fa000000f4010000e8030000

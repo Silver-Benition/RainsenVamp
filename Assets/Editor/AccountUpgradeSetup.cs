@@ -6,150 +6,217 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>定向建立 Session 22 资产与序列化页面；仅编辑 MainMenu/MainLevel 的商店和成长引用。</summary>
+/// <summary>定向重建 MainMenu 商店布局和模板；保留既有价格、等级、ID、存档及 MainLevel 接线。</summary>
 public static class AccountUpgradeSetup
 {
     public const string CatalogPath = "Assets/Data/AccountUpgrades/AccountUpgradeCatalog.asset";
     private static TMP_FontAsset _font;
 
-    /// <summary>一次性生成缺失配置与页面，已有数值资产不覆盖，避免重跑丢失策划调整。</summary>
+    /// <summary>应用已批准的两项百分比转换与缺失图标，重建商店区域并保存明确引用。</summary>
     [MenuItem("RainsenVampSur/Account/Build Session 22 Shop")]
     public static void Build()
     {
-        if (!AssetDatabase.IsValidFolder("Assets/Data/AccountUpgrades")) AssetDatabase.CreateFolder("Assets/Data", "AccountUpgrades");
-        if (!AssetDatabase.IsValidFolder("Assets/Prefab/UI")) AssetDatabase.CreateFolder("Assets/Prefab", "UI");
         AccountUpgradeCatalogSO catalog = AssetDatabase.LoadAssetAtPath<AccountUpgradeCatalogSO>(CatalogPath);
-        if (catalog == null)
-        {
-            catalog = ScriptableObject.CreateInstance<AccountUpgradeCatalogSO>();
-            foreach (PlayerStatType stat in Enum.GetValues(typeof(PlayerStatType)))
-            {
-                var definition = ScriptableObject.CreateInstance<AccountUpgradeDataSO>();
-                definition.stableId = "account_" + stat.ToString().ToLowerInvariant();
-                definition.statType = stat;
-                definition.nameKey = "account.upgrade." + stat + ".name";
-                definition.descriptionKey = "account.upgrade." + stat + ".description";
-                definition.fallbackName = PlayerStatPresentation.GetDisplayName(stat);
-                definition.fallbackDescription = "所有角色开局获得此项加成。可逐级购买或退款。";
-                definition.maxLevel = 3;
-                for (int level = 1; level <= 3; level++)
-                {
-                    PlayerStatModifierMode mode = PlayerStatModifierMode.Flat;
-                    float value = level;
-                    switch (stat)
-                    {
-                        case PlayerStatType.MaxHealth: value = level * 10; break;
-                        case PlayerStatType.Recovery: value = level * 0.1f; break;
-                        case PlayerStatType.MoveSpeed:
-                        case PlayerStatType.Magnet: value = level * 0.2f; break;
-                        case PlayerStatType.Defang: value = level * 0.01f; break;
-                        case PlayerStatType.Cooldown: mode = PlayerStatModifierMode.Multiplicative; value = 1f - level * 0.05f; break;
-                        case PlayerStatType.Might:
-                        case PlayerStatType.Area:
-                        case PlayerStatType.ProjectileSpeed:
-                        case PlayerStatType.Duration:
-                        case PlayerStatType.Luck:
-                        case PlayerStatType.Growth:
-                        case PlayerStatType.Greed:
-                        case PlayerStatType.Curse: mode = PlayerStatModifierMode.AdditivePercent; value = level * 0.05f; break;
-                    }
-                    definition.levels.Add(new AccountUpgradeLevel { cost = level * 100,
-                        modifiers = new List<PlayerStatModifier> { new PlayerStatModifier(stat, mode, value) } });
-                }
-                AssetDatabase.CreateAsset(definition, "Assets/Data/AccountUpgrades/" + stat + ".asset");
-                catalog.upgrades.Add(definition);
-            }
-            AssetDatabase.CreateAsset(catalog, CatalogPath);
-        }
+        if (catalog == null) throw new InvalidOperationException("现有成长目录缺失，不自动重建价格和等级。");
+        ApplyApprovedPercentUpgrade(catalog.Find("account_movespeed"));
+        ApplyApprovedPercentUpgrade(catalog.Find("account_magnet"));
+        AssignMissingIcons(catalog);
         if (!catalog.Validate(out string error)) throw new InvalidOperationException(error);
         _font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/msyh SDF.asset");
-        if (_font == null) throw new InvalidOperationException("缺少中文字体");
         var menu = EditorSceneManager.OpenScene("Assets/Scenes/MainMenu.unity");
         MainMenuController controller = UnityEngine.Object.FindObjectOfType<MainMenuController>(true);
         AccountShopUI shop = UnityEngine.Object.FindObjectOfType<AccountShopUI>(true);
-        if (shop == null)
+        if (shop == null) throw new InvalidOperationException("现有商店控制器缺失。");
+        if (shop.Panel != null) UnityEngine.Object.DestroyImmediate(shop.Panel);
+        Canvas canvas = shop.GetComponent<Canvas>();
+        shop.Catalog = catalog;
+        shop.ContentCatalog = AssetDatabase.LoadAssetAtPath<GameContentCatalogSO>("Assets/Data/GameContentCatalog.asset");
+        RectTransform panel = Box("AccountShopPanel", canvas.transform, 0, 0, 1, 1, new Color32(10, 23, 34, 255));
+        shop.Panel = panel.gameObject;
+        Box("ShopBackgroundRegion", panel, 0.02f, 0.08f, 0.345f, 0.88f, new Color32(21, 46, 57, 255));
+        RectTransform title = Box("ShopTitleBar", panel, 0, 0.9f, 1, 1, new Color32(15, 34, 47, 255));
+        Text("ShopTitle", title, "商店", 0.025f, 0.05f, 0.8f, 0.95f, 46);
+        RectTransform tabs = Box("ShopTabs", panel, 0.37f, 0.43f, 0.485f, 0.80f, new Color32(17, 34, 45, 255));
+        shop.BasicTab = Button("ShopBasicTab", tabs, "基础属性", 0.035f, 0.68f, 0.965f, 0.98f);
+        shop.AdvancedTab = Button("ShopAdvancedTab", tabs, "进阶属性", 0.035f, 0.35f, 0.965f, 0.65f);
+        shop.ExclusionTab = Button("ShopExclusionTab", tabs, "道具排除", 0.035f, 0.02f, 0.965f, 0.32f);
+        foreach (Button tab in new[] { shop.BasicTab, shop.AdvancedTab, shop.ExclusionTab })
         {
-            Canvas canvas = UnityEngine.Object.FindObjectOfType<Canvas>(true);
-            shop = canvas.gameObject.AddComponent<AccountShopUI>();
-            shop.Catalog = catalog;
-            shop.ContentCatalog = AssetDatabase.LoadAssetAtPath<GameContentCatalogSO>("Assets/Data/GameContentCatalog.asset");
-            RectTransform panel = Rect("AccountShopPanel", canvas.transform, 0, 0, 1, 1);
-            panel.gameObject.AddComponent<Image>().color = new Color32(5, 16, 32, 255);
-            shop.Panel = panel.gameObject;
-            Text("ShopTitle", panel, "商店", 0.06f, 0.9f, 0.5f, 0.98f, 46);
-            shop.GoldText = Text("ShopGold", panel, "金币", 0.65f, 0.9f, 0.94f, 0.98f, 28);
-            shop.BasicTab = Button("ShopBasicTab", panel, "基础属性", 0.06f, 0.8f, 0.32f, 0.88f);
-            shop.AdvancedTab = Button("ShopAdvancedTab", panel, "进阶属性", 0.37f, 0.8f, 0.63f, 0.88f);
-            shop.ExclusionTab = Button("ShopExclusionTab", panel, "道具排除", 0.68f, 0.8f, 0.94f, 0.88f);
-            RectTransform scrollRoot = Rect("ShopScroll", panel, 0.06f, 0.17f, 0.43f, 0.76f);
-            scrollRoot.gameObject.AddComponent<Image>().color = new Color32(11, 29, 49, 255);
-            shop.Scroll = scrollRoot.gameObject.AddComponent<ScrollRect>();
-            RectTransform viewport = Rect("Viewport", scrollRoot, 0, 0, 1, 1);
-            viewport.gameObject.AddComponent<RectMask2D>();
-            RectTransform content = Rect("Content", viewport, 0, 1, 1, 1);
-            content.pivot = new Vector2(0.5f, 1f);
-            VerticalLayoutGroup layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 8;
-            layout.padding = new RectOffset(8, 8, 8, 8);
-            layout.childControlHeight = true;
-            layout.childForceExpandHeight = false;
-            layout.childControlWidth = true;
-            layout.childForceExpandWidth = true;
-            content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            shop.Scroll.viewport = viewport;
-            shop.Scroll.content = content;
-            shop.Scroll.horizontal = false;
-            shop.Scroll.movementType = ScrollRect.MovementType.Clamped;
-            shop.Scroll.scrollSensitivity = 35;
-            shop.DetailText = Text("ShopDetails", panel, "选择项目", 0.49f, 0.31f, 0.94f, 0.76f, 28);
-            shop.DetailText.alignment = TextAlignmentOptions.TopLeft;
-            shop.BuyButton = Button("ShopBuy", panel, "购买一级", 0.49f, 0.21f, 0.7f, 0.29f);
-            shop.RefundButton = Button("ShopRefund", panel, "退最高一级", 0.73f, 0.21f, 0.94f, 0.29f);
-            shop.BuyLabel = shop.BuyButton.GetComponentInChildren<TMP_Text>();
-            shop.RefundLabel = shop.RefundButton.GetComponentInChildren<TMP_Text>();
-            shop.StatusText = Text("ShopStatus", panel, "", 0.49f, 0.1f, 0.94f, 0.19f, 24);
-            shop.BackButton = Button("ShopBack", panel, "返回", 0.06f, 0.04f, 0.27f, 0.12f);
-            Button templateButton = Button("AccountShopEntry", panel, "属性", 0, 0, 1, 1);
-            LayoutElement element = templateButton.gameObject.AddComponent<LayoutElement>();
-            element.preferredHeight = 66;
-            AccountShopEntryUI entry = templateButton.gameObject.AddComponent<AccountShopEntryUI>();
-            entry.Button = templateButton;
-            entry.Label = templateButton.GetComponentInChildren<TMP_Text>();
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(entry.gameObject, "Assets/Prefab/UI/AccountShopEntry.prefab");
-            shop.EntryTemplate = prefab.GetComponent<AccountShopEntryUI>();
-            UnityEngine.Object.DestroyImmediate(entry.gameObject);
-            panel.gameObject.SetActive(false);
-            SerializedObject serialized = new SerializedObject(controller);
-            Button collection = (Button)serialized.FindProperty("collectionButton").objectReferenceValue;
-            Button entryButton = UnityEngine.Object.Instantiate(collection, collection.transform.parent);
-            entryButton.name = "ShopButton";
-            entryButton.transform.SetSiblingIndex(collection.transform.GetSiblingIndex() + 1);
-            entryButton.GetComponentInChildren<TMP_Text>().text = "商店";
-            RectTransform group = (RectTransform)collection.transform.parent;
-            group.sizeDelta = new Vector2(group.sizeDelta.x, 360);
-            VerticalLayoutGroup menuLayout = group.GetComponent<VerticalLayoutGroup>();
-            menuLayout.spacing = 12;
-            foreach (Button button in group.GetComponentsInChildren<Button>())
-            {
-                LayoutElement le = button.GetComponent<LayoutElement>();
-                if (le != null) { le.preferredHeight = 70; le.minHeight = 60; }
-            }
-            serialized.FindProperty("shopButton").objectReferenceValue = entryButton;
-            serialized.FindProperty("shopUI").objectReferenceValue = shop;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            RectTransform marker = Box("CurrentMarker", tab.transform, 0, 0, 0.025f, 1, new Color32(255, 209, 64, 255));
+            marker.GetComponent<Image>().raycastTarget = false;
         }
+        RectTransform balance = Box("ShopBalanceFrame", panel, 0.78f, 0.82f, 0.975f, 0.885f, new Color32(27, 41, 55, 255));
+        Border(balance, new Color32(176, 202, 210, 255));
+        shop.GoldIcon = Picture("ShopCoin", balance, catalog.goldIcon, 0.025f, 0.12f, 0.22f, 0.88f);
+        shop.GoldText = Text("ShopGold", balance, "0", 0.24f, 0.04f, 0.95f, 0.96f, 33);
+        shop.GoldText.alignment = TextAlignmentOptions.MidlineRight;
+        shop.CapacityText = Text("ShopCapacity", panel, "", 0.495f, 0.82f, 0.775f, 0.88f, 24);
+        RectTransform scrollRoot = Box("ShopScroll", panel, 0.495f, 0.335f, 0.975f, 0.80f, new Color32(13, 28, 40, 255));
+        shop.Scroll = scrollRoot.gameObject.AddComponent<ScrollRect>();
+        RectTransform viewport = Rect("Viewport", scrollRoot, 0, 0, 0.972f, 1);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        RectTransform content = Rect("Content", viewport, 0, 1, 1, 1);
+        content.pivot = new Vector2(0.5f, 1);
+        GridLayoutGroup grid = content.gameObject.AddComponent<GridLayoutGroup>();
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 3;
+        grid.cellSize = new Vector2(280, 104);
+        grid.spacing = new Vector2(14, 14);
+        grid.padding = new RectOffset(10, 10, 10, 10);
+        content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        shop.Scroll.content = content;
+        shop.Scroll.viewport = viewport;
+        shop.Scroll.horizontal = false;
+        shop.Scroll.movementType = ScrollRect.MovementType.Clamped;
+        shop.Scroll.scrollSensitivity = 40;
+        RectTransform track = Box("ShopScrollbar", scrollRoot, 0.98f, 0, 1, 1, new Color32(40, 56, 69, 255));
+        Scrollbar scrollbar = track.gameObject.AddComponent<Scrollbar>();
+        RectTransform handle = Box("Handle", track, 0, 0, 1, 1, new Color32(62, 209, 222, 255));
+        scrollbar.handleRect = handle;
+        scrollbar.targetGraphic = handle.GetComponent<Image>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+        scrollbar.navigation = new Navigation { mode = Navigation.Mode.None };
+        shop.Scroll.verticalScrollbar = scrollbar;
+        shop.Scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+        Text("ShopScrollHint", panel, "滚动查看更多", 0.78f, 0.303f, 0.975f, 0.33f, 18).alignment = TextAlignmentOptions.MidlineRight;
+        RectTransform details = Box("ShopDescription", panel, 0.37f, 0.075f, 0.975f, 0.29f, new Color32(20, 42, 56, 255));
+        Border(details, new Color32(48, 198, 221, 255));
+        shop.DetailName = Text("ShopDetailName", details, "选择项目", 0.02f, 0.78f, 0.95f, 0.99f, 28);
+        RectTransform detailFrame = Box("ShopDetailIconFrame", details, 0.02f, 0.20f, 0.105f, 0.66f, new Color32(13, 26, 36, 255));
+        Border(detailFrame, new Color32(180, 203, 210, 255));
+        shop.DetailIcon = Picture("ShopDetailIcon", detailFrame, null, 0.08f, 0.08f, 0.92f, 0.92f);
+        shop.DetailText = Text("ShopDetails", details, "", 0.13f, 0.34f, 0.97f, 0.76f, 22);
+        shop.DetailText.alignment = TextAlignmentOptions.TopLeft;
+        shop.StatusText = Text("ShopStatus", details, "", 0.13f, 0.04f, 0.64f, 0.30f, 19);
+        shop.StatusText.alignment = TextAlignmentOptions.TopLeft;
+        shop.BuyButton = Button("ShopBuy", details, "购买一级", 0.66f, 0.05f, 0.81f, 0.29f);
+        shop.RefundButton = Button("ShopRefund", details, "退最高一级", 0.825f, 0.05f, 0.98f, 0.29f);
+        shop.BuyLabel = shop.BuyButton.GetComponentInChildren<TMP_Text>();
+        shop.RefundLabel = shop.RefundButton.GetComponentInChildren<TMP_Text>();
+        shop.BuyLabel.fontSize = shop.RefundLabel.fontSize = 21;
+        shop.InputHints = Text("ShopInputHints", panel, "确认：选择项目    取消：返回菜单", 0.53f, 0.02f, 0.975f, 0.06f, 21);
+        shop.InputHints.alignment = TextAlignmentOptions.MidlineRight;
+        shop.BackButton = Button("ShopBack", panel, "返回", 0.37f, 0.015f, 0.47f, 0.06f);
+        foreach (Button control in new[] { shop.BasicTab, shop.AdvancedTab, shop.ExclusionTab, shop.BuyButton, shop.RefundButton, shop.BackButton })
+            control.gameObject.AddComponent<AccountShopCancelRelay>().Bind(shop);
+        shop.EntryTemplate = BuildEntryTemplate(panel);
+        shop.BuyButton.gameObject.SetActive(false);
+        shop.RefundButton.gameObject.SetActive(false);
+        panel.gameObject.SetActive(false);
+        EditorUtility.SetDirty(shop);
         ConfigureMainMenuNavigation(controller);
         EditorSceneManager.SaveScene(menu);
-        var main = EditorSceneManager.OpenScene("Assets/Scenes/MainLevel.unity");
-        foreach (PlayerStats stats in UnityEngine.Object.FindObjectsOfType<PlayerStats>(true))
-        {
-            SerializedObject serialized = new SerializedObject(stats);
-            serialized.FindProperty("accountUpgradeCatalog").objectReferenceValue = catalog;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-        EditorSceneManager.SaveScene(main);
         AssetDatabase.SaveAssets();
-        Debug.Log("Session 22 商店与 21 项配置已生成并验证。");
+        Debug.Log("Session 22 卡片商店重建完成；价格、等级和 MainLevel 保持不变。");
+    }
+
+    /// <summary>仅转换已确认的旧三级 Flat 移速/磁吸；已转换或自定义数值不被重跑覆盖，价格/maxLevel 从不改动。</summary>
+    public static void ApplyApprovedPercentUpgrade(AccountUpgradeDataSO definition)
+    {
+        if (definition == null || (definition.statType != PlayerStatType.MoveSpeed && definition.statType != PlayerStatType.Magnet)) return;
+        if (definition.levels.Count < 3) return;
+        for (int i = 0; i < 3; i++)
+        {
+            var modifiers = definition.levels[i].modifiers;
+            if (modifiers.Count != 1 || modifiers[0].Mode != PlayerStatModifierMode.Flat ||
+                !Mathf.Approximately(modifiers[0].Value, 0.2f * (i + 1))) return;
+        }
+        for (int i = 0; i < 3; i++) definition.levels[i].modifiers[0] =
+            new PlayerStatModifier(definition.statType, PlayerStatModifierMode.AdditivePercent, 0.05f * (i + 1));
+        EditorUtility.SetDirty(definition);
+    }
+
+    /// <summary>只给缺失图标填充项目现有 Point Sprite，已替换的图标保留，不修改纹理导入器。</summary>
+    private static void AssignMissingIcons(AccountUpgradeCatalogSO catalog)
+    {
+        string[] names = { "AdversityInstinct", "RetaliationPulse", "SprintTraining", "StrengthTraining", "MagneticCore", "CooldownOptimization" };
+        var icons = new Sprite[names.Length];
+        for (int i = 0; i < names.Length; i++) icons[i] = LoadSprite("Assets/Art/Sprites/Ability/Icons/" + names[i] + ".png");
+        foreach (AccountUpgradeDataSO definition in catalog.upgrades)
+        {
+            if (definition.icon != null) continue;
+            int i = (int)definition.statType % icons.Length;
+            if (definition.statType == PlayerStatType.MoveSpeed) i = 2;
+            if (definition.statType == PlayerStatType.Magnet) i = 4;
+            if (definition.statType == PlayerStatType.Cooldown) i = 5;
+            definition.icon = icons[i];
+            EditorUtility.SetDirty(definition);
+        }
+        if (catalog.goldIcon == null) catalog.goldIcon = LoadSprite("Assets/Art/Sprites/Other/Coin/Coin.png");
+        if (catalog.sealSlotIcon == null) catalog.sealSlotIcon = icons[4];
+        while (catalog.advancedIcons.Count < 4) catalog.advancedIcons.Add(null);
+        for (int i = 0; i < 4; i++) if (catalog.advancedIcons[i] == null) catalog.advancedIcons[i] = icons[(i + 1) % icons.Length];
+        EditorUtility.SetDirty(catalog);
+    }
+
+    /// <summary>兼容单 Sprite 与已切片资源，读取现有第一张 Sprite，不修改美术资源。</summary>
+    private static Sprite LoadSprite(string path)
+    {
+        foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(path)) if (asset is Sprite sprite) return sprite;
+        throw new InvalidOperationException("缺少可复用 Sprite：" + path);
+    }
+
+    /// <summary>建立图标与信息框的横向组合模板；等级格小模板也保存为可检查子节点。</summary>
+    private static AccountShopEntryUI BuildEntryTemplate(Transform parent)
+    {
+        RectTransform root = Box("AccountShopEntry", parent, 0, 1, 0, 1, new Color32(14, 26, 37, 255));
+        root.sizeDelta = new Vector2(280, 104);
+        Button button = root.gameObject.AddComponent<Button>();
+        button.targetGraphic = root.GetComponent<Image>();
+        button.transition = Selectable.Transition.None;
+        Outline highlight = Border(root, new Color32(36, 219, 242, 255));
+        highlight.effectDistance = new Vector2(4, -4);
+        highlight.enabled = false;
+        RectTransform iconSlot = Rect("IconSlot", root, 0.02f, 0.07f, 0.35f, 0.93f);
+        RectTransform frame = Box("IconFrame", iconSlot, 0, 0, 1, 1, new Color32(12, 24, 32, 255));
+        AspectRatioFitter aspect = frame.gameObject.AddComponent<AspectRatioFitter>();
+        aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+        aspect.aspectRatio = 1;
+        Border(frame, new Color32(194, 209, 211, 255));
+        Image icon = Picture("Icon", frame, null, 0.08f, 0.08f, 0.92f, 0.92f);
+        RectTransform info = Box("InformationFrame", root, 0.38f, 0.07f, 0.98f, 0.93f, new Color32(27, 40, 53, 255));
+        RectTransform levels = Rect("LevelCells", info, 0.08f, 0.47f, 0.92f, 0.91f);
+        GridLayoutGroup grid = levels.gameObject.AddComponent<GridLayoutGroup>();
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 5;
+        grid.cellSize = new Vector2(18, 14);
+        grid.spacing = new Vector2(4, 4);
+        Image pip = Box("LevelCellTemplate", levels, 0, 0, 0, 0, new Color32(89, 101, 113, 255)).GetComponent<Image>();
+        pip.raycastTarget = false;
+        pip.gameObject.SetActive(false);
+        TMP_Text price = Text("Price", info, "100", 0.08f, 0.04f, 0.94f, 0.45f, 27);
+        price.color = new Color32(255, 221, 60, 255);
+        root.gameObject.AddComponent<AccountShopCancelRelay>();
+        AccountShopEntryUI entry = root.gameObject.AddComponent<AccountShopEntryUI>();
+        entry.Author(button, price, icon, highlight, levels, pip);
+        GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root.gameObject, "Assets/Prefab/UI/AccountShopEntry.prefab");
+        UnityEngine.Object.DestroyImmediate(root.gameObject);
+        return prefab.GetComponent<AccountShopEntryUI>();
+    }
+
+    /// <summary>创建有背景色的矩形区域。</summary>
+    private static RectTransform Box(string name, Transform parent, float x0, float y0, float x1, float y1, Color color)
+    {
+        RectTransform rect = Rect(name, parent, x0, y0, x1, y1);
+        rect.gameObject.AddComponent<Image>().color = color;
+        return rect;
+    }
+    /// <summary>创建保持图像比例的占位图标。</summary>
+    private static Image Picture(string name, Transform parent, Sprite sprite, float x0, float y0, float x1, float y1)
+    {
+        Image image = Rect(name, parent, x0, y0, x1, y1).gameObject.AddComponent<Image>();
+        image.sprite = sprite;
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        return image;
+    }
+    /// <summary>建立像素风矩形边框，不额外引入美术资源。</summary>
+    private static Outline Border(RectTransform rect, Color color)
+    {
+        Outline outline = rect.gameObject.AddComponent<Outline>();
+        outline.effectColor = color;
+        outline.effectDistance = new Vector2(2, -2);
+        return outline;
     }
 
     /// <summary>按视觉顺序接好四个主菜单按钮的上下循环；重跑作者工具也会修复已有页面的旧导航。</summary>

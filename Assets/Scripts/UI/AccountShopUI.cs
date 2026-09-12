@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>独立全屏商店面板，持有固定骨架与条目模板引用，仅在页面或账号变化时刷新。</summary>
+/// <summary>商店输入状态；确认卡片与执行交易分开，避免单次 Submit 误扣金币。</summary>
+public enum AccountShopInteractionState { Browsing, Locked }
+
+/// <summary>三列卡片商店，固定布局由场景持有，账号交易只调用已有服务。</summary>
 public sealed class AccountShopUI : MonoBehaviour
 {
     [SerializeField] private AccountUpgradeCatalogSO catalog;
@@ -25,15 +27,36 @@ public sealed class AccountShopUI : MonoBehaviour
     [SerializeField] private TMP_Text refundLabel;
     [SerializeField] private ScrollRect scroll;
     [SerializeField] private AccountShopEntryUI entryTemplate;
+    [SerializeField] private TMP_Text detailName;
+    [SerializeField] private Image detailIcon;
+    [SerializeField] private TMP_Text capacityText;
+    [SerializeField] private Image goldIcon;
+    [SerializeField] private TMP_Text inputHints;
     private readonly List<AccountShopEntryUI> _entries = new List<AccountShopEntryUI>();
+    private readonly List<Item> _items = new List<Item>();
     private AccountProgressService _account;
     private int _tab;
-    private string _selectedId;
-    private string _placeholder;
-    private bool _isExclusion;
+    private int _selectedIndex = -1;
+    private int _lockFrame = -1;
+    private int _cancelFrame = -1;
     public event Action Closed;
     public bool IsVisible => panel != null && panel.activeSelf;
+    public AccountShopInteractionState State { get; private set; }
+    public int ActiveEntryCount => _items.Count;
+    public string SelectedId => _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex].Id : null;
 
+    /// <summary>只在菜单构建时创建的展示模型，稳定 ID 与显示名明确分开。</summary>
+    private sealed class Item
+    {
+        public string Id;
+        public string Name;
+        public string Description;
+        public Sprite Icon;
+        public AccountUpgradeDataSO Definition;
+        public bool IsSlot;
+        public bool IsExclusion;
+        public bool IsPlaceholder;
+    }
 
 #if UNITY_EDITOR
     /// <summary>仅供编辑器页面搭建工具配置序列化引用。</summary>
@@ -68,230 +91,313 @@ public sealed class AccountShopUI : MonoBehaviour
     public ScrollRect Scroll { get => scroll; set => scroll = value; }
     /// <summary>仅供编辑器页面搭建工具配置序列化引用。</summary>
     public AccountShopEntryUI EntryTemplate { get => entryTemplate; set => entryTemplate = value; }
+    /// <summary>仅供编辑器绑定新版详情与提示区域。</summary>
+    public TMP_Text DetailName { get => detailName; set => detailName = value; }
+    /// <summary>仅供编辑器绑定新版详情与提示区域。</summary>
+    public Image DetailIcon { get => detailIcon; set => detailIcon = value; }
+    /// <summary>仅供编辑器绑定新版详情与提示区域。</summary>
+    public TMP_Text CapacityText { get => capacityText; set => capacityText = value; }
+    /// <summary>仅供编辑器绑定新版详情与提示区域。</summary>
+    public Image GoldIcon { get => goldIcon; set => goldIcon = value; }
+    /// <summary>仅供编辑器绑定新版详情与提示区域。</summary>
+    public TMP_Text InputHints { get => inputHints; set => inputHints = value; }
 #endif
-    /// <summary>绑定固定控件；面板初始关闭，控制器本身保持启用。</summary>
+    /// <summary>绑定静态控件和 Cancel 转发；不在运行时生成固定页面骨架。</summary>
     private void Awake()
     {
         _account = AccountProgressService.Current;
         basicTab.onClick.AddListener(ShowBasic);
         advancedTab.onClick.AddListener(ShowAdvanced);
         exclusionTab.onClick.AddListener(ShowExclusions);
-        backButton.onClick.AddListener(Close);
+        backButton.onClick.AddListener(CancelOperation);
         buyButton.onClick.AddListener(Buy);
         refundButton.onClick.AddListener(Refund);
         panel.SetActive(false);
     }
 
-    /// <summary>只订阅账号低频变化事件。</summary>
-    private void OnEnable()
-    {
-        if (_account != null) _account.Changed += Refresh;
-    }
-
-    /// <summary>停用时清理订阅。</summary>
+    /// <summary>仅监听低频账号变化，不扫描战斗对象。</summary>
+    private void OnEnable() { if (_account != null) _account.Changed += Refresh; }
+    /// <summary>解除账号订阅并清除隐藏页面的交易状态。</summary>
     private void OnDisable()
     {
         if (_account != null) _account.Changed -= Refresh;
+        State = AccountShopInteractionState.Browsing;
+        _selectedIndex = -1;
     }
-
-    /// <summary>支持键盘 Escape 与现有输入映射的手柄 Cancel 返回。</summary>
+    /// <summary>EventSystem 无选中对象时也允许 Escape 返回；同帧 Cancel 通过去重避免连续退两层。</summary>
     private void Update()
     {
-        if (IsVisible && (Input.GetKeyDown(KeyCode.Escape) || Input.GetButtonDown("Cancel"))) Close();
+        if (IsVisible && (Input.GetKeyDown(KeyCode.Escape) || Input.GetButtonDown("Cancel"))) CancelOperation();
     }
-
-    /// <summary>打开基础属性页，焦点落到页签，列表通过导航或鼠标进入。</summary>
+    /// <summary>Canvas 缩放时重新计算三列宽度；布局值不变时不反复触发布局重建。</summary>
+    private void OnRectTransformDimensionsChange() { ResizeGrid(); }
+    /// <summary>显示商店并从浏览状态进入基础页。</summary>
     public void Show()
     {
         panel.SetActive(true);
         panel.transform.SetAsLastSibling();
         ShowBasic();
     }
-
-    /// <summary>关闭面板并通知主菜单恢复商店入口焦点。</summary>
+    /// <summary>关闭时失效所有锁定和操作按钮，防止隐藏页面收到迟到事件后交易。</summary>
     public void Close()
     {
+        if (!IsVisible) return;
+        State = AccountShopInteractionState.Browsing;
+        _selectedIndex = -1;
+        buyButton.gameObject.SetActive(false);
+        refundButton.gameObject.SetActive(false);
         panel.SetActive(false);
         Closed?.Invoke();
     }
-
-    /// <summary>切换基础页。</summary>
+    /// <summary>先退出操作状态，再次取消才关闭；鼠标返回、Escape 与手柄 Cancel 共用此入口。</summary>
+    public void CancelOperation()
+    {
+        if (!IsVisible || _cancelFrame == Time.frameCount) return;
+        _cancelFrame = Time.frameCount;
+        if (State == AccountShopInteractionState.Locked)
+        {
+            State = AccountShopInteractionState.Browsing;
+            statusText.text = string.Empty;
+            Refresh();
+            if (_selectedIndex >= 0) Focus(_entries[_selectedIndex].Control);
+        }
+        else Close();
+    }
+    /// <summary>切换基础页：21 属性与一个排除槽购买项目。</summary>
     public void ShowBasic() { ChangeTab(0); }
-
-    /// <summary>切换仅展示占位内容的进阶页。</summary>
+    /// <summary>切换四项不可购买的进阶占位卡片。</summary>
     public void ShowAdvanced() { ChangeTab(1); }
-
-    /// <summary>切换排除槽和已发现项目列表。</summary>
+    /// <summary>切换只管理免费排除/解除的已发现项目页。</summary>
     public void ShowExclusions() { ChangeTab(2); }
 
-    /// <summary>重建小规模菜单列表，重复切页复用条目对象，不在战斗路径执行。</summary>
+    /// <summary>切页清除锁定并复用卡片，页签当前样式独立于鼠标悬停。</summary>
     private void ChangeTab(int tab)
     {
+        if (!IsVisible) return;
+        State = AccountShopInteractionState.Browsing;
+        _selectedIndex = -1;
         _tab = tab;
-        _selectedId = null;
-        _placeholder = null;
-        _isExclusion = false;
+        _items.Clear();
         foreach (AccountShopEntryUI entry in _entries) entry.gameObject.SetActive(false);
-        int index = 0;
         if (tab == 0 && catalog != null)
         {
-            foreach (AccountUpgradeDataSO upgrade in catalog.upgrades)
-            {
-                if (upgrade == null) continue;
-                AddEntry(index++, upgrade.fallbackName, upgrade.stableId, null, false);
-            }
+            foreach (AccountUpgradeDataSO definition in catalog.upgrades)
+                if (definition != null) _items.Add(new Item { Id = definition.stableId, Name = definition.fallbackName,
+                    Description = definition.fallbackDescription, Icon = definition.icon, Definition = definition });
+            _items.Add(new Item { Id = AccountUpgradeCatalogSO.SealSlotId, Name = "排除槽位", IsSlot = true,
+                Description = "保留一个免费槽位。额外槽位可逐级购买；退款前请先解除占用。", Icon = catalog.sealSlotIcon });
         }
         else if (tab == 1)
         {
-            foreach (string name in new[] { "爆炸伤害", "贯穿伤害", "贯穿次数", "击退数值" })
-                AddEntry(index++, name + " · 尚未开放", null, name, false);
+            string[] names = { "爆炸伤害", "贯穿伤害", "贯穿次数", "击退数值" };
+            for (int i = 0; i < names.Length; i++) _items.Add(new Item { Name = names[i], IsPlaceholder = true,
+                Description = "尚未开放", Icon = catalog != null && i < catalog.advancedIcons.Count ? catalog.advancedIcons[i] : null });
         }
-        else if (tab == 2)
+        else if (contentCatalog != null)
         {
-            AddEntry(index++, "排除槽位", AccountUpgradeCatalogSO.SealSlotId, null, false);
-            if (contentCatalog != null)
+            foreach (UpgradeDataSO upgrade in contentCatalog.Upgrades)
             {
-                foreach (UpgradeDataSO upgrade in contentCatalog.Upgrades)
-                {
-                    if (upgrade == null || !_account.IsUpgradeDiscovered(upgrade.GetStableId())) continue;
-                    string name = upgrade.weaponToGrant != null ? upgrade.weaponToGrant.GetDisplayName() :
-                        upgrade.abilityToGrant != null ? upgrade.abilityToGrant.GetDisplayName() : upgrade.GetDisplayName();
-                    AddEntry(index++, name, upgrade.GetStableId(), name, true);
-                }
+                if (upgrade == null || !_account.IsUpgradeDiscovered(upgrade.GetStableId())) continue;
+                _items.Add(new Item { Id = upgrade.GetStableId(), IsExclusion = true,
+                    Name = upgrade.weaponToGrant != null ? upgrade.weaponToGrant.GetDisplayName() : upgrade.abilityToGrant != null ? upgrade.abilityToGrant.GetDisplayName() : upgrade.GetDisplayName(),
+                    Description = "免费排除或解除此升级候选。本局放逐独立计算。",
+                    Icon = upgrade.weaponToGrant != null ? upgrade.weaponToGrant.icon : upgrade.abilityToGrant != null ? upgrade.abilityToGrant.icon : upgrade.icon });
             }
         }
-        Canvas.ForceUpdateCanvases();
-        scroll.verticalNormalizedPosition = 1f;
-        // 第一项回调持有真实 ID；借助事件选择避免把对象名当成业务 ID。
-        if (index > 0) _entries[0].OnSelect(null);
-        SetFocus(tab == 0 ? basicTab : tab == 1 ? advancedTab : exclusionTab);
-        statusText.text = string.Empty;
-        Refresh();
-    }
-
-    /// <summary>从模板获得条目并绑定稳定身份，不依赖本地化名称做存档键。</summary>
-    private void AddEntry(int index, string title, string id, string placeholder, bool exclusion)
-    {
-        if (index == _entries.Count) _entries.Add(Instantiate(entryTemplate, scroll.content));
-        AccountShopEntryUI entry = _entries[index];
-        entry.gameObject.SetActive(true);
-        entry.Bind(title, () => SelectEntry(entry, id, placeholder, exclusion));
-    }
-
-    /// <summary>更新详情并把键盘/手柄选中的条目滚入视口，滚动仅在选择事件发生时计算。</summary>
-    private void SelectEntry(AccountShopEntryUI entry, string id, string placeholder, bool exclusion)
-    {
-        _selectedId = id;
-        _placeholder = placeholder;
-        _isExclusion = exclusion;
-        statusText.text = string.Empty;
-        Refresh();
-        Canvas.ForceUpdateCanvases();
-        RectTransform row = (RectTransform)entry.transform;
-        float overflow = scroll.content.rect.height - scroll.viewport.rect.height;
-        if (overflow > 0f)
+        for (int i = 0; i < _items.Count; i++)
         {
-            float top = -row.anchoredPosition.y;
-            float position = scroll.content.anchoredPosition.y;
-            float desired = top < position ? top : top + row.rect.height > position + scroll.viewport.rect.height
-                ? top + row.rect.height - scroll.viewport.rect.height : position;
-            scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(desired / overflow);
+            if (i == _entries.Count) _entries.Add(Instantiate(entryTemplate, scroll.content));
+            int index = i;
+            _entries[i].gameObject.name = "ShopCard_" + i;
+            _entries[i].gameObject.SetActive(true);
+            _entries[i].Bind(focused => Preview(index, focused), () => Lock(index), this);
         }
+        ResizeGrid();
+        Canvas.ForceUpdateCanvases();
+        scroll.verticalNormalizedPosition = 1;
+        if (_items.Count > 0) _selectedIndex = 0;
+        statusText.text = string.Empty;
+        Refresh();
+        Focus(CurrentTab());
     }
 
-    /// <summary>刷新当前余额、等级、累计效果与操作可用性，不重建列表以保留焦点。</summary>
+    /// <summary>悬停及 OnSelect 只影响浏览详情；锁定时不会改变交易目标。</summary>
+    private void Preview(int index, bool focused)
+    {
+        if (!IsVisible || index < 0 || index >= _items.Count) return;
+        // 锁定只固定交易身份，不能阻止方向焦点滚入视口；鼠标悬停不主动滚动。
+        if (focused) ScrollToEntry(index);
+        if (State == AccountShopInteractionState.Locked) return;
+        _selectedIndex = index;
+        statusText.text = string.Empty;
+        Refresh();
+    }
+    /// <summary>点击或 Submit 锁定项目；同一帧禁止后续交易，重复确认卡片不等于购买。</summary>
+    private void Lock(int index)
+    {
+        if (!IsVisible || index < 0 || index >= _items.Count) return;
+        _selectedIndex = index;
+        State = AccountShopInteractionState.Locked;
+        _lockFrame = Time.frameCount;
+        statusText.text = string.Empty;
+        Refresh();
+        ScrollToEntry(index);
+        Focus(buyButton.interactable ? buyButton : refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : _entries[index].Control);
+    }
+
+    /// <summary>更新卡片等级/价格、底部详情与交易状态；保持当前锁定身份。</summary>
     private void Refresh()
     {
         if (!IsVisible) return;
-        goldText.text = $"金币  {_account.Gold}";
-        buyLabel.text = _isExclusion ? (_account.IsUpgradeSealed(_selectedId) ? "解除排除" : "启用排除") : "购买一级";
+        goldText.text = _account.Gold.ToString();
+        goldIcon.sprite = catalog != null ? catalog.goldIcon : null;
+        capacityText.text = _tab == 2 ? $"排除槽  {_account.ActiveSealCount} / {_account.SealCapacity}" : "";
+        inputHints.text = State == AccountShopInteractionState.Locked ? "确认：执行操作    取消：返回浏览" : "确认：选择项目    取消：返回菜单";
+        bool validCatalog = catalog != null && catalog.Validate(out _);
+        for (int i = 0; i < _items.Count; i++)
+        {
+            Item card = _items[i];
+            int level = _account.GetUpgradeLevel(card.Id);
+            int max = MaxLevel(card);
+            string price = card.IsPlaceholder ? "尚未开放" : card.IsExclusion ? (_account.IsUpgradeSealed(card.Id) ? "已排除" : "免费") :
+                !validCatalog ? "配置不可用" : level >= max ? "已满级" : Cost(card, level).ToString();
+            _entries[i].Refresh(card.Icon, level, max, price, State == AccountShopInteractionState.Locked && i == _selectedIndex);
+        }
+        Button[] tabs = { basicTab, advancedTab, exclusionTab };
+        for (int i = 0; i < tabs.Length; i++)
+        {
+            tabs[i].GetComponent<Image>().color = i == _tab ? new Color32(8, 124, 160, 255) : new Color32(24, 47, 64, 255);
+            Transform marker = tabs[i].transform.Find("CurrentMarker");
+            if (marker != null) marker.gameObject.SetActive(i == _tab);
+        }
+        bool locked = State == AccountShopInteractionState.Locked && _selectedIndex >= 0;
+        buyButton.gameObject.SetActive(locked);
+        refundButton.gameObject.SetActive(locked);
+        buyButton.interactable = refundButton.interactable = false;
+        if (_selectedIndex < 0 || _selectedIndex >= _items.Count)
+        {
+            detailName.text = "道具排除";
+            detailText.text = "在升级候选中发现项目后，可在此免费管理排除。";
+            detailIcon.enabled = false;
+            ConfigureNavigation();
+            return;
+        }
+        Item item = _items[_selectedIndex];
+        detailName.text = item.Name;
+        detailIcon.sprite = item.Icon;
+        detailIcon.enabled = item.Icon != null;
+        buyLabel.text = item.IsExclusion ? (_account.IsUpgradeSealed(item.Id) ? "解除排除" : "启用排除") : "购买一级";
         refundLabel.text = "退最高一级";
-        buyButton.interactable = false;
-        refundButton.interactable = false;
-        if (_isExclusion)
+        if (item.IsExclusion) refundButton.gameObject.SetActive(false);
+        string reason;
+        if (item.IsPlaceholder)
         {
-            detailText.text = $"{_placeholder}\n\n{(_account.IsUpgradeSealed(_selectedId) ? "已排除" : "未排除")}\n排除槽：{_account.ActiveSealCount} / {_account.SealCapacity}\n\n免费启用或解除排除。";
-            if (_account.IsReadOnly) detailText.text += "\n账号为只读状态，无法更改排除";
-            else if (!_account.IsUpgradeSealed(_selectedId) && _account.ActiveSealCount >= _account.SealCapacity)
-                detailText.text += "\n排除槽已用满，请先解除排除或购买槽位";
-            buyButton.interactable = !_account.IsReadOnly && (_account.IsUpgradeSealed(_selectedId) || _account.ActiveSealCount < _account.SealCapacity);
-            return;
+            detailText.text = "尚未开放";
+            reason = "尚未开放，暂不可购买";
         }
-        if (_selectedId == null)
+        else if (item.IsExclusion)
         {
-            detailText.text = (_placeholder ?? "选择一个项目") + "\n\n尚未开放";
-            return;
+            bool sealedState = _account.IsUpgradeSealed(item.Id);
+            detailText.text = item.Description + $"\n当前状态：{(sealedState ? "已排除" : "未排除")}    已用 / 总容量：{_account.ActiveSealCount} / {_account.SealCapacity}";
+            reason = _account.IsReadOnly ? "账号只读，无法更改" : !sealedState && _account.ActiveSealCount >= _account.SealCapacity ? "排除槽已用满，请先解除或在基础属性页购买槽位" : "免费操作";
+            buyButton.interactable = !_account.IsReadOnly && (sealedState || _account.ActiveSealCount < _account.SealCapacity);
         }
-        int level = _account.GetUpgradeLevel(_selectedId);
-        bool slots = _selectedId == AccountUpgradeCatalogSO.SealSlotId;
-        AccountUpgradeDataSO definition = catalog != null ? catalog.Find(_selectedId) : null;
-        bool valid = catalog != null && catalog.Validate(out _) && (slots || definition != null);
-        int max = valid ? (slots ? catalog.maxSealSlotLevel : definition.maxLevel) : 0;
-        int cost = valid && level < max ? (slots ? catalog.sealSlotCosts[level] : definition.levels[level].cost) : 0;
-        string current = slots ? $"{_account.SealCapacity} 个槽位" : FormatEffect(definition, Mathf.Min(level, max));
-        string next = level < max ? (slots ? $"{_account.SealCapacity + 1} 个槽位" : FormatEffect(definition, level + 1)) : "已达上限";
-        detailText.text = $"{(slots ? "排除槽位" : definition != null ? definition.fallbackName : "历史升级")}\n等级 {level} / {max}\n\n{(slots ? "保留一个免费槽；退款前请先解除占用。" : definition != null ? definition.fallbackDescription : "")}\n\n当前累计：{current}\n下一级：{next}\n\n{(valid ? level < max ? "价格：" + cost + " 金币" : "当前不可继续购买" : "配置不可用")}\n退款：{_account.GetLastPaidCost(_selectedId)} 金币";
-        if (_account.IsReadOnly) detailText.text += "\n账号为只读状态，无法购买或退款";
-        else if (valid && level < max && _account.Gold < cost) detailText.text += "\n金币不足";
-        buyButton.interactable = valid && !_account.IsReadOnly && level < max && _account.Gold >= cost;
-        refundButton.interactable = !_account.IsReadOnly && level > 0;
+        else
+        {
+            int level = _account.GetUpgradeLevel(item.Id);
+            int max = MaxLevel(item);
+            string current = item.IsSlot ? $"{_account.SealCapacity} 个槽位" : AccountShopEffectPresentation.Format(item.Definition, level, false);
+            string delta = level >= max ? "已满级" : item.IsSlot ? "+1 个槽位" : AccountShopEffectPresentation.Format(item.Definition, level, true);
+            detailText.text = item.Description + $"\n当前加成：{current}    本次升级：{delta}\n等级 {level} / {max}    退款：{_account.GetLastPaidCost(item.Id)} 金币";
+            reason = _account.IsReadOnly ? "账号只读，无法购买或退款" : !validCatalog ? "配置不可用" : level >= max ? "已满级" : _account.Gold < Cost(item, level) ? "金币不足" : "选择购买或退款";
+            buyButton.interactable = validCatalog && !_account.IsReadOnly && level < max && _account.Gold >= Cost(item, level);
+            bool occupied = item.IsSlot && _account.ActiveSealCount >= _account.SealCapacity;
+            refundButton.interactable = !_account.IsReadOnly && level > 0 && !occupied;
+            if (occupied && level > 0) reason += "；请先解除排除，再退还槽位";
+            if (level == 0) reason += "；尚未购买，无法退款";
+        }
+        if (string.IsNullOrEmpty(statusText.text) || !locked) statusText.text = reason;
+        else statusText.text = statusText.text.Split('\n')[0] + "\n" + reason;
+        ConfigureNavigation();
     }
 
-    /// <summary>把累计修改器转换为效果文案；不向玩家展示枚举和内部公式。</summary>
-    private static string FormatEffect(AccountUpgradeDataSO definition, int level)
-    {
-        if (level <= 0 || definition == null || !definition.Validate(out _)) return "无额外加成";
-        var text = new StringBuilder();
-        foreach (PlayerStatModifier modifier in definition.levels[level - 1].modifiers)
-        {
-            if (text.Length > 0) text.Append("，");
-            bool ratio = modifier.StatType == PlayerStatType.Might || modifier.StatType == PlayerStatType.Area ||
-                modifier.StatType == PlayerStatType.ProjectileSpeed || modifier.StatType == PlayerStatType.Duration ||
-                modifier.StatType == PlayerStatType.Cooldown || modifier.StatType == PlayerStatType.Luck ||
-                modifier.StatType == PlayerStatType.Growth || modifier.StatType == PlayerStatType.Greed ||
-                modifier.StatType == PlayerStatType.Curse || modifier.StatType == PlayerStatType.Defang;
-            bool percent = modifier.Mode != PlayerStatModifierMode.Flat || ratio;
-            float value = modifier.Mode == PlayerStatModifierMode.Multiplicative ? (modifier.Value - 1f) * 100f :
-                percent ? modifier.Value * 100f : modifier.Value;
-            text.Append(value.ToString("+0.##;-0.##;0", System.Globalization.CultureInfo.InvariantCulture));
-            if (percent) text.Append(modifier.Mode == PlayerStatModifierMode.Flat ? " 个百分点" : "%");
-            else if (modifier.StatType == PlayerStatType.Recovery) text.Append("/秒");
-            else if (modifier.StatType == PlayerStatType.Revival || modifier.StatType == PlayerStatType.Reroll ||
-                modifier.StatType == PlayerStatType.Skip || modifier.StatType == PlayerStatType.Banish) text.Append(" 次");
-            else if (modifier.StatType == PlayerStatType.MoveSpeed) text.Append(" 单位/秒");
-            else if (modifier.StatType == PlayerStatType.Magnet) text.Append(" 单位");
-
-        }
-        return text.ToString();
-    }
-
-    /// <summary>请求服务完成购买或免费排除，保存失败时只显示错误且不预扣余额。</summary>
+    /// <summary>读取展示上限，免费排除与占位不伪造可购买等级。</summary>
+    private int MaxLevel(Item item) { return item.IsSlot ? catalog.maxSealSlotLevel : item.Definition != null ? item.Definition.maxLevel : 0; }
+    /// <summary>只在已验证且未满级时读取下一级价格。</summary>
+    private int Cost(Item item, int level) { return item.IsSlot ? catalog.sealSlotCosts[level] : item.Definition.levels[level].cost; }
+    /// <summary>当前页面的页签按钮。</summary>
+    private Button CurrentTab() { return _tab == 0 ? basicTab : _tab == 1 ? advancedTab : exclusionTab; }
+    /// <summary>只在锁定且页面可见的下一帧以后执行正式购买或免费排除。</summary>
     private void Buy()
     {
-        bool success = _isExclusion ? _account.TrySetUpgradeSealed(_selectedId, !_account.IsUpgradeSealed(_selectedId)) :
-            _account.TryPurchaseUpgrade(catalog, _selectedId);
-        FinishOperation(success);
+        if (!CanTransact() || !buyButton.interactable) return;
+        Item item = _items[_selectedIndex];
+        FinishOperation(item.IsExclusion ? _account.TrySetUpgradeSealed(item.Id, !_account.IsUpgradeSealed(item.Id)) : _account.TryPurchaseUpgrade(catalog, item.Id));
     }
-
-    /// <summary>请求服务按历史实付退还最高一级。</summary>
+    /// <summary>只对当前锁定购买项按历史实付退款。</summary>
     private void Refund()
     {
-        FinishOperation(_account.TryRefundUpgrade(_selectedId));
+        if (!CanTransact() || !refundButton.interactable) return;
+        FinishOperation(_account.TryRefundUpgrade(_items[_selectedIndex].Id));
     }
-
-    /// <summary>同步操作结果，按钮变为不可交互时恢复页签焦点，防止导航丢失。</summary>
+    /// <summary>拒绝隐藏页面、失效选择及锁定同帧的迟到交易事件。</summary>
+    private bool CanTransact() { return IsVisible && State == AccountShopInteractionState.Locked && _selectedIndex >= 0 && _selectedIndex < _items.Count && _lockFrame != Time.frameCount; }
+    /// <summary>买退后保持锁定并更新理由；按钮失效时将焦点移至仍有效的操作或锁定卡片。</summary>
     private void FinishOperation(bool success)
     {
-        Refresh();
         statusText.text = success ? "操作成功" : _account.LastTransactionError;
+        Refresh();
         GameObject selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
         Selectable control = selected != null ? selected.GetComponent<Selectable>() : null;
-        if (control != null && !control.IsInteractable()) SetFocus(_tab == 0 ? basicTab : exclusionTab);
+        if (control == null || !control.IsInteractable())
+            Focus(buyButton.interactable ? buyButton : refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : _entries[_selectedIndex].Control);
     }
-
-    /// <summary>使用现有 EventSystem 建立鼠标、键盘和手柄共同焦点。</summary>
-    private static void SetFocus(Button button)
+    /// <summary>三列网格与可见区域保持一致，超出视口由 ScrollRect/Scrollbar 明确滚动。</summary>
+    private void ResizeGrid()
     {
-        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(button.gameObject);
+        if (scroll == null || scroll.content == null || scroll.viewport == null) return;
+        GridLayoutGroup grid = scroll.content.GetComponent<GridLayoutGroup>();
+        if (grid == null) return;
+        float width = (scroll.viewport.rect.width - grid.padding.horizontal - grid.spacing.x * 2) / 3;
+        Vector2 size = new Vector2(Mathf.Max(1, width), 104);
+        if ((grid.cellSize - size).sqrMagnitude > 0.01f) grid.cellSize = size;
     }
+    /// <summary>把导航选中的卡片滚入视口；鼠标悬停不改变账号数据。</summary>
+    private void ScrollToEntry(int index)
+    {
+        Canvas.ForceUpdateCanvases();
+        RectTransform row = (RectTransform)_entries[index].transform;
+        float overflow = scroll.content.rect.height - scroll.viewport.rect.height;
+        if (overflow <= 0) return;
+        float top = -row.anchoredPosition.y;
+        float position = scroll.content.anchoredPosition.y;
+        float desired = top < position ? top : top + row.rect.height > position + scroll.viewport.rect.height ? top + row.rect.height - scroll.viewport.rect.height : position;
+        scroll.verticalNormalizedPosition = 1 - Mathf.Clamp01(desired / overflow);
+    }
+    /// <summary>显式连接页签、三列网格、操作区与返回，最后不足三项的一行仍能到达。</summary>
+    private void ConfigureNavigation()
+    {
+        Button[] tabs = { basicTab, advancedTab, exclusionTab };
+        for (int i = 0; i < tabs.Length; i++) SetNavigation(tabs[i], i == 0 ? backButton : tabs[i - 1], i == 2 ? backButton : tabs[i + 1], null, _items.Count > 0 ? _entries[0].Control : backButton);
+        Button action = buyButton.gameObject.activeSelf && buyButton.interactable ? buyButton : refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : backButton;
+        for (int i = 0; i < _items.Count; i++)
+        {
+            int nextRow = i + 3;
+            if (nextRow >= _items.Count && i / 3 < (_items.Count - 1) / 3) nextRow = _items.Count - 1;
+            SetNavigation(_entries[i].Control, i >= 3 ? _entries[i - 3].Control : CurrentTab(), nextRow < _items.Count ? _entries[nextRow].Control : action,
+                i % 3 == 0 ? CurrentTab() : _entries[i - 1].Control,
+                i % 3 < 2 && i + 1 < _items.Count ? _entries[i + 1].Control : CurrentTab());
+        }
+        Button card = _selectedIndex >= 0 ? _entries[_selectedIndex].Control : CurrentTab();
+        SetNavigation(buyButton, card, backButton, CurrentTab(), refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : backButton);
+        SetNavigation(refundButton, card, backButton, buyButton.interactable ? buyButton : CurrentTab(), backButton);
+        SetNavigation(backButton, card, basicTab, CurrentTab(), action == backButton ? CurrentTab() : action);
+    }
+    /// <summary>设置显式四向引用，避免布局变化导致自动导航跳过项目。</summary>
+    private static void SetNavigation(Button target, Selectable up, Selectable down, Selectable left, Selectable right)
+    {
+        target.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up, selectOnDown = down, selectOnLeft = left, selectOnRight = right };
+    }
+    /// <summary>统一通过 EventSystem 设置低频焦点。</summary>
+    private static void Focus(Button button) { if (button != null && EventSystem.current != null) EventSystem.current.SetSelectedGameObject(button.gameObject); }
 }
