@@ -346,12 +346,12 @@ namespace RainsenVampSur.Tests.PlayMode
         public IEnumerator Layout_1280x720() { yield return VerifyLayout(1280, 720); }
 
         /// <summary>测试专用相机在页面激活前固定画布尺寸；每页重新加载场景，截图不修改生产资产。</summary>
-        private IEnumerator VerifyLayout(int width, int height)
+        private IEnumerator VerifyLayout(int width, int height, bool scrollOnly = false)
         {
             string[] args = Environment.GetCommandLineArgs();
             int flag = Array.IndexOf(args, "-session22ShopScreenshots");
             string directory = flag >= 0 && flag + 1 < args.Length ? args[flag + 1] : null;
-            foreach (string page in new[] { "basic", "locked", "advanced", "exclusion", "slots" })
+            foreach (string page in scrollOnly ? new[] { "scroll" } : new[] { "basic", "locked", "advanced", "exclusion", "slots" })
             {
                 yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
                 Component shop = Find("AccountShopUI");
@@ -372,6 +372,42 @@ namespace RainsenVampSur.Tests.PlayMode
                 canvas.enabled = true;
                 Submit(GameObject.Find("ShopButton"));
                 ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
+                if (page == "scroll")
+                {
+                    MoveFocus(EventSystem.current, MoveDirection.Right);
+                    for (int state = 0; state < 2; state++)
+                    {
+                        if (state == 1)
+                        {
+                            Submit(); yield return null;
+                            MoveFocus(EventSystem.current, MoveDirection.Up);
+                        }
+                        string lockedId = Get<string>(shop, "SelectedId");
+                        AssertFocusedCardInside(scroll);
+                        for (int direction = 0; direction < 2; direction++)
+                        {
+                            for (int step = 0; step < 7; step++)
+                            {
+                                MoveFocus(EventSystem.current, direction == 0 ? MoveDirection.Down : MoveDirection.Up);
+                                yield return null;
+                                AssertFocusedCardInside(scroll);
+                                if (state == 1)
+                                {
+                                    Assert.That(State(shop), Is.EqualTo("Locked"));
+                                    Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo(lockedId));
+                                }
+                            }
+                            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo(direction == 0 ? "ShopCard_21" : "ShopCard_0"));
+                        }
+                    }
+                    Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
+                    // 补图停在从底部返回的第9张卡，直接呈现原来被裁切半张卡的位置。
+                    for (int step = 0; step < 7; step++) MoveFocus(EventSystem.current, MoveDirection.Down);
+                    for (int step = 0; step < 4; step++) MoveFocus(EventSystem.current, MoveDirection.Up);
+                    AssertFocusedCardInside(scroll);
+                    Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_9"));
+                    Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_maxhealth"));
+                }
                 if (page == "basic") Hover(scroll.content.GetChild(0).gameObject);
                 if (page == "locked")
                 {
@@ -424,6 +460,31 @@ namespace RainsenVampSur.Tests.PlayMode
                     UnityEngine.Object.Destroy(target);
                     UnityEngine.Object.Destroy(cameraObject);
                 }
+            }
+        }
+
+        /// <summary>1080p 浏览和锁定时经真实 Move 往返，逐次验证焦点卡四角完整可见。</summary>
+        [UnityTest]
+        public IEnumerator ScrollRoundTrip_1920x1080() { yield return VerifyLayout(1920, 1080, true); }
+
+        /// <summary>720p 复验同一往返路径，锁定身份和余额不随滚动改变。</summary>
+        [UnityTest]
+        public IEnumerator ScrollRoundTrip_1280x720() { yield return VerifyLayout(1280, 720, true); }
+
+        /// <summary>把焦点卡实际世界四角转换到视口局部空间，独立于生产代码的 pivot 算法。</summary>
+        private static void AssertFocusedCardInside(ScrollRect scroll)
+        {
+            Canvas.ForceUpdateCanvases();
+            GameObject selected = EventSystem.current.currentSelectedGameObject;
+            Assert.That(selected.name, Does.StartWith("ShopCard_"));
+            var corners = new Vector3[4];
+            ((RectTransform)selected.transform).GetWorldCorners(corners);
+            Rect viewport = scroll.viewport.rect;
+            foreach (Vector3 corner in corners)
+            {
+                Vector3 local = scroll.viewport.InverseTransformPoint(corner);
+                Assert.That(local.x, Is.InRange(viewport.xMin - 0.5f, viewport.xMax + 0.5f), selected.name + " horizontal corner");
+                Assert.That(local.y, Is.InRange(viewport.yMin - 0.5f, viewport.yMax + 0.5f), selected.name + " vertical corner");
             }
         }
 

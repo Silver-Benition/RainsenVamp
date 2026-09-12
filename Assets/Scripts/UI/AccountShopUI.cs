@@ -369,7 +369,9 @@ public sealed class AccountShopUI : MonoBehaviour
         RectTransform row = (RectTransform)_entries[index].transform;
         float overflow = scroll.content.rect.height - scroll.viewport.rect.height;
         if (overflow <= 0) return;
-        float top = -row.anchoredPosition.y;
+        // GridLayoutGroup 以内容顶部为锚点；anchoredPosition 指向卡片 pivot，需扣除 pivot 到上边缘的距离。
+        // 使用真实上/下边缘，避免向上导航时只滚入中心、仍裁掉半张卡片。
+        float top = -row.anchoredPosition.y - (1f - row.pivot.y) * row.rect.height;
         float position = scroll.content.anchoredPosition.y;
         float desired = top < position ? top : top + row.rect.height > position + scroll.viewport.rect.height ? top + row.rect.height - scroll.viewport.rect.height : position;
         scroll.verticalNormalizedPosition = 1 - Mathf.Clamp01(desired / overflow);
