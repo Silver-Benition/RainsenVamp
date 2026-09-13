@@ -16,6 +16,16 @@ public sealed class AccountUpgradeDataSO : ScriptableObject
     public int maxLevel;
     public List<AccountUpgradeLevel> levels = new List<AccountUpgradeLevel>();
 
+    /// <summary>主动消耗的三类属性资源不提供停用；稳定ID硬约束同时防止错误配置绕过。</summary>
+    public bool CanToggleEnabled => !AccountProgressRules.IsUpgradeAlwaysEnabled(stableId) &&
+        statType != PlayerStatType.Reroll && statType != PlayerStatType.Skip && statType != PlayerStatType.Banish;
+
+    /// <summary>沿用项目本地化占位约定，优先可配置中文回退文本，无回退时使用键。</summary>
+    public string GetDisplayName() { return !string.IsNullOrWhiteSpace(fallbackName) ? fallbackName : nameKey; }
+
+    /// <summary>取得可配置具体效果说明，后续本地化可在此统一解析 descriptionKey。</summary>
+    public string GetDescription() { return !string.IsNullOrWhiteSpace(fallbackDescription) ? fallbackDescription : descriptionKey; }
+
     /// <summary>检查完整等级配置；非法定义整体不可购买或生效，但历史退款不依赖此表。</summary>
     public bool Validate(out string error)
     {

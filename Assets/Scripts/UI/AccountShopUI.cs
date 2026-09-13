@@ -32,6 +32,8 @@ public sealed class AccountShopUI : MonoBehaviour
     [SerializeField] private TMP_Text capacityText;
     [SerializeField] private Image goldIcon;
     [SerializeField] private TMP_Text inputHints;
+    [SerializeField] private Toggle enabledToggle;
+    private string _operationError = string.Empty;
     private readonly List<AccountShopEntryUI> _entries = new List<AccountShopEntryUI>();
     private readonly List<Item> _items = new List<Item>();
     private AccountProgressService _account;
@@ -101,6 +103,8 @@ public sealed class AccountShopUI : MonoBehaviour
     public Image GoldIcon { get => goldIcon; set => goldIcon = value; }
     /// <summary>仅供编辑器绑定新版详情与提示区域。</summary>
     public TMP_Text InputHints { get => inputHints; set => inputHints = value; }
+    /// <summary>仅供作者工具绑定属性启用勾选。</summary>
+    public Toggle EnabledToggle { get => enabledToggle; set => enabledToggle = value; }
 #endif
     /// <summary>绑定静态控件和 Cancel 转发；不在运行时生成固定页面骨架。</summary>
     private void Awake()
@@ -112,6 +116,7 @@ public sealed class AccountShopUI : MonoBehaviour
         backButton.onClick.AddListener(CancelOperation);
         buyButton.onClick.AddListener(Buy);
         refundButton.onClick.AddListener(Refund);
+        enabledToggle.onValueChanged.AddListener(ChangeEnabled);
         panel.SetActive(false);
     }
 
@@ -146,6 +151,7 @@ public sealed class AccountShopUI : MonoBehaviour
         _selectedIndex = -1;
         buyButton.gameObject.SetActive(false);
         refundButton.gameObject.SetActive(false);
+        enabledToggle.gameObject.SetActive(false);
         panel.SetActive(false);
         Closed?.Invoke();
     }
@@ -157,7 +163,7 @@ public sealed class AccountShopUI : MonoBehaviour
         if (State == AccountShopInteractionState.Locked)
         {
             State = AccountShopInteractionState.Browsing;
-            statusText.text = string.Empty;
+            _operationError = string.Empty;
             Refresh();
             if (_selectedIndex >= 0) Focus(_entries[_selectedIndex].Control);
         }
@@ -182,10 +188,10 @@ public sealed class AccountShopUI : MonoBehaviour
         if (tab == 0 && catalog != null)
         {
             foreach (AccountUpgradeDataSO definition in catalog.upgrades)
-                if (definition != null) _items.Add(new Item { Id = definition.stableId, Name = definition.fallbackName,
-                    Description = definition.fallbackDescription, Icon = definition.icon, Definition = definition });
-            _items.Add(new Item { Id = AccountUpgradeCatalogSO.SealSlotId, Name = "排除槽位", IsSlot = true,
-                Description = "保留一个免费槽位。额外槽位可逐级购买；退款前请先解除占用。", Icon = catalog.sealSlotIcon });
+                if (definition != null) _items.Add(new Item { Id = definition.stableId, Name = definition.GetDisplayName(),
+                    Description = definition.GetDescription(), Icon = definition.icon, Definition = definition });
+            _items.Add(new Item { Id = AccountUpgradeCatalogSO.SealSlotId, Name = "封印", IsSlot = true,
+                Description = "每强化一级，增加一个可同时封印升级候选的槽位。", Icon = catalog.sealSlotIcon });
         }
         else if (tab == 1)
         {
@@ -216,7 +222,7 @@ public sealed class AccountShopUI : MonoBehaviour
         Canvas.ForceUpdateCanvases();
         scroll.verticalNormalizedPosition = 1;
         if (_items.Count > 0) _selectedIndex = 0;
-        statusText.text = string.Empty;
+        _operationError = string.Empty;
         Refresh();
         Focus(CurrentTab());
     }
@@ -229,7 +235,7 @@ public sealed class AccountShopUI : MonoBehaviour
         if (focused) ScrollToEntry(index);
         if (State == AccountShopInteractionState.Locked) return;
         _selectedIndex = index;
-        statusText.text = string.Empty;
+        _operationError = string.Empty;
         Refresh();
     }
     /// <summary>点击或 Submit 锁定项目；同一帧禁止后续交易，重复确认卡片不等于购买。</summary>
@@ -239,7 +245,7 @@ public sealed class AccountShopUI : MonoBehaviour
         _selectedIndex = index;
         State = AccountShopInteractionState.Locked;
         _lockFrame = Time.frameCount;
-        statusText.text = string.Empty;
+        _operationError = string.Empty;
         Refresh();
         ScrollToEntry(index);
         Focus(buyButton.interactable ? buyButton : refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : _entries[index].Control);
@@ -271,14 +277,18 @@ public sealed class AccountShopUI : MonoBehaviour
             if (marker != null) marker.gameObject.SetActive(i == _tab);
         }
         bool locked = State == AccountShopInteractionState.Locked && _selectedIndex >= 0;
-        buyButton.gameObject.SetActive(locked);
-        refundButton.gameObject.SetActive(locked);
-        buyButton.interactable = refundButton.interactable = false;
+        // 先计算最终状态，再一次性应用，避免短暂禁用当前焦点控件导致 EventSystem 清空选择。
+        bool canBuy = false;
+        bool canRefund = false;
         if (_selectedIndex < 0 || _selectedIndex >= _items.Count)
         {
             detailName.text = "道具排除";
             detailText.text = "在升级候选中发现项目后，可在此免费管理排除。";
             detailIcon.enabled = false;
+            statusText.text = string.Empty;
+            buyButton.gameObject.SetActive(false);
+            refundButton.gameObject.SetActive(false);
+            enabledToggle.gameObject.SetActive(false);
             ConfigureNavigation();
             return;
         }
@@ -286,9 +296,8 @@ public sealed class AccountShopUI : MonoBehaviour
         detailName.text = item.Name;
         detailIcon.sprite = item.Icon;
         detailIcon.enabled = item.Icon != null;
-        buyLabel.text = item.IsExclusion ? (_account.IsUpgradeSealed(item.Id) ? "解除排除" : "启用排除") : "购买一级";
-        refundLabel.text = "退最高一级";
-        if (item.IsExclusion) refundButton.gameObject.SetActive(false);
+        buyLabel.text = item.IsExclusion ? (_account.IsUpgradeSealed(item.Id) ? "解除排除" : "启用排除") : "购买";
+        refundLabel.text = "退款";
         string reason;
         if (item.IsPlaceholder)
         {
@@ -299,8 +308,8 @@ public sealed class AccountShopUI : MonoBehaviour
         {
             bool sealedState = _account.IsUpgradeSealed(item.Id);
             detailText.text = item.Description + $"\n当前状态：{(sealedState ? "已排除" : "未排除")}    已用 / 总容量：{_account.ActiveSealCount} / {_account.SealCapacity}";
-            reason = _account.IsReadOnly ? "账号只读，无法更改" : !sealedState && _account.ActiveSealCount >= _account.SealCapacity ? "排除槽已用满，请先解除或在基础属性页购买槽位" : "免费操作";
-            buyButton.interactable = !_account.IsReadOnly && (sealedState || _account.ActiveSealCount < _account.SealCapacity);
+            reason = _account.IsReadOnly ? "账号只读，无法更改" : !sealedState && _account.ActiveSealCount >= _account.SealCapacity ? "封印槽已用满，请先解除或购买封印" : "";
+            canBuy = !_account.IsReadOnly && (sealedState || _account.ActiveSealCount < _account.SealCapacity);
         }
         else
         {
@@ -308,16 +317,24 @@ public sealed class AccountShopUI : MonoBehaviour
             int max = MaxLevel(item);
             string current = item.IsSlot ? $"{_account.SealCapacity} 个槽位" : AccountShopEffectPresentation.Format(item.Definition, level, false);
             string delta = level >= max ? "已满级" : item.IsSlot ? "+1 个槽位" : AccountShopEffectPresentation.Format(item.Definition, level, true);
-            detailText.text = item.Description + $"\n当前加成：{current}    本次升级：{delta}\n等级 {level} / {max}    退款：{_account.GetLastPaidCost(item.Id)} 金币";
-            reason = _account.IsReadOnly ? "账号只读，无法购买或退款" : !validCatalog ? "配置不可用" : level >= max ? "已满级" : _account.Gold < Cost(item, level) ? "金币不足" : "选择购买或退款";
-            buyButton.interactable = validCatalog && !_account.IsReadOnly && level < max && _account.Gold >= Cost(item, level);
+            detailText.text = item.Description + $"\n当前加成：{current}    本次升级：{delta}\n等级 {level} / {max}" +
+                (level > 0 ? $"    退款：{_account.GetLastPaidCost(item.Id)} 金币" : string.Empty);
+            reason = _account.IsReadOnly ? "账号只读，无法购买或退款" : !validCatalog ? "配置不可用" : level >= max ? "已满级" : _account.Gold < Cost(item, level) ? "金币不足" : "";
+            canBuy = validCatalog && !_account.IsReadOnly && level < max && _account.Gold >= Cost(item, level);
             bool occupied = item.IsSlot && _account.ActiveSealCount >= _account.SealCapacity;
-            refundButton.interactable = !_account.IsReadOnly && level > 0 && !occupied;
+            canRefund = !_account.IsReadOnly && level > 0 && !occupied && (long)_account.Gold + _account.GetLastPaidCost(item.Id) <= int.MaxValue;
             if (occupied && level > 0) reason += "；请先解除排除，再退还槽位";
-            if (level == 0) reason += "；尚未购买，无法退款";
+            if (level > 0 && (long)_account.Gold + _account.GetLastPaidCost(item.Id) > int.MaxValue) reason += "；金币已达存储上限，无法退款";
         }
-        if (string.IsNullOrEmpty(statusText.text) || !locked) statusText.text = reason;
-        else statusText.text = statusText.text.Split('\n')[0] + "\n" + reason;
+        buyButton.interactable = canBuy;
+        buyButton.gameObject.SetActive(locked);
+        refundButton.interactable = canRefund;
+        refundButton.gameObject.SetActive(locked && canRefund);
+        enabledToggle.gameObject.SetActive(locked && item.Definition != null && item.Definition.CanToggleEnabled);
+        enabledToggle.SetIsOnWithoutNotify(_account.IsAccountUpgradeEnabled(item.Id));
+        enabledToggle.interactable = validCatalog && !_account.IsReadOnly;
+        reason = reason.TrimStart('；');
+        statusText.text = string.IsNullOrEmpty(_operationError) ? reason : _operationError + (string.IsNullOrEmpty(reason) ? "" : "\n" + reason);
         ConfigureNavigation();
     }
 
@@ -340,16 +357,22 @@ public sealed class AccountShopUI : MonoBehaviour
         if (!CanTransact() || !refundButton.interactable) return;
         FinishOperation(_account.TryRefundUpgrade(_items[_selectedIndex].Id));
     }
+    /// <summary>锁定属性后免费切换下局偏好；失败或锁定同帧事件恢复真实勾选，不让 UI 假装保存成功。</summary>
+    private void ChangeEnabled(bool enabled)
+    {
+        if (!CanTransact() || !enabledToggle.gameObject.activeSelf || !enabledToggle.interactable) { Refresh(); return; }
+        FinishOperation(_account.TrySetAccountUpgradeEnabled(catalog, _items[_selectedIndex].Id, enabled));
+    }
     /// <summary>拒绝隐藏页面、失效选择及锁定同帧的迟到交易事件。</summary>
     private bool CanTransact() { return IsVisible && State == AccountShopInteractionState.Locked && _selectedIndex >= 0 && _selectedIndex < _items.Count && _lockFrame != Time.frameCount; }
     /// <summary>买退后保持锁定并更新理由；按钮失效时将焦点移至仍有效的操作或锁定卡片。</summary>
     private void FinishOperation(bool success)
     {
-        statusText.text = success ? "操作成功" : _account.LastTransactionError;
+        _operationError = success ? string.Empty : _account.LastTransactionError;
         Refresh();
         GameObject selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
         Selectable control = selected != null ? selected.GetComponent<Selectable>() : null;
-        if (control == null || !control.IsInteractable())
+        if (control == null || !control.IsActive() || !control.IsInteractable())
             Focus(buyButton.interactable ? buyButton : refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : _entries[_selectedIndex].Control);
     }
     /// <summary>三列网格与可见区域保持一致，超出视口由 ScrollRect/Scrollbar 明确滚动。</summary>
@@ -393,10 +416,21 @@ public sealed class AccountShopUI : MonoBehaviour
         Button card = _selectedIndex >= 0 ? _entries[_selectedIndex].Control : CurrentTab();
         SetNavigation(buyButton, card, backButton, CurrentTab(), refundButton.gameObject.activeSelf && refundButton.interactable ? refundButton : backButton);
         SetNavigation(refundButton, card, backButton, buyButton.interactable ? buyButton : CurrentTab(), backButton);
+        if (enabledToggle.gameObject.activeSelf && enabledToggle.interactable)
+        {
+            SetNavigation(enabledToggle, card, backButton, CurrentTab(), action);
+            Navigation buyNavigation = buyButton.navigation;
+            buyNavigation.selectOnLeft = enabledToggle;
+            buyButton.navigation = buyNavigation;
+            // 满级/只读等操作不可达时，卡片左侧仍有显式入口；不用自动几何导航猜测。
+            Navigation cardNavigation = card.navigation;
+            cardNavigation.selectOnLeft = enabledToggle;
+            card.navigation = cardNavigation;
+        }
         SetNavigation(backButton, card, basicTab, CurrentTab(), action == backButton ? CurrentTab() : action);
     }
     /// <summary>设置显式四向引用，避免布局变化导致自动导航跳过项目。</summary>
-    private static void SetNavigation(Button target, Selectable up, Selectable down, Selectable left, Selectable right)
+    private static void SetNavigation(Selectable target, Selectable up, Selectable down, Selectable left, Selectable right)
     {
         target.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up, selectOnDown = down, selectOnLeft = left, selectOnRight = right };
     }

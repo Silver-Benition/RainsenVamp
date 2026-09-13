@@ -9,12 +9,14 @@ using System.Collections.Generic;
 public sealed class AccountProgressData
 {
     /// <summary>当前客户端支持的账号存档版本。</summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>默认直接解锁角色的稳定 ID。</summary>
     public const string DefaultCharacterId = "character_default";
 
     public List<AccountUpgradePurchaseRecord> upgradePurchases = new List<AccountUpgradePurchaseRecord>();
+    /// <summary>独立于实付记录的停用偏好；缺失/空列表代表全部启用，只影响后续开局快照。</summary>
+    public List<string> disabledAccountUpgradeIds = new List<string>();
 
     public int saveVersion = CurrentVersion;
     public int accountGold;
@@ -46,6 +48,12 @@ public static class AccountProgressRules
 
     /// <summary>容量整数安全上限；实际可购买等级由成长目录配置。</summary>
     public const int MaxSealCapacity = int.MaxValue;
+
+    /// <summary>四种由玩家主动使用的资源永远启用，API 与存档注入均不能停用。</summary>
+    public static bool IsUpgradeAlwaysEnabled(string id)
+    {
+        return id == AccountUpgradeCatalogSO.SealSlotId || id == "account_reroll" || id == "account_skip" || id == "account_banish";
+    }
 }
 
 /// <summary>负责把旧存档逐版本迁移并修复可安全纠正的数据边界。</summary>
@@ -73,6 +81,8 @@ public static class AccountProgressMigrator
             data.upgradePurchases = new List<AccountUpgradePurchaseRecord>();
             data.sealCapacity = AccountProgressRules.InitialSealCapacity;
         }
+        // v1/v2 没有正式的停用偏好，即使 JSON 意外含同名字段也不改变旧账号默认行为。
+        if (data.saveVersion < 3) data.disabledAccountUpgradeIds = new List<string>();
         Normalize(data);
         data.saveVersion = AccountProgressData.CurrentVersion;
         return data;
@@ -100,6 +110,8 @@ public static class AccountProgressMigrator
         data.discoveredWeaponIds = NormalizeIds(data.discoveredWeaponIds);
         data.discoveredUpgradeIds = NormalizeIds(data.discoveredUpgradeIds);
         data.sealedUpgradeIds = NormalizeIds(data.sealedUpgradeIds);
+        data.disabledAccountUpgradeIds = NormalizeIds(data.disabledAccountUpgradeIds);
+        data.disabledAccountUpgradeIds.RemoveAll(AccountProgressRules.IsUpgradeAlwaysEnabled);
 
         AddUnique(data.unlockedCharacterIds, AccountProgressData.DefaultCharacterId);
         AddUnique(data.discoveredCharacterIds, AccountProgressData.DefaultCharacterId);

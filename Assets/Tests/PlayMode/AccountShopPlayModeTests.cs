@@ -345,14 +345,103 @@ namespace RainsenVampSur.Tests.PlayMode
         [UnityTest]
         public IEnumerator Layout_1280x720() { yield return VerifyLayout(1280, 720); }
 
+        /// <summary>1080p检查启用/停用、零级/已购四种锁定详情布局。</summary>
+        [UnityTest]
+        public IEnumerator PreferencesLayout_1920x1080() { yield return VerifyLayout(1920, 1080, false, true); }
+
+        /// <summary>720p复验勾选与退款可见状态，截图只在显式图形参数下生成。</summary>
+        [UnityTest]
+        public IEnumerator PreferencesLayout_1280x720() { yield return VerifyLayout(1280, 720, false, true); }
+
+        /// <summary>真实Toggle确认免费且保持锁定，隐藏退款后焦点有效；四种主动资源不显示开关。</summary>
+        [UnityTest]
+        public IEnumerator EnabledPreference_RealToggleRefundNavigationAndCancel()
+        {
+            yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+            Submit(GameObject.Find("ShopButton"));
+            Component shop = Find("AccountShopUI");
+            Toggle toggle = Field<Toggle>(shop, "enabledToggle");
+            ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
+            Assert.IsFalse(toggle.gameObject.activeSelf);
+            Assert.That(Text(shop, "statusText"), Is.Empty);
+            Submit(scroll.content.GetChild(0).gameObject);
+            Submit(toggle.gameObject); // 锁定同帧的迟到确认不能更改偏好。
+            Assert.IsTrue(toggle.isOn);
+            yield return null;
+            MoveFocus(EventSystem.current, MoveDirection.Left);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(toggle.gameObject));
+            Submit(); yield return null;
+            Assert.IsFalse(toggle.isOn);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(toggle.gameObject));
+            Assert.IsFalse((bool)Call(_account, "IsAccountUpgradeEnabled", "account_maxhealth"));
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
+            Assert.That(State(shop), Is.EqualTo("Locked"));
+            Assert.IsFalse(Field<Button>(shop, "refundButton").gameObject.activeSelf);
+            MoveFocus(EventSystem.current, MoveDirection.Right); Submit(); yield return null;
+            Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(9900));
+            Assert.IsFalse(toggle.isOn);
+            Assert.IsTrue(Field<Button>(shop, "refundButton").gameObject.activeSelf);
+            Assert.That(Text(shop, "statusText"), Is.Empty);
+            MoveFocus(EventSystem.current, MoveDirection.Right); Submit(); yield return null;
+            Assert.IsFalse(Field<Button>(shop, "refundButton").gameObject.activeSelf);
+            Assert.IsTrue(EventSystem.current.currentSelectedGameObject.activeInHierarchy);
+            Assert.IsFalse(toggle.isOn);
+            Cancel(); yield return null;
+            Assert.IsFalse(toggle.gameObject.activeSelf);
+            foreach (int index in new[] { 16, 17, 18, 21 })
+            {
+                Submit(scroll.content.GetChild(index).gameObject); yield return null;
+                Assert.IsFalse(toggle.gameObject.activeSelf);
+                if (index == 21) Assert.That(Text(shop, "detailName"), Is.EqualTo("封印"));
+            }
+            Submit(scroll.content.GetChild(15).gameObject); yield return null;
+            Assert.IsTrue(toggle.gameObject.activeSelf, "复活应可停用");
+            Submit(toggle.gameObject); yield return null;
+            Assert.IsFalse(toggle.isOn);
+            Cancel(); yield return null; Cancel(); yield return null;
+            Assert.IsFalse(Get<bool>(shop, "IsVisible"));
+        }
+
+        /// <summary>真实存储在载入后受到未来版本保护而拒绝保存，勾选必须回滚并保留失败提示。</summary>
+        [UnityTest]
+        public IEnumerator EnabledPreference_SaveFailureRestoresCheckbox()
+        {
+            string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ShopPreferenceFailure-" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(directory);
+            try
+            {
+                object storage = Activator.CreateInstance(RuntimeComponentTestUtility.RequireRuntimeType("JsonAccountProgressStorage"), directory);
+                Type service = RuntimeComponentTestUtility.RequireRuntimeType("AccountProgressService");
+                RuntimeComponentTestUtility.InvokeStatic(service, "SetStorageForTests", storage);
+                _account = service.GetProperty("Current").GetValue(null);
+                Call(_account, "RecordRunResults", 10000, 0);
+                yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
+                Submit(GameObject.Find("ShopButton"));
+                Component shop = Find("AccountShopUI");
+                Submit(Field<ScrollRect>(shop, "scroll").content.GetChild(0).gameObject); yield return null;
+                // 模拟加载后文件被新版客户端写入；旧客户端保存保护应拒绝覆盖。
+                System.IO.File.WriteAllText(System.IO.Path.Combine(directory, "account-progress.json"), "{\"saveVersion\":999}");
+                Toggle toggle = Field<Toggle>(shop, "enabledToggle");
+                Submit(toggle.gameObject); yield return null;
+                Assert.IsTrue(toggle.isOn);
+                Assert.IsTrue((bool)Call(_account, "IsAccountUpgradeEnabled", "account_maxhealth"));
+                Assert.That(Text(shop, "statusText"), Does.Contain("保存失败"));
+                Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
+                Assert.That(State(shop), Is.EqualTo("Locked"));
+                Assert.That(System.IO.File.ReadAllText(System.IO.Path.Combine(directory, "account-progress.json")), Is.EqualTo("{\"saveVersion\":999}"));
+            }
+            finally { System.IO.Directory.Delete(directory, true); }
+        }
+
         /// <summary>测试专用相机在页面激活前固定画布尺寸；每页重新加载场景，截图不修改生产资产。</summary>
-        private IEnumerator VerifyLayout(int width, int height, bool scrollOnly = false)
+        private IEnumerator VerifyLayout(int width, int height, bool scrollOnly = false, bool preferencesOnly = false)
         {
             string[] args = Environment.GetCommandLineArgs();
             int flag = Array.IndexOf(args, "-session22ShopScreenshots");
             string directory = flag >= 0 && flag + 1 < args.Length ? args[flag + 1] : null;
-            foreach (string page in scrollOnly ? new[] { "scroll" } : new[] { "basic", "locked", "advanced", "exclusion", "slots" })
+            foreach (string page in preferencesOnly ? new[] { "preference0-on", "preference0-off", "preference1-on", "preference1-off" } : scrollOnly ? new[] { "scroll" } : new[] { "basic", "locked", "advanced", "exclusion", "slots" })
             {
+                if (preferencesOnly) Setup();
                 yield return SceneManager.LoadSceneAsync("MainMenu"); yield return null;
                 Component shop = Find("AccountShopUI");
                 Canvas canvas = shop.GetComponent<Canvas>();
@@ -372,6 +461,18 @@ namespace RainsenVampSur.Tests.PlayMode
                 canvas.enabled = true;
                 Submit(GameObject.Find("ShopButton"));
                 ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
+                if (preferencesOnly)
+                {
+                    Submit(scroll.content.GetChild(0).gameObject); yield return null;
+                    bool purchased = page.Contains("preference1");
+                    if (purchased) { Submit(Field<Button>(shop, "buyButton").gameObject); yield return null; }
+                    if (page.EndsWith("off")) { Submit(Field<Toggle>(shop, "enabledToggle").gameObject); yield return null; }
+                    Assert.That(Field<Toggle>(shop, "enabledToggle").isOn, Is.EqualTo(page.EndsWith("on")));
+                    Assert.That(Field<Toggle>(shop, "enabledToggle").graphic.canvasRenderer.GetAlpha(), Is.EqualTo(page.EndsWith("on") ? 1 : 0).Within(0.01f));
+                    Assert.That(Field<Button>(shop, "refundButton").gameObject.activeSelf, Is.EqualTo(purchased));
+                    Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(purchased ? 9900 : 10000));
+                    Assert.That(Text(shop, "statusText"), Is.Empty);
+                }
                 if (page == "scroll")
                 {
                     MoveFocus(EventSystem.current, MoveDirection.Right);
@@ -408,7 +509,17 @@ namespace RainsenVampSur.Tests.PlayMode
                     Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_9"));
                     Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_maxhealth"));
                 }
-                if (page == "basic") Hover(scroll.content.GetChild(0).gameObject);
+                if (page == "basic")
+                {
+                    // 本轮全部描述均改为具体效果，逐项验证长中文不会挤出详情区域。
+                    foreach (Transform card in scroll.content)
+                    {
+                        Hover(card.gameObject); yield return null;
+                        Assert.IsFalse(Get<bool>(Field<object>(shop, "detailText"), "isTextOverflowing"), card.name + " description at " + width);
+                        ExecuteEvents.Execute(card.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerExitHandler);
+                    }
+                    Hover(scroll.content.GetChild(0).gameObject);
+                }
                 if (page == "locked")
                 {
                     Submit(scroll.content.GetChild(0).gameObject); yield return null;

@@ -16,6 +16,7 @@ public sealed class AccountProgressService
     private readonly HashSet<string> _discoveredWeaponIds;
     private readonly HashSet<string> _discoveredUpgradeIds;
     private readonly HashSet<string> _sealedUpgradeIds;
+    private readonly HashSet<string> _disabledAccountUpgradeIds;
     private AccountProgressData _data;
     private bool _isReadOnly;
 
@@ -46,13 +47,15 @@ public sealed class AccountProgressService
         AccountProgressLoadResult loadResult = _storage.Load();
         _data = loadResult.Data ?? AccountProgressData.CreateDefault();
         _isReadOnly = loadResult.IsReadOnly;
-        AccountProgressMigrator.Normalize(_data);
+        if (_isReadOnly) AccountProgressMigrator.Normalize(_data);
+        else _data = AccountProgressMigrator.MigrateToCurrent(_data);
 
         _unlockedCharacterIds = CreateIdSet(_data.unlockedCharacterIds);
         _discoveredCharacterIds = CreateIdSet(_data.discoveredCharacterIds);
         _discoveredWeaponIds = CreateIdSet(_data.discoveredWeaponIds);
         _discoveredUpgradeIds = CreateIdSet(_data.discoveredUpgradeIds);
         _sealedUpgradeIds = CreateIdSet(_data.sealedUpgradeIds);
+        _disabledAccountUpgradeIds = CreateIdSet(_data.disabledAccountUpgradeIds);
 
         if (!string.IsNullOrWhiteSpace(loadResult.Message))
         {
@@ -107,6 +110,27 @@ public sealed class AccountProgressService
     {
         AccountUpgradePurchaseRecord record = AccountProgressMigrator.FindValidPurchase(_data, id);
         return record != null && record.paidCosts.Count > 0 ? record.paidCosts[record.paidCosts.Count - 1] : 0;
+    }
+
+    /// <summary>查询下局启用偏好；未记录默认启用，四类主动资源即使收到异常数据也强制启用。</summary>
+    public bool IsAccountUpgradeEnabled(string id)
+    {
+        return AccountProgressRules.IsUpgradeAlwaysEnabled(id) || !_disabledAccountUpgradeIds.Contains(id ?? string.Empty);
+    }
+
+    /// <summary>免费切换已知可配置属性的下局偏好，零级允许保留；保存失败不发布，不改等级、金币或当前游戏快照。</summary>
+    public bool TrySetAccountUpgradeEnabled(AccountUpgradeCatalogSO catalog, string id, bool enabled)
+    {
+        if (_isReadOnly) return RejectTransaction("账号只读，无法更改启用状态");
+        if (catalog == null || !catalog.Validate(out _)) return RejectTransaction("升级配置不可用");
+        AccountUpgradeDataSO definition = catalog.Find(id);
+        if (AccountProgressRules.IsUpgradeAlwaysEnabled(id) || definition == null || !definition.CanToggleEnabled)
+            return RejectTransaction("此项目始终启用，不支持切换");
+        if (IsAccountUpgradeEnabled(id) == enabled) { LastTransactionError = string.Empty; return true; }
+        AccountProgressData candidate = CloneData();
+        if (enabled) candidate.disabledAccountUpgradeIds.Remove(id);
+        else candidate.disabledAccountUpgradeIds.Add(id);
+        return TryCommitCandidate(candidate);
     }
 
     /// <summary>购买一级成长或排除槽；先验证完整配置，再原子发布金币与实付记录。</summary>
@@ -459,6 +483,7 @@ public sealed class AccountProgressService
         ReplaceSet(_discoveredWeaponIds, _data.discoveredWeaponIds);
         ReplaceSet(_discoveredUpgradeIds, _data.discoveredUpgradeIds);
         ReplaceSet(_sealedUpgradeIds, _data.sealedUpgradeIds);
+        ReplaceSet(_disabledAccountUpgradeIds, _data.disabledAccountUpgradeIds);
     }
 
     /// <summary>从序列化稳定 ID 列表建立区分大小写的运行时集合。</summary>
