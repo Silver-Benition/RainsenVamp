@@ -101,10 +101,7 @@ ScriptableObject 数据
 
 ## 8. 文档与版本控制
 
-- 当前项目已约定：雨弦明确要求“归档”或“总结本次进度”时，三份 DevLog 归档完成后默认执行普通 Git commit 和 push 到 origin 当前分支；仍不得执行 force push、历史重写或破坏性清理。
-
+- 摘要、DevLog 写入、提交、集成和远端同步授权统一遵守 [Agent 协作规范](agent-workflow.md)第 6 节，不在本文件重复维护操作流程。
 - `DevLog/progress/`、`DevLog/code-changes/` 和 `DevLog/retrospectives/` 是历史记录，不是未经核对的实时状态数据库。
-- 只有在雨弦明确要求 `/save`、总结进度或把文档更新纳入批准范围时，才更新 DevLog。
-- 当前项目以 Plastic 为主要版本控制来源；未经明确要求，不执行 Checkin、Git 提交或远程同步。
-- 文档中必须区分“已实现”“已设计但未实现”和“建议 Todo”。
-- 跨模型任务优先使用 `DevLog/conventions/agent-workflow.md` 中的交接格式；长期任务可在获得授权后使用 `DevLog/plans/` 保存计划。
+- 文档中区分“已实现”“已设计但未实现”和“建议 Todo”。
+- 跨 Agent 交接只提供当前任务必需的目标、边界和证据；长期任务可在获得写入授权后使用 `DevLog/plans/` 保存计划。
