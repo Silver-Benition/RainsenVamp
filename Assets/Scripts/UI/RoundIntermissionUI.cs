@@ -10,7 +10,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
 {
     public TMP_FontAsset font;
     private GameObject _panel;
-    private TMP_Text _title, _balance, _status, _items;
+    private TMP_Text _title, _balance, _status, _items, _combatBalance;
     private readonly TMP_Text[] _cardTexts = new TMP_Text[4];
     private readonly Image[] _icons = new Image[4];
     private readonly Button[] _actions = new Button[4];
@@ -25,6 +25,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>一次建立 UI 并默认隐藏，交易后只更新已有控件。</summary>
     private void Awake()
     {
+        _combatBalance = Text("RoundMaterials", transform, "", .04f, .84f, .38f, .90f, 26);
         RectTransform panel = Box("RoundIntermission", transform, 0, 0, 1, 1, new Color32(12, 22, 32, 255));
         _panel = panel.gameObject;
         _title = Text("Title", panel, "", .04f, .9f, .7f, .98f, 42);
@@ -36,7 +37,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             float left = .04f + i * .235f;
             RectTransform card = Box("Offer" + i, panel, left, .51f, left + .215f, .86f, new Color32(25, 45, 57, 255));
             RectTransform icon = Box("Icon", card, .35f, .61f, .65f, .91f, Color.clear);
-            _icons[i] = icon.GetComponent<Image>(); _icons[i].preserveAspect = true;
+            _icons[i] = icon.GetComponent<Image>(); _icons[i].preserveAspect = true; _icons[i].color = Color.white;
             _cardTexts[i] = Text("Description", card, "", .06f, .24f, .94f, .62f, 25);
             _cardTexts[i].alignment = TextAlignmentOptions.Center;
             _actions[i] = Button("Action", card, "", .06f, .05f, .57f, .21f, () => Act(slot));
@@ -68,11 +69,17 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _rounds = RoundController.Instance;
         if (_rounds == null) return;
         _rounds.Changed += Refresh;
+        _rounds.Wallet.Changed += Refresh;
         Refresh();
     }
 
     /// <summary>解除事件，避免重开后旧视图继续接收刷新。</summary>
-    private void OnDestroy() { if (_rounds != null) _rounds.Changed -= Refresh; }
+    private void OnDestroy()
+    {
+        if (_rounds == null) return;
+        _rounds.Changed -= Refresh;
+        _rounds.Wallet.Changed -= Refresh;
+    }
 
     /// <summary>交易或属性选择统一入口，失败保持原报价并给出反馈。</summary>
     private void Act(int index)
@@ -117,11 +124,15 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     public void Refresh()
     {
         if (_rounds == null || _rounds.Shop == null) return;
+        _combatBalance.gameObject.SetActive(_rounds.Phase == RoundPhase.Combat);
+        _combatBalance.text = $"材料 {_rounds.Wallet.Balance}　储备 {_rounds.Wallet.Bagged}";
         bool upgrades = _rounds.Phase == RoundPhase.Upgrades;
         bool shop = _rounds.Phase == RoundPhase.Shop;
         _panel.SetActive(upgrades || shop);
         if (!upgrades && !shop) { _lastPhase = _rounds.Phase; return; }
         _panel.transform.SetAsLastSibling();
+        if (_lastPhase != _rounds.Phase)
+            _status.text = string.IsNullOrEmpty(_rounds.LastReward) ? "" : "宝箱奖励：" + _rounds.LastReward;
         _title.text = upgrades ? $"回合 {_rounds.RoundNumber} 完成 · 属性成长（剩余 {_rounds.Player.PendingLevelUps} 次）"
             : $"回合 {_rounds.RoundNumber} 完成 · 商店";
         _balance.text = $"材料 {_rounds.Wallet.Balance}　储备 {_rounds.Wallet.Bagged}";

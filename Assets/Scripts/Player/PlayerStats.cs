@@ -135,7 +135,7 @@ public class PlayerStats : MonoBehaviour
         SynchronizeCharacterPassiveSource();
         _statsInitialized = false;
         EnsureStatsInitialized();
-        StatsChanged?.Invoke();
+        RunTransactionEvents.Publish(StatsChanged);
     }
 
     /// <summary>
@@ -163,7 +163,7 @@ public class PlayerStats : MonoBehaviour
 
         _modifierSources[sourceId] = sourceCopy;
         RecalculateFinalStats();
-        StatsChanged?.Invoke();
+        RunTransactionEvents.Publish(StatsChanged);
         return true;
     }
 
@@ -176,7 +176,7 @@ public class PlayerStats : MonoBehaviour
         }
 
         RecalculateFinalStats();
-        StatsChanged?.Invoke();
+        RunTransactionEvents.Publish(StatsChanged);
         return true;
     }
 

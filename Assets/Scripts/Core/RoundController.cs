@@ -38,6 +38,7 @@ public sealed class RoundController : MonoBehaviour
     private int _choiceSequence;
     private int _upgradeRerolls;
     private bool _busy;
+    private int _lastChoiceFrame = -1;
     private readonly List<RoundStatUpgrade> _choices = new List<RoundStatUpgrade>(4);
     private readonly List<RoundStatUpgrade> _candidates = new List<RoundStatUpgrade>(24);
 
@@ -121,6 +122,7 @@ public sealed class RoundController : MonoBehaviour
         PoolManager.Instance.ReleaseRoundObjects();
         WorldFreezeController.Instance?.CancelFreeze();
         CompletedRounds = RoundNumber;
+        LastReward = "";
         while (_crates > 0) { LastReward = Shop.GrantCrate(); _crates--; }
         if (RoundNumber >= config.rounds.Count) { _director.CompleteRoundRun(); return; }
         ContinueGrowth();
@@ -164,10 +166,11 @@ public sealed class RoundController : MonoBehaviour
     /// <summary>确认一次属性成长，使用独立来源叠加并且只消费一个待选次数。</summary>
     public bool Choose(int index)
     {
-        if (_busy || Phase != RoundPhase.Upgrades || index < 0 || index >= _choices.Count) return false;
+        if (_busy || _lastChoiceFrame == Time.frameCount || Phase != RoundPhase.Upgrades || index < 0 || index >= _choices.Count) return false;
         _busy = true;
         try
         {
+            _lastChoiceFrame = Time.frameCount;
             RoundStatUpgrade choice = _choices[index];
             PlayerStatModifier mod = choice.modifier;
             _player.SetModifiers("round.level." + (++_choiceSequence),
@@ -183,9 +186,14 @@ public sealed class RoundController : MonoBehaviour
     public bool RerollUpgrade()
     {
         if (_busy || Phase != RoundPhase.Upgrades) return false;
-        if (!RunState.Instance.TryConsumeReroll() && !Wallet.TrySpend(UpgradeRerollPrice)) return false;
-        _upgradeRerolls++;
-        BuildChoices(); Changed?.Invoke(); return true;
+        _busy = true;
+        try
+        {
+            if (!RunState.Instance.TryConsumeReroll() && !Wallet.TrySpend(UpgradeRerollPrice)) return false;
+            _upgradeRerolls++;
+            BuildChoices(); Changed?.Invoke(); return true;
+        }
+        finally { _busy = false; }
     }
 
     public int UpgradeRerollPrice => config.shopCatalog.initialRerollPrice + _upgradeRerolls * config.shopCatalog.rerollPriceStep;
@@ -193,25 +201,37 @@ public sealed class RoundController : MonoBehaviour
     /// <summary>消耗本局跳过次数，放弃一次属性奖励。</summary>
     public bool SkipUpgrade()
     {
-        if (_busy || Phase != RoundPhase.Upgrades || !RunState.Instance.TryConsumeSkip()) return false;
-        _player.ConsumePendingLevelUp(); ContinueGrowth(); return true;
+        if (_busy || Phase != RoundPhase.Upgrades) return false;
+        _busy = true;
+        try
+        {
+            if (!RunState.Instance.TryConsumeSkip()) return false;
+            _player.ConsumePendingLevelUp(); ContinueGrowth(); return true;
+        }
+        finally { _busy = false; }
     }
 
     /// <summary>消耗放逐并移除所选属性候选，本次升级仍保留。</summary>
     public bool Banish(int index)
     {
-        if (_busy || Phase != RoundPhase.Upgrades || index < 0 || index >= _choices.Count || !RunState.Instance.TryConsumeBanish()) return false;
-        RunState.Instance.BanishUpgrade(_choices[index].id);
-        BuildChoices();
-        if (_choices.Count == 0) ContinueGrowth(); else Changed?.Invoke();
-        return true;
+        if (_busy || Phase != RoundPhase.Upgrades || index < 0 || index >= _choices.Count) return false;
+        _busy = true;
+        try
+        {
+            if (!RunState.Instance.TryConsumeBanish()) return false;
+            RunState.Instance.BanishUpgrade(_choices[index].id);
+            BuildChoices();
+            if (_choices.Count == 0) ContinueGrowth(); else Changed?.Invoke();
+            return true;
+        }
+        finally { _busy = false; }
     }
 
     /// <summary>开始下一回合；调用只允许准备阶段或商店，重复按钮不能跳过回合。</summary>
     public bool BeginNextRound()
     {
         if (_busy || (Phase != RoundPhase.Preparing && Phase != RoundPhase.Shop) || Shop == null
-            || RoundNumber >= config.rounds.Count) return false;
+            || Shop.IsBusy || RoundNumber >= config.rounds.Count) return false;
         Phase = RoundPhase.Preparing;
         RoundNumber++;
         Current = new RoundRuntime(config.rounds[RoundNumber - 1], RoundNumber);

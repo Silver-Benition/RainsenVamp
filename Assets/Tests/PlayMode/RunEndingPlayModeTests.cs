@@ -27,7 +27,7 @@ namespace RainsenVampSur.Tests.PlayMode
             public GameObject projectilePrefab;
         }
 
-        /// <summary>120 秒遭遇配置可在当前活动世界生成首领，并锁定世界切换但保留正常运行。</summary>
+        /// <summary>主世界回合模式始终锁定切换，首领生成仍沿用正式对象池链路。</summary>
         [UnityTest]
         public IEnumerator MainLevel_RunDirector_生成武装巨像并锁定世界切换()
         {
@@ -46,7 +46,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNotNull(
                 RuntimeComponentTestUtility.GetProperty<object>(director, "Telemetry"),
                 "RunDirector 未建立本局统计容器。");
-            Assert.IsFalse(
+            Assert.IsTrue(
                 RuntimeComponentTestUtility.GetProperty<bool>(coordinator, "IsWorldSwitchLocked"));
 
             Assert.IsTrue(
@@ -172,7 +172,17 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNotNull(director);
             Assert.IsNotNull(coordinator);
             Assert.IsNotNull(levelUpManager);
-            Assert.IsTrue((bool)RuntimeComponentTestUtility.Invoke(director, "DebugTriggerBossEncounter"));
+            Component rounds = Object.FindObjectOfType(RuntimeComponentTestUtility.RequireRuntimeType("RoundController")) as Component;
+            for (int wave = 1; wave < 20; wave++)
+            {
+                RuntimeComponentTestUtility.Invoke(rounds, "Tick", 100f);
+                yield return null; yield return null;
+                while (RuntimeComponentTestUtility.GetProperty<object>(rounds, "Phase").ToString() == "Upgrades")
+                { RuntimeComponentTestUtility.Invoke(rounds, "Choose", 0); yield return null; }
+                Assert.IsTrue((bool)RuntimeComponentTestUtility.Invoke(rounds, "BeginNextRound"));
+            }
+            Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(director, "IsBossSpawned"));
+
 
             Component simulation = RuntimeComponentTestUtility.GetProperty<object>(
                 coordinator,
@@ -215,6 +225,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 RuntimeComponentTestUtility.GetFieldValue<object>(boss, "enemyData"),
                 "Boss 死亡出口不应拥有普通敌人掉落数据。");
 
+            yield return null; // 回合在 LateUpdate 统一裁决，伤害必须已经完成记账。
             object finalSnapshot = RuntimeComponentTestUtility.GetProperty<object>(director, "FinalSnapshot");
             Assert.IsNotNull(finalSnapshot);
             Assert.That(
@@ -730,7 +741,8 @@ namespace RainsenVampSur.Tests.PlayMode
                     weapons,
                     items,
                     abilities,
-                    pickups
+                    pickups,
+                    20, 20, 500, 400
                 });
         }
 
@@ -746,7 +758,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNull(content.Find("Summary"), "武器表不应保留旧的占位 Summary 文本。");
 
             string[] columnNames = { "Weapon", "Level", "Damage", "Time", "Dps" };
-            string[] headerTexts = { "武器", "等级", "伤害", "时间", "每秒伤害" };
+            string[] headerTexts = { "武器", "品质", "伤害", "时间", "每秒伤害" };
             List<Transform> headerColumns = GetActiveDirectChildren(header);
             Assert.That(headerColumns.Count, Is.EqualTo(columnNames.Length), "表头必须正好包含五列。");
             for (int index = 0; index < columnNames.Length; index++)
@@ -833,7 +845,7 @@ namespace RainsenVampSur.Tests.PlayMode
 
                 Assert.That(
                     GetUiText(row.Find("Level/Text")),
-                    Is.EqualTo($"Lv.{rowIndex + 1}/6"));
+                    Is.EqualTo($"{rowIndex + 1}/6"));
                 Assert.That(
                     GetUiText(row.Find("Damage/Text")),
                     Is.EqualTo($"{120f + rowIndex * 10f:F0}"));

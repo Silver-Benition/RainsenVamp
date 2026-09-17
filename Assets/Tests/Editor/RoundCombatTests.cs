@@ -99,6 +99,28 @@ public sealed class RoundCombatTests
         Assert.AreEqual(0, wallet.Balance);
     }
 
+    /// <summary>交易预留余额并拒绝回调重入；失败恢复所有财务统计且不通知。</summary>
+    [Test]
+    public void Materials_TransactionRejectsReentryAndRollsBackRefusal()
+    {
+        var wallet = new RunMaterialWallet(); wallet.Credit(20);
+        int notifications = 0; wallet.Changed += () => notifications++;
+        Assert.IsFalse(wallet.Transact(12, 3, () =>
+        {
+            Assert.AreEqual(11, wallet.Balance);
+            Assert.IsFalse(wallet.TrySpend(1));
+            wallet.Credit(999); wallet.Bag(99);
+            Assert.AreEqual(0, wallet.Collect(9));
+            return false;
+        }));
+        Assert.AreEqual(20, wallet.Balance); Assert.AreEqual(20, wallet.Earned);
+        Assert.AreEqual(0, wallet.Spent); Assert.AreEqual(0, wallet.Bagged);
+        Assert.AreEqual(0, notifications);
+        Assert.IsTrue(wallet.Transact(12, 0, () => true));
+        Assert.AreEqual(8, wallet.Balance); Assert.AreEqual(12, wallet.Spent);
+        Assert.AreEqual(1, notifications);
+    }
+
     /// <summary>正式二十回合表与四档装备资产完整，商店封印映射 ID 不丢失。</summary>
     [Test]
     public void ProductionConfiguration_HasTwentyRoundsAndFourWeaponTiers()

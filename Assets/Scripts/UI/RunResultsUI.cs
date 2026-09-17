@@ -460,7 +460,7 @@ public sealed class RunResultsUI : MonoBehaviour
             header.transform,
             "Level",
             WeaponColumnLevelWidth,
-            "等级",
+            "品质",
             TextAlignmentOptions.Right,
             true,
             false);
@@ -508,7 +508,7 @@ public sealed class RunResultsUI : MonoBehaviour
             row.transform,
             "Level",
             WeaponColumnLevelWidth,
-            "Lv.1/1",
+            "1/4",
             TextAlignmentOptions.Right,
             false,
             false);

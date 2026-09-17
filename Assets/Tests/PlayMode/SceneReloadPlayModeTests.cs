@@ -512,7 +512,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(timerFound, "MainLevel 缺少 GameTimer。");
             Assert.IsTrue(timerTextFound, "GameTimer 缺少 GameTimerText。");
             Assert.IsTrue(timerAtBottomCenter, "计时器没有放置在画面底部中央。");
-            Assert.That(timerInitialText, Is.EqualTo("00:00"));
+            Assert.That(timerInitialText, Does.Contain("回合 1/20"));
+            Assert.That(timerInitialText, Does.Contain("20秒"));
             Assert.That(timerTextSize, Is.GreaterThanOrEqualTo(30f));
             Assert.IsTrue(timerTextBold, "计时器文本没有使用粗体样式。");
             Assert.IsTrue(loadoutFound, "MainLevel 缺少运行时装备栏。");
@@ -589,7 +590,8 @@ namespace RainsenVampSur.Tests.PlayMode
 
             Assert.IsTrue(timerFound, "MainLevel 缺少 GameTimerUI 组件。");
             Assert.That(elapsedSeconds, Is.GreaterThan(0.5f));
-            Assert.That(timerTextValue, Is.Not.EqualTo("00:00"));
+            Assert.That(timerTextValue, Does.Contain("回合 1/20"));
+            Assert.That(timerTextValue, Does.Not.Contain("20秒"));
         }
 
         /// <summary>暂停菜单按钮应解除暂停并把玩家送回真实主菜单场景。</summary>

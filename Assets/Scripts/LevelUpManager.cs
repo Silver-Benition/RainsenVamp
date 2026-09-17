@@ -420,7 +420,7 @@ public class LevelUpManager : MonoBehaviour
         }
 
         NotifyOwnedWeaponsChanged();
-        WeaponAdded?.Invoke(weaponBase);
+        RunTransactionEvents.Publish(WeaponAdded, weaponBase);
         Debug.Log($"获得新武器: {weaponData.weaponNameKey} Lv.{weaponBase.CurrentLevel}/{weaponBase.MaxLevel}");
         return weaponBase;
     }
@@ -689,7 +689,7 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>集中发布武器清单变化，避免表现层轮询运行时组件。</summary>
     private void NotifyOwnedWeaponsChanged()
     {
-        OwnedWeaponsChanged?.Invoke();
+        RunTransactionEvents.Publish(OwnedWeaponsChanged);
     }
 
     /// <summary>解析玩家、属性与局内状态，并建立低频状态订阅。</summary>
@@ -909,7 +909,7 @@ public class LevelUpManager : MonoBehaviour
             weapon = CreateNewWeapon(data, GetWeaponId(data));
             weapon.enabled = RoundController.AllowsCombat;
             while (weapon.CurrentLevel < tier) weapon.TryLevelUp();
-            WeaponAdded?.Invoke(weapon);
+            RunTransactionEvents.Publish(WeaponAdded, weapon);
         }
         NotifyOwnedWeaponsChanged();
         return weapon;

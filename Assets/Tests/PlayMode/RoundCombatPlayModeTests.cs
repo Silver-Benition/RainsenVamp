@@ -82,6 +82,9 @@ namespace RainsenVampSur.Tests.PlayMode
             Button choice = panel.Find("Offer0/Action").GetComponent<Button>();
             ExecuteEvents.Execute(choice.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
             Assert.AreEqual(pending - 1, Get<int>(player, "PendingLevelUps"));
+            ExecuteEvents.Execute(choice.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreEqual(pending - 1, Get<int>(player, "PendingLevelUps"), "同帧重复提交不能误选下一组属性。");
+            yield return null;
             while (Get<object>(_rounds, "Phase").ToString() == "Upgrades")
             { Call(_rounds, "Choose", 0); yield return null; }
             Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
@@ -135,6 +138,141 @@ namespace RainsenVampSur.Tests.PlayMode
             }
             object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
             Assert.AreEqual(0, Get<int>(state, "GoldCount"));
+        }
+
+        /// <summary>装备同步回调不能抢花预留余额、重复购买或提前开始下一回合。</summary>
+        [UnityTest]
+        public IEnumerator Shop_ReentrantInventoryCallbackCannotSplitTransaction()
+        {
+            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            object shop = Get<object>(_rounds, "Shop"), wallet = Get<object>(_rounds, "Wallet");
+            object loadout = Get<object>(_rounds, "Loadout");
+            IList offers = Get<IList>(shop, "Offers"), owned = Get<IList>(loadout, "OwnedWeapons");
+            Assert.IsTrue(Get<bool>(Get<object>(offers[0], "Product"), "IsWeapon"));
+            int price = Get<int>(offers[0], "Price"), count = owned.Count;
+            Call(wallet, "Credit", price);
+            int calls = 0;
+            Action listener = () =>
+            {
+                calls++;
+                Assert.AreEqual(0, Get<int>(wallet, "Balance"));
+                Assert.IsNull(offers[0]);
+                Assert.IsFalse((bool)Call(wallet, "TrySpend", 1));
+                Assert.IsFalse((bool)Call(shop, "Buy", 1));
+                Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
+            };
+            EventInfo changed = loadout.GetType().GetEvent("OwnedWeaponsChanged");
+            Action brokenObserver = () => throw new InvalidOperationException("Session23 observer failure");
+            changed.AddEventHandler(loadout, brokenObserver);
+            changed.AddEventHandler(loadout, listener);
+            LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("Session23 observer failure"));
+            try { Assert.IsTrue((bool)Call(shop, "Buy", 0)); }
+            finally
+            {
+                changed.RemoveEventHandler(loadout, brokenObserver);
+                changed.RemoveEventHandler(loadout, listener);
+            }
+            Assert.AreEqual(1, calls); Assert.AreEqual(count + 1, owned.Count);
+            Assert.AreEqual(price, Get<int>(wallet, "Spent"));
+            Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
+        }
+
+        /// <summary>1080p 局间布局使用真实相机和正式 UI，可选输出截图。</summary>
+        [UnityTest]
+        public IEnumerator Layout_1920x1080() { yield return VerifyLayout(1920, 1080); }
+
+        /// <summary>720p 复验属性选择与满六槽商店的文本和交互边界。</summary>
+        [UnityTest]
+        public IEnumerator Layout_1280x720() { yield return VerifyLayout(1280, 720); }
+
+        /// <summary>配置目标尺寸后依次捕获战斗、升级、商店；无图形模式只断言布局。</summary>
+        private IEnumerator VerifyLayout(int width, int height)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            int flag = Array.IndexOf(args, "-session23Screenshots");
+            string directory = flag >= 0 && flag + 1 < args.Length ? args[flag + 1] : null;
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            Canvas canvas = ui.GetComponent<Canvas>();
+            Camera camera = Camera.main;
+            var target = new RenderTexture(width, height, 24);
+            int originalMask = camera.cullingMask;
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) camera.cullingMask = 0;
+            camera.targetTexture = target;
+            canvas.enabled = false;
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera; canvas.planeDistance = 1;
+            // 正式 Canvas 是覆盖层；离屏相机用最高排序模拟覆盖关系。
+            int originalOrder = canvas.sortingOrder; canvas.sortingOrder = short.MaxValue;
+            canvas.enabled = true;
+            try
+            {
+                foreach (string page in new[] { "combat", "upgrades", "shop" })
+                {
+                    if (page == "upgrades")
+                    {
+                        Call(Get<object>(_rounds, "Player"), "AddExp", 100f);
+                        Call(_rounds, "Tick", 100f);
+                    }
+                    if (page == "shop")
+                    {
+                        while (Get<object>(_rounds, "Phase").ToString() == "Upgrades")
+                        { Call(_rounds, "Choose", 0); yield return null; }
+                        object loadout = Get<object>(_rounds, "Loadout");
+                        IList owned = Get<IList>(loadout, "OwnedWeapons");
+                        object data = owned[0].GetType().GetField("weaponData").GetValue(owned[0]);
+                        while (owned.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
+                        Call(Get<object>(_rounds, "Wallet"), "Credit", 1234);
+                        Call(ui, "Refresh");
+                    }
+                    Canvas.ForceUpdateCanvases();
+                    for (int frame = 0; frame < 4; frame++) yield return null;
+                    Assert.AreEqual(width, camera.pixelWidth); Assert.AreEqual(height, camera.pixelHeight);
+                    if (page != "combat")
+                    {
+                        GameObject panel = Get<GameObject>(ui, "Panel");
+                        Assert.IsTrue(panel.activeInHierarchy);
+                        Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+                        foreach (Component label in panel.GetComponentsInChildren(textType))
+                            Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), page + "/" + label.name + " at " + width);
+                        for (int card = 0; card < 4; card++)
+                        {
+                            Image icon = panel.transform.Find("Offer" + card + "/Icon").GetComponent<Image>();
+                            Assert.IsNotNull(icon.sprite);
+                            Assert.Greater(icon.color.a, .99f, "商品和属性图标不能因底图透明而消失。");
+                        }
+                        foreach (Button button in panel.GetComponentsInChildren<Button>())
+                        {
+                            var corners = new Vector3[4]; ((RectTransform)button.transform).GetWorldCorners(corners);
+                            foreach (Vector3 corner in corners)
+                            {
+                                Vector3 screen = camera.WorldToScreenPoint(corner);
+                                Assert.That(screen.x, Is.InRange(-1f, width + 1f));
+                                Assert.That(screen.y, Is.InRange(-1f, height + 1f));
+                            }
+                        }
+                    }
+                    if (directory != null)
+                    {
+                        Assert.AreNotEqual(UnityEngine.Rendering.GraphicsDeviceType.Null, SystemInfo.graphicsDeviceType);
+                        System.IO.Directory.CreateDirectory(directory);
+                        RenderTexture previous = RenderTexture.active;
+                        var pixels = new Texture2D(width, height, TextureFormat.RGB24, false);
+                        try
+                        {
+                            RenderTexture.active = target;
+                            pixels.ReadPixels(new Rect(0, 0, width, height), 0, 0); pixels.Apply();
+                            System.IO.File.WriteAllBytes(System.IO.Path.Combine(directory, page + "-" + width + "x" + height + ".png"), pixels.EncodeToPNG());
+                        }
+                        finally { RenderTexture.active = previous; UnityEngine.Object.Destroy(pixels); }
+                    }
+                }
+            }
+            finally
+            {
+                camera.targetTexture = null; camera.cullingMask = originalMask;
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; canvas.sortingOrder = originalOrder;
+                target.Release(); UnityEngine.Object.Destroy(target);
+            }
         }
 
         /// <summary>高速移动边界与安全生成点使用真实竞技场组件。</summary>

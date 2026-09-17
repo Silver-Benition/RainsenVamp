@@ -113,9 +113,7 @@ public static class RoundCombatSetup
         foreach (string guid in AssetDatabase.FindAssets("t:AccountUpgradeDataSO", new[] { "Assets/Data/AccountUpgrades" }))
         {
             var data = AssetDatabase.LoadAssetAtPath<AccountUpgradeDataSO>(AssetDatabase.GUIDToAssetPath(guid));
-            var serialized = new SerializedObject(data);
-            SerializedProperty property = serialized.FindProperty("icon");
-            if (property != null && property.objectReferenceValue != null) { icon = property.objectReferenceValue as Sprite; break; }
+            if (data != null && data.statType == type) { icon = data.icon; break; }
         }
         shop.stats.Add(new RoundStatUpgrade { id = "round.stat." + type, nameKey = "round.stat." + type,
             displayName = PlayerStatPresentation.GetDisplayName(type), icon = icon, modifier = new PlayerStatModifier(type, mode, value) });

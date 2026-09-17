@@ -28,6 +28,7 @@ public sealed class RunShopService
     private bool _busy;
     private int _wave;
     private int _rerolls;
+    public bool IsBusy => _busy;
     public IReadOnlyList<RunShopOffer> Offers => _offers;
     public int RefreshPrice => (int)Math.Min(int.MaxValue, (long)_catalog.initialRerollPrice + _wave + (long)_rerolls * _catalog.rerollPriceStep);
 
@@ -38,7 +39,7 @@ public sealed class RunShopService
 
     /// <summary>进入新商店，保留锁定报价并重置刷新次数。</summary>
     public void Enter(int completedWave)
-    { _wave = completedWave; _rerolls = 0; FillUnlocked(); }
+    { if (_busy) return; _wave = completedWave; _rerolls = 0; FillUnlocked(); }
 
     /// <summary>按下一回合可出现档位和 Luck 抽取品质，早期保留基础装备。</summary>
     private int RollTier()
@@ -99,12 +100,16 @@ public sealed class RunShopService
         _busy = true;
         try
         {
-            bool granted = offer.Product.IsWeapon
-                ? _loadout.BuyRoundWeapon(offer.Product.content.weaponToGrant, offer.Tier) != null
-                : _items.GrantOrUpgrade(offer.Product.content.abilityToGrant) != null;
-            if (!granted) return false;
-            _offers[slot] = null;
-            return _wallet.TrySpend(offer.Price);
+            return _wallet.Transact(offer.Price, 0, () =>
+            {
+                // 先移除报价与预留余额；装备事件观察者只能读到这笔交易后的状态。
+                _offers[slot] = null;
+                bool granted = offer.Product.IsWeapon
+                    ? _loadout.BuyRoundWeapon(offer.Product.content.weaponToGrant, offer.Tier) != null
+                    : _items.GrantOrUpgrade(offer.Product.content.abilityToGrant) != null;
+                if (!granted) _offers[slot] = offer;
+                return granted;
+            });
         }
         finally { _busy = false; }
     }
@@ -128,9 +133,8 @@ public sealed class RunShopService
         try
         {
             int price = RefreshPrice;
-            FillUnlocked();
-            _rerolls++;
-            return _wallet.TrySpend(price);
+            return _wallet.Transact(price, 0, () =>
+            { FillUnlocked(); _rerolls++; return true; });
         }
         finally { _busy = false; }
     }
@@ -145,9 +149,7 @@ public sealed class RunShopService
         _busy = true;
         try
         {
-            if (!_loadout.RemoveRoundWeapon(weapon)) return false;
-            _wallet.Credit(amount);
-            return true;
+            return _wallet.Transact(0, amount, () => _loadout.RemoveRoundWeapon(weapon));
         }
         finally { _busy = false; }
     }

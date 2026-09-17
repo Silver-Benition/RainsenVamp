@@ -215,7 +215,7 @@ public sealed class AccountProgressService
         _data = candidate;
         RebuildIndexes();
         LastTransactionError = string.Empty;
-        Changed?.Invoke();
+        RunTransactionEvents.Publish(Changed);
         return true;
     }
 
@@ -455,7 +455,7 @@ public sealed class AccountProgressService
     private void PersistAndNotify()
     {
         Save();
-        Changed?.Invoke();
+        RunTransactionEvents.Publish(Changed);
     }
 
     /// <summary>把当前账号快照写入存储后端。</summary>

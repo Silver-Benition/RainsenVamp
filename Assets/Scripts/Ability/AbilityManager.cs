@@ -84,7 +84,7 @@ public sealed class AbilityManager : MonoBehaviour
 
             ApplyCurrentLevel(existing);
             existing.MechanicRuntime?.SetLevel(existing.CurrentLevel);
-            OwnedAbilitiesChanged?.Invoke();
+            RunTransactionEvents.Publish(OwnedAbilitiesChanged);
             Debug.Log($"[AbilityManager] 能力升级：{abilityData.GetDisplayName()} Lv.{existing.CurrentLevel}/{existing.MaxLevel}");
             return existing;
         }
@@ -110,7 +110,7 @@ public sealed class AbilityManager : MonoBehaviour
                 state.CurrentLevel);
         }
 
-        OwnedAbilitiesChanged?.Invoke();
+        RunTransactionEvents.Publish(OwnedAbilitiesChanged);
         Debug.Log($"[AbilityManager] 获得能力：{abilityData.GetDisplayName()} Lv.1/{state.MaxLevel}");
         return state;
     }

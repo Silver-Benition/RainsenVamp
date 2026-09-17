@@ -271,38 +271,43 @@ namespace RainsenVampSur.Tests.PlayMode
 
         }
 
-        /// <summary>真实升级页在 Seal 与 Banish 清空候选时继续队列；解封后出现一张可选卡并恢复游戏。</summary>
+        /// <summary>封印过滤局内商店；属性放逐耗尽时回合升级队列可继续，解封恢复合法商品。</summary>
         [UnityTest]
-        public IEnumerator SealAndBanish_EmptyQueueContinues_UnsealRestoresRealCard()
+        public IEnumerator SealAndBanish_RoundQueueContinues_UnsealRestoresShopProduct()
         {
-            yield return SceneManager.LoadSceneAsync("MainLevel"); yield return null;
-            object manager = Find("LevelUpManager");
+            yield return SceneManager.LoadSceneAsync("MainLevel"); yield return null; yield return null;
+            object rounds = Find("RoundController");
             object state = Find("RunState");
-            IList upgrades = Field<IList>(manager, "allAvailableUpgrades");
-            Assert.That(upgrades.Count, Is.GreaterThan(1));
-            string sealedId = (string)Call(upgrades[0], "GetStableId");
+            object stats = Find("PlayerStats");
+            object config = Field<object>(rounds, "config");
+            object catalog = Field<object>(config, "shopCatalog");
+            IList products = Field<IList>(catalog, "products");
+            string sealedId = Get<string>(products[0], "Id");
             Call(_account, "DiscoverUpgrade", sealedId);
             Assert.IsTrue((bool)Call(_account, "TrySetUpgradeSealed", sealedId, true));
-            for (int i = 1; i < upgrades.Count; i++) Call(state, "BanishUpgrade", Call(upgrades[i], "GetStableId"));
-            object stats = Find("PlayerStats");
+            foreach (object option in Field<IList>(catalog, "stats"))
+                Call(state, "BanishUpgrade", Field<string>(option, "id"));
             RuntimeComponentTestUtility.SetField(stats, "_levelUpQueue", 2);
             Call(stats, "CheckLevelUpQueue");
-            yield return null;
-            Assert.That(Time.timeScale, Is.EqualTo(1));
-            Assert.That(Field<int>(stats, "_levelUpQueue"), Is.Zero);
-            Assert.IsFalse(Field<GameObject>(manager, "levelUpPanel").activeSelf);
+            Assert.AreEqual(2, Get<int>(stats, "PendingLevelUps"), "战斗中不能弹出或消费属性选择。");
+            Call(rounds, "Tick", 100f);
+            yield return null; yield return null;
+            Assert.AreEqual(0, Get<int>(stats, "PendingLevelUps"), "候选耗尽仍应完成队列。");
+            Assert.AreEqual("Shop", Get<object>(rounds, "Phase").ToString());
+            object shop = Get<object>(rounds, "Shop");
+            foreach (object offer in Get<IList>(shop, "Offers"))
+                if (offer != null) Assert.AreNotEqual(sealedId, Get<string>(Get<object>(offer, "Product"), "Id"));
             Assert.IsTrue((bool)Call(_account, "TrySetUpgradeSealed", sealedId, false));
-            Call(manager, "ShowLevelUpUI");
-            yield return null;
-            Assert.IsTrue(Field<GameObject>(manager, "levelUpPanel").activeSelf);
-            Assert.That(Time.timeScale, Is.Zero);
-            IList candidates = Field<IList>(manager, "_currentCandidates");
-            Assert.That(candidates.Count, Is.EqualTo(1));
-            Call(manager, "HandleCandidateSelected", candidates[0]);
-            yield return null;
-            Assert.That(Time.timeScale, Is.EqualTo(1));
-            Assert.IsFalse(Field<GameObject>(manager, "levelUpPanel").activeSelf);
-            Assert.IsTrue((bool)Call(state, "IsBanished", Call(upgrades[1], "GetStableId")));
+            // 用测试局部目录收窄候选以确定性验证解封，不依赖反复随机刷新。
+            ScriptableObject clonedCatalog = UnityEngine.Object.Instantiate((ScriptableObject)catalog);
+            IList cloneProducts = Field<IList>(clonedCatalog, "products");
+            object first = cloneProducts[0]; cloneProducts.Clear(); cloneProducts.Add(first);
+            Type serviceType = RuntimeComponentTestUtility.RequireRuntimeType("RunShopService");
+            object isolated = Activator.CreateInstance(serviceType, clonedCatalog, Get<object>(rounds, "Wallet"),
+                Get<object>(rounds, "Loadout"), Get<object>(rounds, "Items"), stats, new Func<bool>(() => true));
+            Call(isolated, "Enter", 1);
+            Assert.AreEqual(sealedId, Get<string>(Get<object>(Get<IList>(isolated, "Offers")[0], "Product"), "Id"));
+            UnityEngine.Object.Destroy(clonedCatalog);
         }
 
         /// <summary>已占用槽位和只读账号提前禁用按钮并显示原因，迟到确认不能绕过限制。</summary>

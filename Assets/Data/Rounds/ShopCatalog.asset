@@ -39,7 +39,7 @@ MonoBehaviour:
   - id: round.stat.MaxHealth
     nameKey: round.stat.MaxHealth
     displayName: "\u6700\u5927\u751F\u547D"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
     modifier:
       statType: 0
       mode: 0
@@ -47,7 +47,7 @@ MonoBehaviour:
   - id: round.stat.Recovery
     nameKey: round.stat.Recovery
     displayName: "\u751F\u547D\u6062\u590D"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
     modifier:
       statType: 1
       mode: 0
@@ -71,7 +71,7 @@ MonoBehaviour:
   - id: round.stat.Might
     nameKey: round.stat.Might
     displayName: "\u529B\u91CF"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 4
       mode: 0
@@ -79,7 +79,7 @@ MonoBehaviour:
   - id: round.stat.Cooldown
     nameKey: round.stat.Cooldown
     displayName: "\u51B7\u5374"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
     modifier:
       statType: 9
       mode: 0
@@ -87,7 +87,7 @@ MonoBehaviour:
   - id: round.stat.Area
     nameKey: round.stat.Area
     displayName: "\u653B\u51FB\u8303\u56F4"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
     modifier:
       statType: 5
       mode: 0
@@ -95,7 +95,7 @@ MonoBehaviour:
   - id: round.stat.Luck
     nameKey: round.stat.Luck
     displayName: "\u5E78\u8FD0"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 10
       mode: 0
@@ -103,7 +103,7 @@ MonoBehaviour:
   - id: round.stat.Growth
     nameKey: round.stat.Growth
     displayName: "\u6210\u957F"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
     modifier:
       statType: 11
       mode: 0
@@ -111,7 +111,7 @@ MonoBehaviour:
   - id: round.stat.Magnet
     nameKey: round.stat.Magnet
     displayName: "\u78C1\u5438\u8303\u56F4"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 14
       mode: 1
