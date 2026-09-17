@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54fac86b00a88784db7cc28ee21c0c83, type: 3}
   m_Name: Umbrella
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   weaponID: umbrella_sweep
   weaponNameKey: weapon.umbrella_sweep.name
   descriptionKey: weapon.umbrella_sweep.description
@@ -35,12 +35,12 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1.5
     meleeArc: 90
     activeDuration: 0.18
-    features: 
+    features:
   - damage: 15
     cooldown: 1
     projectileCount: 1
@@ -54,12 +54,12 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1.7
     meleeArc: 90
     activeDuration: 0.18
-    features: 
+    features:
   - damage: 18
     cooldown: 0.9
     projectileCount: 1
@@ -73,12 +73,12 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1.8
     meleeArc: 110
     activeDuration: 0.18
-    features: 
+    features:
   - damage: 22
     cooldown: 0.8
     projectileCount: 1
@@ -92,12 +92,12 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 2
     meleeArc: 125
     activeDuration: 0.2
-    features: 
+    features:
   - damage: 28
     cooldown: 0.7
     projectileCount: 1
@@ -111,11 +111,88 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 2.2
     meleeArc: 150
     activeDuration: 0.22
-    features: 
+    features:
   projectilePrefab: {fileID: 5300000000000000001, guid: 3a685dc9c3352a54d86310f6cd47d92d, type: 3}
   ignoredPlayerStats: 4
+  roundTierConfigs:
+  - damage: 12
+    cooldown: 1
+    projectileCount: 1
+    projectileSpeed: 0
+    pierceCount: 0
+    lifeTime: 1
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 0
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 1.5
+    meleeArc: 90
+    activeDuration: 0.18
+    features:
+  - damage: 15
+    cooldown: 1
+    projectileCount: 1
+    projectileSpeed: 0
+    pierceCount: 0
+    lifeTime: 1
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 0
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 1.7
+    meleeArc: 90
+    activeDuration: 0.18
+    features:
+  - damage: 22
+    cooldown: 0.8
+    projectileCount: 1
+    projectileSpeed: 0
+    pierceCount: 0
+    lifeTime: 1
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 0
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 2
+    meleeArc: 125
+    activeDuration: 0.2
+    features:
+  - damage: 28
+    cooldown: 0.7
+    projectileCount: 1
+    projectileSpeed: 0
+    pierceCount: 0
+    lifeTime: 1
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 0
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 2.2
+    meleeArc: 150
+    activeDuration: 0.22
+    features:

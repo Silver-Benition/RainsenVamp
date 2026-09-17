@@ -126,6 +126,8 @@ public sealed class RunState : MonoBehaviour
         if (KillCount < int.MaxValue)
         {
             KillCount++;
+            if (RoundController.Enabled && RoundController.Instance.Current != null)
+                RoundController.Instance.ReportObjective("kills", 1, RoundController.Instance.Current.Generation);
             StateChanged?.Invoke();
         }
     }

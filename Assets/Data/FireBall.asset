@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54fac86b00a88784db7cc28ee21c0c83, type: 3}
   m_Name: FireBall
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   weaponID: fireball
   weaponNameKey: weapon.fireball.name
   descriptionKey: weapon.fireball.description
@@ -35,7 +35,7 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
@@ -54,7 +54,7 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
@@ -73,7 +73,7 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
@@ -92,7 +92,7 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
@@ -111,10 +111,88 @@ MonoBehaviour:
     tickInterval: 0.5
     orbitRadius: 1.7
     orbitAngularSpeed: 180
-    arcHeight: 0
+    lobGravity: 0
     spinSpeed: 0
     meleeRange: 1
     meleeArc: 90
     activeDuration: 0.18
     features:
   projectilePrefab: {fileID: 2303125396859290572, guid: 9a017251c9b44e149873a6f095f257f1, type: 3}
+  ignoredPlayerStats: 0
+  roundTierConfigs:
+  - damage: 8
+    cooldown: 0.9
+    projectileCount: 1
+    projectileSpeed: 7
+    pierceCount: 0
+    lifeTime: 2.2
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 1
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 1
+    meleeArc: 90
+    activeDuration: 0.18
+    features:
+  - damage: 10
+    cooldown: 0.85
+    projectileCount: 1
+    projectileSpeed: 7.2
+    pierceCount: 0
+    lifeTime: 2.2
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 1
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 1
+    meleeArc: 90
+    activeDuration: 0.18
+    features:
+  - damage: 12
+    cooldown: 0.8
+    projectileCount: 2
+    projectileSpeed: 7.5
+    pierceCount: 1
+    lifeTime: 2.3
+    spreadAngle: 18
+    bounceCount: 0
+    bounceMode: 1
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 1
+    meleeArc: 90
+    activeDuration: 0.18
+    features:
+  - damage: 15
+    cooldown: 0.7
+    projectileCount: 2
+    projectileSpeed: 8
+    pierceCount: 1
+    lifeTime: 2.5
+    spreadAngle: 14
+    bounceCount: 1
+    bounceMode: 1
+    auraRadius: 1
+    tickInterval: 0.5
+    orbitRadius: 1.7
+    orbitAngularSpeed: 180
+    lobGravity: 0
+    spinSpeed: 0
+    meleeRange: 1
+    meleeArc: 90
+    activeDuration: 0.18
+    features:

@@ -1,0 +1,197 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8747c5a1ab0f7f4cb37c3b3d8fd64f0, type: 3}
+  m_Name: Standard20
+  m_EditorClassIdentifier:
+  arenaSize: {x: 24, y: 16}
+  shopCatalog: {fileID: 11400000, guid: f92634fc0f99c764d8e97798b5980091, type: 2}
+  rounds:
+  - survivalSeconds: 20
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: ae35e406d3e6bdb4f89286eb711b1537, type: 2}
+    enemyHealthMultiplier: 1
+    enemyDamageMultiplier: 1
+    objectives: []
+  - survivalSeconds: 25
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 55db2fc49c390fc4eaaa6a13b93476b6, type: 2}
+    enemyHealthMultiplier: 1.15
+    enemyDamageMultiplier: 1.05
+    objectives: []
+  - survivalSeconds: 30
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 37729ff7e3448344a9c4bc1b7a050345, type: 2}
+    enemyHealthMultiplier: 1.3
+    enemyDamageMultiplier: 1.1
+    objectives: []
+  - survivalSeconds: 35
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: c95eee7cafa863d40b38fa16929e7f79, type: 2}
+    enemyHealthMultiplier: 1.45
+    enemyDamageMultiplier: 1.15
+    objectives: []
+  - survivalSeconds: 40
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 141bdb71bee523543af4f2a61c157f27, type: 2}
+    enemyHealthMultiplier: 1.6
+    enemyDamageMultiplier: 1.2
+    objectives: []
+  - survivalSeconds: 45
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 8d7770520e4b4f5438177e7601e53e01, type: 2}
+    enemyHealthMultiplier: 1.75
+    enemyDamageMultiplier: 1.25
+    objectives: []
+  - survivalSeconds: 50
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 9ef76747a8cba5d4985a4f17313b8445, type: 2}
+    enemyHealthMultiplier: 1.9000001
+    enemyDamageMultiplier: 1.3
+    objectives: []
+  - survivalSeconds: 55
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 82ccc7aa54ddd7148b9579edaf903ce6, type: 2}
+    enemyHealthMultiplier: 2.05
+    enemyDamageMultiplier: 1.35
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 5d4f4abc56935804999fdc2a5d1a7d2c, type: 2}
+    enemyHealthMultiplier: 2.2
+    enemyDamageMultiplier: 1.4
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: c60d44ec1e1b72544b94847c7e9bf317, type: 2}
+    enemyHealthMultiplier: 2.3500001
+    enemyDamageMultiplier: 1.45
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 3c9d7fcdadb53f840b5db1ee5d0b01d9, type: 2}
+    enemyHealthMultiplier: 2.5
+    enemyDamageMultiplier: 1.5
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: a6f5fc5d665281a479ba21ce37dad5e1, type: 2}
+    enemyHealthMultiplier: 2.65
+    enemyDamageMultiplier: 1.55
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 697373383341b2d45950996726991451, type: 2}
+    enemyHealthMultiplier: 2.8000002
+    enemyDamageMultiplier: 1.6
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: bd2c7fe6616067c489a81c2b03c7b9b1, type: 2}
+    enemyHealthMultiplier: 2.95
+    enemyDamageMultiplier: 1.65
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 521ef28e870ecc344b957e40a62043ee, type: 2}
+    enemyHealthMultiplier: 3.1000001
+    enemyDamageMultiplier: 1.7
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 89020bba800a46a479b874f7f1490f4d, type: 2}
+    enemyHealthMultiplier: 3.25
+    enemyDamageMultiplier: 1.75
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: b899101388a80af49b1e8ef7d4ca250e, type: 2}
+    enemyHealthMultiplier: 3.4
+    enemyDamageMultiplier: 1.8
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 263a7375fe8d8fb48a31a66b9026e0b0, type: 2}
+    enemyHealthMultiplier: 3.5500002
+    enemyDamageMultiplier: 1.85
+    objectives: []
+  - survivalSeconds: 60
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 0
+    spawnBoss: 0
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: 69e5888a555f1374886fda5b3f165fcc, type: 2}
+    enemyHealthMultiplier: 3.7
+    enemyDamageMultiplier: 1.9
+    objectives: []
+  - survivalSeconds: 90
+    deadlineSeconds: 0
+    allowEarlyBossVictory: 1
+    spawnBoss: 1
+    requireAllObjectives: 1
+    spawnConfig: {fileID: 11400000, guid: c01e6ebc7ade0244d965e13461dc9055, type: 2}
+    enemyHealthMultiplier: 3.8500001
+    enemyDamageMultiplier: 1.95
+    objectives: []

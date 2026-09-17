@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 双世界线 MVP 的总协调器。
-/// 
+///
 /// 主世界和副世界各自拥有独立的地图流和测试敌人集合，但共享玩家坐标。
 /// 协调器只负责决定哪一套世界内容对玩家开放 Renderer/Collider；不销毁或暂停
 /// 副世界对象，因此副世界敌人可以继续追踪玩家位置。
@@ -72,6 +72,12 @@ public class WorldLineCoordinator : MonoBehaviour
         // 先设置状态，再等待两个世界各自 Start 生成区块和敌人。
         // 这样副世界在生成完成后会自动保持隐藏且不可交互，但仍会运行 AI。
         ApplyWorldStates();
+        if (RoundController.Enabled)
+        {
+            SetWorldSwitchLocked(true);
+            subWorld.worldWaveManager.gameObject.SetActive(false);
+            if (subWorld.mapStreamManager != null) subWorld.mapStreamManager.gameObject.SetActive(false);
+        }
     }
 
     private void Update()

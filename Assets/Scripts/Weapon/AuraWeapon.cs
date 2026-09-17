@@ -30,7 +30,7 @@ public sealed class AuraWeapon : WeaponBase
     /// </summary>
     protected override void Attack()
     {
-        if (weaponData == null || weaponData.projectilePrefab == null || PoolManager.Instance == null)
+        if (!RoundController.AllowsCombat || weaponData == null || weaponData.projectilePrefab == null || PoolManager.Instance == null)
         {
             return;
         }

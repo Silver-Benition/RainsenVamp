@@ -886,4 +886,66 @@ public class LevelUpManager : MonoBehaviour
             _playerStats.CheckLevelUpQueue();
         }
     }
+
+    /// <summary>校验同品质满槽自动合并或新增槽位，不在校验阶段修改装备。</summary>
+    public bool CanBuyRoundWeapon(WeaponDataSO data, int tier)
+    {
+        if (data == null || tier < 1 || tier > 4 || !ResolvePlayerReferences()) return false;
+        return _ownedWeaponOrder.Count < PlayerLoadoutRules.MaxWeaponCount || (tier < 4 && FindRoundMatch(data, tier, null) != null);
+    }
+
+    /// <summary>购买独立武器或在满槽时自动合并；商店负责价格和阶段检查。</summary>
+    public WeaponBase BuyRoundWeapon(WeaponDataSO data, int tier)
+    {
+        if (!CanBuyRoundWeapon(data, tier)) return null;
+        WeaponBase weapon;
+        if (_ownedWeaponOrder.Count >= PlayerLoadoutRules.MaxWeaponCount)
+        {
+            weapon = FindRoundMatch(data, tier, null);
+            if (!weapon.TryLevelUp()) return null;
+        }
+        else
+        {
+            weapon = CreateNewWeapon(data, GetWeaponId(data));
+            weapon.enabled = RoundController.AllowsCombat;
+            while (weapon.CurrentLevel < tier) weapon.TryLevelUp();
+            WeaponAdded?.Invoke(weapon);
+        }
+        NotifyOwnedWeaponsChanged();
+        return weapon;
+    }
+
+    /// <summary>查找另一把同内容同品质武器；实例引用区分六个装备槽。</summary>
+    private WeaponBase FindRoundMatch(WeaponDataSO data, int tier, WeaponBase excluded)
+    {
+        foreach (WeaponBase weapon in _ownedWeaponOrder)
+            if (weapon != null && weapon != excluded && weapon.weaponData == data && weapon.CurrentLevel == tier) return weapon;
+        return null;
+    }
+
+    /// <summary>移除指定实例并维护内容查询索引，持续攻击实体通过 OnDisable 回池。</summary>
+    public bool RemoveRoundWeapon(WeaponBase weapon)
+    {
+        if (weapon == null || !_ownedWeaponOrder.Remove(weapon)) return false;
+        weapon.enabled = false;
+        string id = GetWeaponId(weapon.weaponData);
+        ownedWeapons.Remove(id);
+        foreach (WeaponBase other in _ownedWeaponOrder)
+            if (other != null && GetWeaponId(other.weaponData) == id) { ownedWeapons[id] = other; break; }
+        Destroy(weapon.gameObject);
+        NotifyOwnedWeaponsChanged();
+        return true;
+    }
+
+    /// <summary>同种同品质两把合成一把高品质武器；最高品质和无配对实例无操作。</summary>
+    public bool CombineRoundWeapon(WeaponBase weapon)
+    {
+        if (weapon == null || !_ownedWeaponOrder.Contains(weapon) || weapon.CurrentLevel >= 4) return false;
+        WeaponBase other = FindRoundMatch(weapon.weaponData, weapon.CurrentLevel, weapon);
+        if (other == null || !weapon.TryLevelUp()) return false;
+        RemoveRoundWeapon(other);
+        NotifyOwnedWeaponsChanged();
+        return true;
+    }
+
 }

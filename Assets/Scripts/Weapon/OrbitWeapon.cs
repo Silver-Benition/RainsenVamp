@@ -72,6 +72,7 @@ public sealed class OrbitWeapon : WeaponBase
     /// </summary>
     private void SynchronizeOrbiters()
     {
+        if (!RoundController.AllowsCombat) return;
         if (weaponData == null || weaponData.projectilePrefab == null || PoolManager.Instance == null)
         {
             ReleaseAllOrbiters();

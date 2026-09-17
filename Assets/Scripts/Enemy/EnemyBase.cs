@@ -156,7 +156,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
             return;
         }
 
-        _rigidbody.velocity = direction * _spawnSnapshot.MoveSpeed;
+        _rigidbody.velocity = RoundArena.ConstrainVelocity(_rigidbody, direction * _spawnSnapshot.MoveSpeed, .5f);
 
         if (direction.x != 0f)
         {
@@ -236,7 +236,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         _currentHealth = safeCurrentHealth;
         // 回池后的对象已恢复下一生命周期基础生命，但在再次 Spawn 前必须拒绝所有外部伤害。
         if (!isActiveAndEnabled || safeDamage <= 0f || safeCurrentHealth <= 0f ||
-            (RunDirector.Instance != null && RunDirector.Instance.IsResultFrozen))
+            (!RoundController.AllowsCombat || (RunDirector.Instance != null && RunDirector.Instance.IsResultFrozen)))
         {
             return new CombatDamageResult(
                 safeDamage,

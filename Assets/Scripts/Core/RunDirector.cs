@@ -116,7 +116,7 @@ public sealed class RunDirector : MonoBehaviour
         ResolveDependencies();
         BindRuntimeEvents();
 
-        if (_resultFrozen || Time.timeScale <= 0f)
+        if (_resultFrozen || Time.timeScale <= 0f || !RoundController.AllowsCombat)
         {
             return;
         }
@@ -124,7 +124,12 @@ public sealed class RunDirector : MonoBehaviour
         _elapsedSeconds = RunResultValueSanitizer.SaturatingAdd(
             _elapsedSeconds,
             RunResultValueSanitizer.SanitizeNonNegative(Time.deltaTime));
-        if (!_bossSpawned && bossEncounter != null &&
+        if (RoundController.Enabled)
+        {
+            RoundController.Instance.Tick(Time.deltaTime);
+            _telemetry.TickRoundWeapons(Time.deltaTime);
+        }
+        if (!RoundController.Enabled && !_bossSpawned && bossEncounter != null &&
             _elapsedSeconds >= bossEncounter.GetSafeTriggerTime())
         {
             TryStartBossEncounter();
@@ -152,6 +157,7 @@ public sealed class RunDirector : MonoBehaviour
         }
 
         Vector3 spawnPosition = _playerTransform.position + Vector3.right * Mathf.Max(0.5f, bossEncounter.spawnDistance);
+        if (RoundController.Enabled && !RoundArena.TrySpawnPosition(_playerTransform.position, out spawnPosition)) return false;
         GameObject bossObject = simulation.SpawnBoss(
             bossEncounter.bossPrefab,
             spawnPosition,
@@ -194,6 +200,12 @@ public sealed class RunDirector : MonoBehaviour
             return;
         }
 
+        if (RoundController.Enabled)
+        {
+            RoundController rounds = RoundController.Instance;
+            rounds.ReportObjective("boss", 1, rounds.Current.Generation);
+            return;
+        }
         FreezeRun(RunOutcome.Victory);
     }
 
@@ -287,6 +299,7 @@ public sealed class RunDirector : MonoBehaviour
         }
 
         _finalSnapshot = BuildSnapshot(outcome, false);
+        if (RoundController.Enabled) RoundController.Instance.Finish();
         _deathPreviewSnapshot = null;
         ResultFrozen?.Invoke(_finalSnapshot);
 
@@ -372,7 +385,11 @@ public sealed class RunDirector : MonoBehaviour
             abilitySnapshots,
             _telemetry != null
                 ? _telemetry.CreatePickupSnapshots()
-                : new List<RunResultPickupSnapshot>());
+                : new List<RunResultPickupSnapshot>(),
+            RoundController.Enabled ? RoundController.Instance.CompletedRounds : 0,
+            RoundController.Enabled ? RoundController.Instance.config.rounds.Count : 0,
+            RoundController.Enabled ? RoundController.Instance.Wallet.Earned : 0,
+            RoundController.Enabled ? RoundController.Instance.Wallet.Spent : 0);
     }
 
     /// <summary>解析 Player、RunState、WorldLineCoordinator 和结果统计相关管理器。</summary>
@@ -440,6 +457,7 @@ public sealed class RunDirector : MonoBehaviour
             {
                 _boundLevelUpManager.InitialWeaponsReady -= HandleInitialWeaponsReady;
                 _boundLevelUpManager.WeaponAdded -= HandleRuntimeWeaponAdded;
+                _boundLevelUpManager.OwnedWeaponsChanged -= HandleRoundLoadoutChanged;
             }
 
             _boundLevelUpManager = levelUpManager;
@@ -447,6 +465,7 @@ public sealed class RunDirector : MonoBehaviour
             {
                 _boundLevelUpManager.InitialWeaponsReady += HandleInitialWeaponsReady;
                 _boundLevelUpManager.WeaponAdded += HandleRuntimeWeaponAdded;
+                _boundLevelUpManager.OwnedWeaponsChanged += HandleRoundLoadoutChanged;
             }
         }
     }
@@ -465,6 +484,7 @@ public sealed class RunDirector : MonoBehaviour
         {
             _boundLevelUpManager.InitialWeaponsReady -= HandleInitialWeaponsReady;
             _boundLevelUpManager.WeaponAdded -= HandleRuntimeWeaponAdded;
+                _boundLevelUpManager.OwnedWeaponsChanged -= HandleRoundLoadoutChanged;
             _boundLevelUpManager = null;
         }
     }
@@ -499,5 +519,21 @@ public sealed class RunDirector : MonoBehaviour
 
         SyncInitialWeapons();
         _telemetry.RegisterRuntimeWeapon(weapon.weaponData, _elapsedSeconds);
+    }
+
+    /// <summary>由回合流程在全部回合通过后提交整局胜利。</summary>
+    public void CompleteRoundRun()
+    { if (RoundController.Enabled && RoundController.Instance.CompletedRounds == RoundController.Instance.config.rounds.Count) FreezeRun(RunOutcome.Victory); }
+
+    /// <summary>回合准备时清除上一首领句柄，不重置整局计时与统计。</summary>
+    public void PrepareRoundEncounter()
+    { _boss = null; _pendingBossDefeat = null; _bossSpawned = false; }
+
+
+    /// <summary>购买、合并和回收后同步装备类型及最高品质，不丢失历史伤害。</summary>
+    private void HandleRoundLoadoutChanged()
+    {
+        if (RoundController.Enabled && _telemetry != null && levelUpManager != null)
+            _telemetry.SyncOwnedWeapons(levelUpManager.OwnedWeapons, _elapsedSeconds, false);
     }
 }

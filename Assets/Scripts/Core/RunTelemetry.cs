@@ -14,6 +14,8 @@ public sealed class RunTelemetry
         public string stableId;
         public float firstEffectTime;
         public float actualDamage;
+        public float roundActiveSeconds;
+        public int highestTier = 1;
     }
 
     private sealed class PickupRecord
@@ -30,6 +32,7 @@ public sealed class RunTelemetry
         new Dictionary<string, PickupRecord>(StringComparer.Ordinal);
     private readonly List<PickupRecord> _pickupOrder = new List<PickupRecord>(8);
     private bool _frozen;
+    private readonly HashSet<string> _roundEquippedTypes = new HashSet<string>(StringComparer.Ordinal);
     private float _lastRuntimeWeaponAcquisitionTime;
     private bool _hasRuntimeWeaponAcquisitionTime;
 
@@ -58,6 +61,7 @@ public sealed class RunTelemetry
             return;
         }
 
+        _roundEquippedTypes.Clear();
         float safeTime = initialScan
             ? 0f
             : RunResultValueSanitizer.SanitizeNonNegative(officialTimeSeconds);
@@ -67,6 +71,9 @@ public sealed class RunTelemetry
             if (weapon != null && weapon.weaponData != null)
             {
                 RegisterWeapon(weapon.weaponData, safeTime);
+                string id = weapon.weaponData.GetStableId();
+                _roundEquippedTypes.Add(id);
+                _weaponsById[id].highestTier = Mathf.Max(_weaponsById[id].highestTier, weapon.CurrentLevel);
             }
         }
     }
@@ -225,7 +232,7 @@ public sealed class RunTelemetry
                 continue;
             }
 
-            int currentLevel = 1;
+            int currentLevel = record.highestTier;
             if (ownedWeapons != null)
             {
                 for (int weaponIndex = 0; weaponIndex < ownedWeapons.Count; weaponIndex++)
@@ -234,8 +241,7 @@ public sealed class RunTelemetry
                     if (weapon != null && weapon.weaponData != null &&
                         string.Equals(weapon.weaponData.GetStableId(), record.stableId, StringComparison.Ordinal))
                     {
-                        currentLevel = Mathf.Max(1, weapon.CurrentLevel);
-                        break;
+                        currentLevel = Mathf.Max(currentLevel, weapon.CurrentLevel);
                     }
                 }
             }
@@ -243,6 +249,7 @@ public sealed class RunTelemetry
             float activeDurationSeconds = RunResultValueSanitizer.CalculateActiveDuration(
                 safeFinalTime,
                 record.firstEffectTime);
+            if (RoundController.Enabled) activeDurationSeconds = record.roundActiveSeconds;
             float dps = RunResultValueSanitizer.CalculateDamagePerSecond(
                 record.actualDamage,
                 activeDurationSeconds);
@@ -252,7 +259,7 @@ public sealed class RunTelemetry
                 record.data.GetDisplayName(),
                 record.data.icon,
                 currentLevel,
-                record.data.MaxLevel,
+                RoundController.Enabled ? 4 : record.data.MaxLevel,
                 record.actualDamage,
                 record.firstEffectTime,
                 activeDurationSeconds,
@@ -310,4 +317,14 @@ public sealed class RunTelemetry
 
         return string.CompareOrdinal(left.PickupId, right.PickupId) > 0;
     }
+
+    /// <summary>累计当前装备类型的战斗时间并集；同名多把同时存在不重复增加分母，售出期间不计时。</summary>
+    public void TickRoundWeapons(float delta)
+    {
+        if (_frozen || delta <= 0) return;
+        foreach (string id in _roundEquippedTypes)
+            if (_weaponsById.TryGetValue(id, out WeaponRecord record))
+                record.roundActiveSeconds = RunResultValueSanitizer.SaturatingAdd(record.roundActiveSeconds, delta);
+    }
+
 }

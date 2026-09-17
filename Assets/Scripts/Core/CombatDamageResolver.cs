@@ -82,7 +82,7 @@ public static class CombatDamageResolver
         }
 
         RunDirector director = RunDirector.Instance;
-        if (director != null && director.IsResultFrozen)
+        if (!RoundController.AllowsCombat || (director != null && director.IsResultFrozen))
         {
             return new CombatDamageResult(safeDamage, 0f, 0f, false, false);
         }

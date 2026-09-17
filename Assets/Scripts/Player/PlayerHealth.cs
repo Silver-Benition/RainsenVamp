@@ -119,6 +119,7 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         // 《吸血鬼幸存者》式护甲采用固定平减，但任何一次有效攻击至少造成 1 点伤害。
         float armor = _playerStats != null ? _playerStats.Armor : 0f;
         float damageAfterArmor = Mathf.Max(1f, damage - armor);
+        if (!RoundController.AllowsCombat) return;
         float previousHealth = _currentHealth;
         _currentHealth = Mathf.Max(0f, _currentHealth - damageAfterArmor);
         float appliedDamage = previousHealth - _currentHealth;
@@ -222,4 +223,14 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         _currentHealth = Mathf.Min(_currentHealth, maxHealth);
         HealthChanged?.Invoke(_currentHealth, maxHealth);
     }
+
+    /// <summary>仅用于活着通过上一回合后的准备；恢复生命与受伤计时，不能代替死亡复活。</summary>
+    public void PrepareRound()
+    {
+        if (_isDead) return;
+        ApplyMaxHealth(_playerStats != null ? _playerStats.MaxHealth : maxHealth);
+        RestoreHealth(maxHealth);
+        _nextDamageAllowedTime = Time.time;
+    }
+
 }

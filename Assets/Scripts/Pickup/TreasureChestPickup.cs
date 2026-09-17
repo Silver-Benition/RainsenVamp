@@ -68,13 +68,18 @@ public sealed class TreasureChestPickup : MonoBehaviour, IPoolable
     /// <summary>玩家接触后申请一次即时奖励；没有合法奖励时仍回收宝箱，避免重复碰撞。</summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (_consumed || !collision.TryGetComponent(out PlayerStats _))
+        if (_consumed || !RoundController.AllowsCombat || !collision.TryGetComponent(out PlayerStats _))
         {
             return;
         }
 
         _consumed = true;
-        if (LevelUpManager.Instance != null)
+        if (RoundController.Enabled)
+        {
+            RoundController.Instance.QueueCrate();
+            PlayOpenVfx();
+        }
+        else if (LevelUpManager.Instance != null)
         {
             UpgradeDataSO reward = LevelUpManager.Instance.GrantRandomChestReward();
             if (reward != null)

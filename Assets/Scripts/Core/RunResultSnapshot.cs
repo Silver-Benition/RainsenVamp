@@ -152,8 +152,11 @@ public sealed class RunResultSnapshot
         IList<RunResultWeaponSnapshot> weapons,
         IList<RunResultAbilitySnapshot> items,
         IList<RunResultAbilitySnapshot> abilities,
-        IList<RunResultPickupSnapshot> instantEffectPickups)
+        IList<RunResultPickupSnapshot> instantEffectPickups,
+        int completedRounds = 0, int totalRounds = 0, int materialsEarned = 0, int materialsSpent = 0)
     {
+        CompletedRounds = completedRounds; TotalRounds = totalRounds;
+        MaterialsEarned = materialsEarned; MaterialsSpent = materialsSpent;
         Outcome = outcome;
         IsPreview = isPreview;
         MapNameKey = mapNameKey ?? string.Empty;
@@ -169,6 +172,10 @@ public sealed class RunResultSnapshot
         _instantEffectPickups = CopyReadOnly(instantEffectPickups);
     }
 
+    public int CompletedRounds { get; }
+    public int TotalRounds { get; }
+    public int MaterialsEarned { get; }
+    public int MaterialsSpent { get; }
     public RunOutcome Outcome { get; }
     public bool IsPreview { get; }
     public string MapNameKey { get; }

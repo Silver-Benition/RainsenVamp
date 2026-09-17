@@ -19,7 +19,8 @@ public sealed class GameFlowManager : MonoBehaviour
         LevelUp = 1 << 0,
         Manual = 1 << 1,
         GameOver = 1 << 2,
-        RunResult = 1 << 3
+        RunResult = 1 << 3,
+        Intermission = 1 << 4
     }
 
     public static GameFlowManager Instance { get; private set; }
@@ -118,7 +119,7 @@ public sealed class GameFlowManager : MonoBehaviour
             !Input.GetKeyDown(pauseKey) ||
             IsGameOver ||
             IsRunResultShowing ||
-            HasPauseReason(PauseReason.LevelUp))
+            (HasPauseReason(PauseReason.LevelUp) || HasPauseReason(PauseReason.Intermission)))
         {
             return;
         }
@@ -153,7 +154,7 @@ public sealed class GameFlowManager : MonoBehaviour
     /// <summary>进入手动暂停并显示暂停面板。</summary>
     public void PauseGame()
     {
-        if (IsGameOver || IsRunResultShowing || HasPauseReason(PauseReason.LevelUp) || IsManuallyPaused)
+        if (IsGameOver || IsRunResultShowing || HasPauseReason(PauseReason.LevelUp) || HasPauseReason(PauseReason.Intermission) || IsManuallyPaused)
         {
             return;
         }
@@ -740,4 +741,13 @@ public sealed class GameFlowManager : MonoBehaviour
             panel.SetActive(active);
         }
     }
+
+    /// <summary>局间阶段使用独立暂停原因，关闭局间页面也不会解除手动暂停。</summary>
+    public void SetIntermission(bool active)
+    {
+        if (active) AddPauseReason(PauseReason.Intermission);
+        else RemovePauseReason(PauseReason.Intermission);
+        if (playerRigidbody != null) playerRigidbody.velocity = Vector2.zero;
+    }
+
 }

@@ -299,13 +299,14 @@ public sealed class RunResultsUI : MonoBehaviour
         _basicsText.text =
             $"地图：{snapshot.MapDisplayName}\n" +
             $"生存时间：{FormatTime(snapshot.SurvivalTimeSeconds)}\n" +
-            $"金币：{snapshot.Gold}\n" +
+            $"账号金币：{snapshot.Gold}\n" +
             $"击杀：{snapshot.Kills}\n" +
             $"等级：Lv.{snapshot.Level}";
 
         _characterNameText.text = snapshot.Character.DisplayName;
         _characterIcon.sprite = snapshot.Character.Avatar;
         _characterIcon.enabled = snapshot.Character.Avatar != null;
+        if (snapshot.TotalRounds > 0) _basicsText.text += $"\n完成回合：{snapshot.CompletedRounds}/{snapshot.TotalRounds}\n材料获得 / 消费：{snapshot.MaterialsEarned} / {snapshot.MaterialsSpent}";
         _itemTitle.text = $"Items  ({snapshot.Items.Count})";
         _abilityTitle.text = $"Abilities  ({snapshot.Abilities.Count})";
 
@@ -360,7 +361,7 @@ public sealed class RunResultsUI : MonoBehaviour
             }
         }
 
-        SetWeaponColumnText(row, "Level", $"Lv.{weapon.CurrentLevel}/{weapon.MaxLevel}");
+        SetWeaponColumnText(row, "Level", $"{weapon.CurrentLevel}/{weapon.MaxLevel}");
         SetWeaponColumnText(row, "Damage", $"{weapon.ActualTotalDamage:F0}");
         SetWeaponColumnText(row, "Time", FormatTime(weapon.ActiveDurationSeconds));
         SetWeaponColumnText(row, "Dps", $"{weapon.DamagePerSecond:F1}");

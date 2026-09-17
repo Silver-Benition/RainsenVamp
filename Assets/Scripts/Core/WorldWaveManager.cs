@@ -17,6 +17,7 @@ public class WorldWaveManager : MonoBehaviour
     private readonly Dictionary<GameObject, EnemyDataSO> _enemyDataCache =
         new Dictionary<GameObject, EnemyDataSO>();
     private float elapsed;
+    private WaveConfigSO _roundConfig;
     private PlayerStats _playerStats;
 
     /// <summary>当前世界累计运行时间。</summary>
@@ -66,11 +67,12 @@ public class WorldWaveManager : MonoBehaviour
             return;
         }
 
-        WaveConfigSO config = worldLine != null ? worldLine.WaveConfig : null;
+        if (!RoundController.AllowsCombat) return;
+        WaveConfigSO config = _roundConfig != null ? _roundConfig : (worldLine != null ? worldLine.WaveConfig : null);
         if (config == null || playerTransform == null || enemySimulation == null) return;
 
-        elapsed += Time.deltaTime;
-        if (config.duration > 0f && elapsed >= config.duration) return;
+        elapsed = RoundController.Enabled ? RoundController.Instance.Current.Elapsed : elapsed + Time.deltaTime;
+        if (!RoundController.Enabled && config.duration > 0f && elapsed >= config.duration) return;
 
         EnsureCapacity();
         if (config.rules == null) return;
@@ -120,11 +122,18 @@ public class WorldWaveManager : MonoBehaviour
         Vector2 direction = Random.insideUnitCircle.normalized;
         if (direction.sqrMagnitude < 0.0001f) direction = Vector2.right;
         Vector3 position = playerTransform.position + (Vector3)(direction * Random.Range(min, max));
+        if (RoundController.Enabled && !RoundArena.TrySpawnPosition(playerTransform.position, out position)) return;
         EnemyDataSO enemyData = GetEnemyData(rule.enemyPrefab);
         EnemySpawnSnapshot snapshot = EnemySpawnSnapshotFactory.Create(
             enemyData,
             _playerStats,
             Random.value);
+        if (RoundController.Enabled)
+        {
+            RoundDefinition round = RoundController.Instance.Current.Definition;
+            snapshot = new EnemySpawnSnapshot(snapshot.MaxHealth * round.enemyHealthMultiplier, snapshot.MoveSpeed,
+                snapshot.CollisionDamage * round.enemyDamageMultiplier, snapshot.OutgoingDamageMultiplier * round.enemyDamageMultiplier, snapshot.IsDefanged);
+        }
         GameObject enemy = enemySimulation.SpawnEnemy(
             rule.enemyPrefab,
             position,
@@ -144,7 +153,8 @@ public class WorldWaveManager : MonoBehaviour
     /// <summary>确保规则数量变化后运行时计数数组仍与配置对齐。</summary>
     private void EnsureCapacity()
     {
-        int count = worldLine != null && worldLine.WaveConfig != null && worldLine.WaveConfig.rules != null ? worldLine.WaveConfig.rules.Count : 0;
+        WaveConfigSO config = _roundConfig != null ? _roundConfig : (worldLine != null ? worldLine.WaveConfig : null);
+        int count = config != null && config.rules != null ? config.rules.Count : 0;
         while (spawnAccumulators.Count < count) spawnAccumulators.Add(0f);
         while (aliveCounts.Count < count) aliveCounts.Add(0);
     }
@@ -176,4 +186,9 @@ public class WorldWaveManager : MonoBehaviour
         _enemyDataCache[enemyPrefab] = resolvedData;
         return resolvedData;
     }
+
+    /// <summary>回合进入时替换配置并清空生成积分，调用前必须已经清场。</summary>
+    public void BeginRound(WaveConfigSO config)
+    { _roundConfig = config; EnsureCapacity(); ResetRuntimeState(); elapsed = 0; enabled = true; }
+
 }

@@ -245,7 +245,7 @@ public class PlayerStats : MonoBehaviour
     /// <summary>若升级队列非空且游戏可继续，则交给 LevelUpManager 展示下一次选择。</summary>
     public void CheckLevelUpQueue()
     {
-        if (_levelUpQueue > 0 && Time.timeScale > 0f && LevelUpManager.Instance != null)
+        if (!RoundController.Enabled && _levelUpQueue > 0 && Time.timeScale > 0f && LevelUpManager.Instance != null)
         {
             _levelUpQueue--;
             LevelUpManager.Instance.ShowLevelUpUI();
@@ -407,4 +407,12 @@ public class PlayerStats : MonoBehaviour
             default: return Mathf.Max(0f, value);
         }
     }
+
+    /// <summary>回合间尚未处理的属性选择次数。</summary>
+    public int PendingLevelUps => _levelUpQueue;
+
+    /// <summary>成功处理一次选择或跳过后消费队列，不依赖时间缩放。</summary>
+    public bool ConsumePendingLevelUp()
+    { if (_levelUpQueue <= 0) return false; _levelUpQueue--; return true; }
+
 }

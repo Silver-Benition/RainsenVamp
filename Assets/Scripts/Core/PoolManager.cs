@@ -11,6 +11,10 @@ public class PoolManager : MonoBehaviour
     // 核心字典：Key为预制体引用，Value为对应的对象池
     private Dictionary<GameObject, ObjectPool<GameObject>> poolDictionary = new Dictionary<GameObject, ObjectPool<GameObject>>();
 
+    private readonly Dictionary<GameObject, GameObject> _activePrefabs = new Dictionary<GameObject, GameObject>();
+    private readonly List<GameObject> _releaseBuffer = new List<GameObject>();
+
+    /// <summary>建立场景对象池唯一入口。</summary>
     private void Awake()
     {
         // 经典的单例模式，确保全局唯一
@@ -54,6 +58,7 @@ public class PoolManager : MonoBehaviour
         GameObject obj = poolDictionary[prefab].Get();
         obj.transform.position = position;
         obj.transform.rotation = rotation;
+        _activePrefabs[obj] = prefab;
         return obj;
     }
 
@@ -64,6 +69,7 @@ public class PoolManager : MonoBehaviour
     /// <param name="instance">需要回收的实例</param>
     public void Release(GameObject prefab, GameObject instance)
     {
+        if (instance == null || !_activePrefabs.Remove(instance)) return;
         if (poolDictionary.ContainsKey(prefab))
         {
             poolDictionary[prefab].Release(instance);
@@ -80,7 +86,7 @@ public class PoolManager : MonoBehaviour
     {
         // 使用 Unity 2021+ 内置的 ObjectPool
         ObjectPool<GameObject> newPool = new ObjectPool<GameObject>(
-            createFunc: () => 
+            createFunc: () =>
             {
                 // 1. 创建逻辑
                 GameObject obj = Instantiate(prefab);
@@ -109,4 +115,18 @@ public class PoolManager : MonoBehaviour
 
         poolDictionary.Add(prefab, newPool);
     }
+
+    /// <summary>回合边界一次性回收活动池对象，不走敌人死亡和掉落逻辑；活动表去重。</summary>
+    public void ReleaseRoundObjects()
+    {
+        _releaseBuffer.Clear();
+        foreach (GameObject instance in _activePrefabs.Keys) _releaseBuffer.Add(instance);
+        for (int i = 0; i < _releaseBuffer.Count; i++)
+        {
+            GameObject instance = _releaseBuffer[i];
+            if (instance != null && _activePrefabs.TryGetValue(instance, out GameObject prefab)) Release(prefab, instance);
+        }
+        _releaseBuffer.Clear();
+    }
+
 }

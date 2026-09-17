@@ -58,7 +58,7 @@ public class PlayerController : MonoBehaviour
         // 物理层：在 FixedUpdate 中处理刚体移动，确保帧率波动时移动平滑且碰撞稳定
         // 从 PlayerStats 读取最终速度（含升级加成），找不到则用后备值
         float speed = playerStats != null ? playerStats.FinalMoveSpeed : fallbackMoveSpeed;
-        rb.velocity = movementInput * speed;
+        rb.velocity = RoundController.AllowsCombat ? RoundArena.ConstrainVelocity(rb, movementInput * speed, .4f) : Vector2.zero;
     }
 
     /// <summary>

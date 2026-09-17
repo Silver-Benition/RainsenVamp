@@ -89,7 +89,7 @@ public sealed class AbilityManager : MonoBehaviour
             return existing;
         }
 
-        if (_ownedOrder.Count >= PlayerLoadoutRules.MaxAbilityCount)
+        if (!RoundController.Enabled && _ownedOrder.Count >= PlayerLoadoutRules.MaxAbilityCount)
         {
             Debug.LogWarning(
                 $"[AbilityManager] 已达到 {PlayerLoadoutRules.MaxAbilityCount} 种能力上限，" +
@@ -140,7 +140,7 @@ public sealed class AbilityManager : MonoBehaviour
             return state != null && !state.IsMaxLevel;
         }
 
-        return _ownedOrder.Count < PlayerLoadoutRules.MaxAbilityCount;
+        return RoundController.Enabled || _ownedOrder.Count < PlayerLoadoutRules.MaxAbilityCount;
     }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

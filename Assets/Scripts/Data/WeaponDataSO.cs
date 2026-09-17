@@ -185,4 +185,15 @@ public sealed class WeaponDataSO : ScriptableObject
             ? displayDescription
             : descriptionKey;
     }
+
+    [Header("回合模式四档品质")]
+    public List<WeaponLevelData> roundTierConfigs = new List<WeaponLevelData>();
+
+    /// <summary>读取回合品质表；作者工具保证四档完整，旧配置只用于未迁移的独立夹具。</summary>
+    public WeaponLevelData GetRoundTierConfig(int tier)
+    {
+        return roundTierConfigs != null && roundTierConfigs.Count == 4
+            ? roundTierConfigs[Mathf.Clamp(tier - 1, 0, 3)] : GetLevelConfig(tier);
+    }
+
 }

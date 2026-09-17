@@ -49,6 +49,12 @@ public sealed class GameTimerUI : MonoBehaviour
             return;
         }
 
+        if (RoundController.Enabled)
+        {
+            RoundController rounds = RoundController.Instance;
+            timerText.text = $"回合 {rounds.RoundNumber}/{rounds.config.rounds.Count}  ·  {Mathf.CeilToInt(rounds.Current != null ? rounds.Current.Remaining : 0)}秒";
+            return;
+        }
         int totalSeconds = Mathf.FloorToInt(CurrentTimeSeconds);
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;

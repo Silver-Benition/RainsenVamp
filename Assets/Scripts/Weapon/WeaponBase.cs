@@ -14,7 +14,7 @@ public class WeaponBase : MonoBehaviour
     protected PlayerStats _playerStats;
 
     public int CurrentLevel => _currentLevel;
-    public int MaxLevel => weaponData != null ? weaponData.MaxLevel : 1;
+    public int MaxLevel => RoundController.Enabled ? 4 : (weaponData != null ? weaponData.MaxLevel : 1);
     public bool IsMaxLevel => CurrentLevel >= MaxLevel;
 
     /// <summary>
@@ -31,7 +31,7 @@ public class WeaponBase : MonoBehaviour
     /// </summary>
     protected virtual void Update()
     {
-        if (weaponData == null)
+        if (weaponData == null || !RoundController.AllowsCombat)
         {
             return;
         }
@@ -73,7 +73,7 @@ public class WeaponBase : MonoBehaviour
     /// </summary>
     protected WeaponLevelData GetCurrentLevelData()
     {
-        return weaponData != null ? weaponData.GetLevelConfig(_currentLevel) : null;
+        return weaponData != null ? (RoundController.Enabled ? weaponData.GetRoundTierConfig(_currentLevel) : weaponData.GetLevelConfig(_currentLevel)) : null;
     }
 
     /// <summary>
@@ -277,4 +277,11 @@ public class WeaponBase : MonoBehaviour
             ? _aimController.HorizontalFacingSign
             : 1f;
     }
+
+    /// <summary>本局独立装备身份；同种武器不再以内容 ID 代替实例 ID。</summary>
+    public string InstanceId { get; } = System.Guid.NewGuid().ToString("N");
+
+    /// <summary>回合开始重置攻击冷却，避免继承商店或上一回合的计时。</summary>
+    public void ResetRoundCooldown() { _currentCooldown = 0f; }
+
 }
