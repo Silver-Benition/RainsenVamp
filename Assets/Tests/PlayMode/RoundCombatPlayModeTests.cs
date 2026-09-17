@@ -202,7 +202,9 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.renderMode = RenderMode.ScreenSpaceCamera;
             canvas.worldCamera = camera; canvas.planeDistance = 1;
             // 正式 Canvas 是覆盖层；离屏相机用最高排序模拟覆盖关系。
-            int originalOrder = canvas.sortingOrder; canvas.sortingOrder = short.MaxValue;
+            int originalOrder = canvas.sortingOrder, originalLayer = canvas.sortingLayerID;
+            SortingLayer[] layers = SortingLayer.layers;
+            canvas.sortingLayerID = layers[layers.Length - 1].id; canvas.sortingOrder = short.MaxValue;
             canvas.enabled = true;
             try
             {
@@ -270,7 +272,7 @@ namespace RainsenVampSur.Tests.PlayMode
             finally
             {
                 camera.targetTexture = null; camera.cullingMask = originalMask;
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; canvas.sortingOrder = originalOrder;
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; canvas.sortingOrder = originalOrder; canvas.sortingLayerID = originalLayer;
                 target.Release(); UnityEngine.Object.Destroy(target);
             }
         }
