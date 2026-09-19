@@ -287,3 +287,36 @@ EditMode 报告后仅修正 PlayMode 的场景 HUD 断言并补本文档；运�
 | 静态自审 | git diff --check 通过；范围为三份运行脚本、一份测试及本文档 | 本轮差异 |
 
 EditMode 与图形报告后，仅修正 PlayMode 测试的随机商品假设并补充本文档；生产代码、正式资产与 EditMode 用例未变化，原有通过证据仍覆盖最终实现。未将首次失败的完整摘要宣称为通过。测试均在 QA 执行，人工鼠标操作和过渡观感待验。
+
+
+## 2026-09-20：回合复位返修（镜头仍追赶旧位置）
+
+本节为第五轮已批准的“进入商店时完成复位”验收缺陷修复，继续在 QA 分支、基线 4c86df8 上处理；不是新的玩家规则。此前验证覆盖角色、物理与武器原点，但遗漏了实际 Camera 的跟随状态。
+
+### 复现与原因
+
+- 正式 MainLevel 使用 Cinemachine 2.10.6，FramingTransposer 的 X/Y 阻尼均为 0.5，Brain 使用 LateUpdate 且不忽略时间缩放。
+- 角色先在右上 (9,6) 停留，等待镜头真实跟随，再结束回合。修复前商店内角色=(0,0,0)，Camera=(5.33,4,-10)，距离开局镜头位置约 6.67；失败证据为 Logs/Session23UI/camera-before.xml。
+- 玩家位置虽已同步，但 Cinemachine 保留旧跟随、死区和阻尼状态；局间 Time.timeScale=0，残余追赶在恢复战斗后继续，因此出现用户看到的镜头移动。
+
+### 修复
+
+- RoundController.ResetPlayerPosition 记录瞬移前位置，同步角色后调用新增私有方法 ResetFollowingCameras。
+- 遍历 Cinemachine 已注册虚拟镜头，只处理 Follow 为玩家或玩家子节点的镜头；调用 OnTargetObjectWarped 通知位移，并将 PreviousStateIsValid=false。
+- 由正式 Brain 的正常 LateUpdate 在商店遮挡期间重建构图；不从外部调用内部更新接口，也不修改全局时间设置。
+- 正常战斗的阻尼、死区、镜头距离与场景配置保留；无正式 Scene、Prefab、包版本或 Inspector 配置变化。无需手动搭建，新逻辑接入原有角色复位入口。
+- API 行为依据项目本地 Cinemachine 2.10.6 包内 CinemachineVirtualCameraBase、CinemachineVirtualCamera、CinemachineFramingTransposer 与 CinemachineBrain 源码核对。
+
+### 专项验证
+
+- 新增 Feedback6_CameraSettlesUnderShopBeforeNextRound，覆盖右上 (9,6)、左下 (-9,-6) 两次真实跟随、波末、商店、下一波。
+- 修复后商店镜头均已归中；新波开始后 0.5 秒、每 0.05 秒采样，最大位移均为 0；同时断言正常 X 阻尼配置仍保留。
+- 图形模式镜头专项和既有实际首发位置复验 2/2，零失败/跳过：Logs/Session23UI/camera-after.xml。
+- 这是实际 Camera 坐标的运行验证；最终镜头观感仍由老大试玩确认。
+
+### 最终回归与交付边界
+
+- 完整质量门禁：Tools/Run-ProjectChecks.ps1 -TestPlatform All -NoGraphics；EditMode 177/177、PlayMode 82/82，零失败、错误或跳过，两个 Unity 进程均正常退出。
+- 新鲜报告：Logs/Automation/20260920-013250/summary.json；报告覆盖本节最终生产代码和测试，之后仅补充本文档。
+- 静态自审与 git diff --check 通过；改动仅为 RoundController、RoundCombatPlayModeTests 和本文档。真实镜头图形专项另见 camera-after.xml，不把无图形全量回归当作视觉验收。
+- 在 codex/session-23-round-combat 保存本地提交；不合入 main、不推送、不执行正式归档。人工边缘过渡观感待老大试玩确认。

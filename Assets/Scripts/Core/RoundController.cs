@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cinemachine;
 using UnityEngine;
 
 /// <summary>整局阶段；死亡/手动暂停由 GameFlowManager 独立管理，不破坏当前回合。</summary>
@@ -338,6 +339,7 @@ public sealed class RoundController : MonoBehaviour
     /// <summary>仅在战斗关闭时瞬移到中心，并同步子武器发射点；临时关闭插值防止旧姿态在恢复时回放。</summary>
     private void ResetPlayerPosition()
     {
+        Vector3 previousPosition = _player.transform.position;
         Rigidbody2D body = _player.GetComponent<Rigidbody2D>();
         RigidbodyInterpolation2D interpolation = body.interpolation;
         body.interpolation = RigidbodyInterpolation2D.None;
@@ -347,6 +349,23 @@ public sealed class RoundController : MonoBehaviour
         _player.transform.position = new Vector3(0, 0, _player.transform.position.z);
         Physics2D.SyncTransforms();
         body.interpolation = interpolation;
+        ResetFollowingCameras(_player.transform.position - previousPosition);
+    }
+
+    /// <summary>角色瞬移后重置跟随镜头的历史状态；只在回合边界执行，保留正常战斗的阻尼和死区配置。</summary>
+    private void ResetFollowingCameras(Vector3 positionDelta)
+    {
+        CinemachineCore core = CinemachineCore.Instance;
+        for (int i = 0; i < core.VirtualCameraCount; i++)
+        {
+            CinemachineVirtualCameraBase camera = core.GetVirtualCamera(i);
+            Transform follow = camera.Follow;
+            if (follow == null || (follow != _player.transform && !follow.IsChildOf(_player.transform))) continue;
+            // 通知组件与扩展目标已瞬移，随后放弃旧构图和阻尼历史。
+            // 正式 Brain 在 LateUpdate（暂停时仍执行）重建镜头，首个商店渲染帧内即完成归中。
+            camera.OnTargetObjectWarped(follow, positionDelta);
+            camera.PreviousStateIsValid = false;
+        }
     }
 
     /// <summary>控制所有独立武器实例；禁用时持续光环与环绕物各自完成回池。</summary>

@@ -871,6 +871,39 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.Less(player.transform.position.sqrMagnitude, .01f, "恢复物理后不能跳回旧位置");
         }
 
+        /// <summary>真实镜头先跟到地图两侧，进入商店时即归中；下一波前半秒不得继续追赶旧位置。</summary>
+        [UnityTest]
+        public IEnumerator Feedback6_CameraSettlesUnderShopBeforeNextRound()
+        {
+            Component player = (Component)Get<object>(_rounds, "Player");
+            Rigidbody2D body = player.GetComponent<Rigidbody2D>(); Camera camera = Camera.main;
+            Vector3 home = camera.transform.position;
+            Component framing = (Component)UnityEngine.Object.FindObjectOfType(Type.GetType("Cinemachine.CinemachineFramingTransposer, Cinemachine", true));
+            float damping = RuntimeComponentTestUtility.GetFieldValue<float>(framing, "m_XDamping");
+            Assert.Greater(damping, 0, "夹具必须启用正常平滑跟随");
+            foreach (Vector3 edge in new[] { new Vector3(9, 6, 0), new Vector3(-9, -6, 0) })
+            {
+                body.position = edge; player.transform.position = edge; Physics2D.SyncTransforms();
+                yield return new WaitForSeconds(.8f);
+                Assert.Greater(Vector2.Distance(camera.transform.position, home), 2, "必须先让真实镜头跟到边缘，避免只测试角色瞬移。");
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+                yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
+                for (int i = 0; i < 3; i++) yield return null;
+                TestContext.Out.WriteLine("shop player=" + player.transform.position + ", camera=" + camera.transform.position + ", home=" + home);
+                Assert.That(Vector3.Distance(camera.transform.position, home), Is.LessThan(.01f), "商店暂停期间镜头仍停在旧位置");
+                Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+                float maxDrift = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    yield return new WaitForSecondsRealtime(.05f);
+                    maxDrift = Mathf.Max(maxDrift, Vector3.Distance(camera.transform.position, home));
+                }
+                TestContext.Out.WriteLine("next-wave camera max drift=" + maxDrift);
+                Assert.Less(maxDrift, .01f, "恢复战斗后镜头仍在追赶复位位置");
+                Assert.AreEqual(damping, RuntimeComponentTestUtility.GetFieldValue<float>(framing, "m_XDamping"), "不能通过永久移除正常阻尼掩盖问题");
+            }
+        }
+
         /// <summary>高速移动边界与安全生成点使用真实竞技场组件。</summary>
         [UnityTest]
         public IEnumerator Arena_ClampsHighSpeedAndSpawnsInsideSafeRegion()
