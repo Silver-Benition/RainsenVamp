@@ -1,194 +1,504 @@
 using System;
-using System.Text;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>局间商店与属性四选一视图；只绑定流程和交易服务，不持有独立经济状态。</summary>
+/// <summary>局间视图：四商品、右侧属性、下方图标持有栏与悬停详情；所有交易仍由原服务裁决。</summary>
 public sealed class RoundIntermissionUI : MonoBehaviour
 {
     public TMP_FontAsset font;
+    private static readonly Color Background = new Color32(49, 47, 41, 255);
+    private static readonly Color Surface = new Color32(18, 20, 19, 255);
+    private static readonly Color Border = new Color32(88, 88, 74, 255);
+    private static readonly Color Accent = new Color32(170, 221, 111, 255);
+    private static readonly PlayerStatType[] PrimaryStats = {
+        PlayerStatType.MaxHealth, PlayerStatType.Recovery, PlayerStatType.Armor, PlayerStatType.MoveSpeed,
+        PlayerStatType.Might, PlayerStatType.Cooldown, PlayerStatType.Area, PlayerStatType.Amount,
+        PlayerStatType.ProjectileSpeed, PlayerStatType.Duration, PlayerStatType.Luck, PlayerStatType.Magnet };
+    private static readonly PlayerStatType[] SecondaryStats = {
+        PlayerStatType.Growth, PlayerStatType.Greed, PlayerStatType.Curse, PlayerStatType.Revival,
+        PlayerStatType.Reroll, PlayerStatType.Skip, PlayerStatType.Banish, PlayerStatType.Charm, PlayerStatType.Defang };
+
     private GameObject _panel;
-    private TMP_Text _title, _balance, _status, _items, _combatBalance;
-    private readonly TMP_Text[] _cardTexts = new TMP_Text[4];
+    private TMP_Text _title, _balance, _reserve, _status, _combatBalance, _weaponHeading, _itemHeading, _level;
+    private readonly TMP_Text[] _cardNames = new TMP_Text[4], _cardTypes = new TMP_Text[4], _cardTexts = new TMP_Text[4];
     private readonly Image[] _icons = new Image[4];
-    private readonly Button[] _actions = new Button[4];
-    private readonly Button[] _secondary = new Button[4];
-    private readonly TMP_Text[] _weaponTexts = new TMP_Text[6];
-    private readonly Button[] _combine = new Button[6], _recycle = new Button[6];
-    private Button _refresh, _skip, _next, _exit;
+    private readonly Button[] _actions = new Button[4], _secondary = new Button[4];
+    private readonly List<InventoryCell> _itemCells = new List<InventoryCell>();
+    private readonly InventoryCell[] _weaponCells = new InventoryCell[6];
+    private readonly TMP_Text[] _statNames = new TMP_Text[12], _statValues = new TMP_Text[12];
+    private readonly Image[] _statIcons = new Image[12];
+    private readonly GameObject[] _statRows = new GameObject[12];
+    private ScrollRect _itemScroll;
+    private GridLayoutGroup _itemGrid;
+    private RectTransform _weaponGrid;
+    private Button _refresh, _skip, _next, _mainTab, _otherTab;
+    private bool _secondaryStats, _layoutDirty = true;
+
+    private RectTransform _tooltip, _tooltipOwner;
+    private TMP_Text _tooltipName, _tooltipKind, _tooltipBody;
+    private Image _tooltipIcon;
+    private Button _tooltipCombine, _tooltipRecycle;
+    private WeaponBase _inspectedWeapon;
+    private float _hideAt = -1;
+    private bool _pinned;
     private RoundController _rounds;
     private RoundPhase _lastPhase = RoundPhase.Finished;
     public GameObject Panel => _panel;
+    public GameObject Tooltip => _tooltip.gameObject;
 
-    /// <summary>一次建立 UI 并默认隐藏，交易后只更新已有控件。</summary>
+    /// <summary>持有图标控件只在容量增长时创建，刷新只替换内容与实例回调。</summary>
+    private sealed class InventoryCell
+    {
+        public RectTransform Root;
+        public Button Button;
+        public Image Icon;
+        public TMP_Text Badge;
+        public RoundHoverTarget Hover;
+    }
+
+    /// <summary>通过稳定键读取界面文案，避免把翻译接入点散落到业务服务中。</summary>
+    private static string T(string key, string fallback) => RoundShopPresentation.Text("round.ui." + key, fallback);
+
+    /// <summary>按参考布局建立四个主要区域；正式 Canvas 继续使用既有覆盖模式。</summary>
     private void Awake()
     {
         _combatBalance = Text("RoundMaterials", transform, "", .04f, .84f, .38f, .90f, 26);
-        RectTransform panel = Box("RoundIntermission", transform, 0, 0, 1, 1, new Color32(12, 22, 32, 255));
+        RectTransform panel = Box("RoundIntermission", transform, 0, 0, 1, 1, Background);
         _panel = panel.gameObject;
-        _title = Text("Title", panel, "", .04f, .9f, .7f, .98f, 42);
-        _balance = Text("Balance", panel, "", .62f, .9f, .96f, .98f, 28);
-        _balance.alignment = TextAlignmentOptions.MidlineRight;
+        _title = Text("Title", panel, "", .035f, .89f, .36f, .965f, 38);
+        _balance = Text("Balance", panel, "", .38f, .92f, .56f, .967f, 35);
+        _balance.color = Accent; _balance.alignment = TextAlignmentOptions.MidlineRight;
+        _reserve = Text("Reserve", panel, "", .38f, .875f, .56f, .919f, 20);
+        _reserve.alignment = TextAlignmentOptions.MidlineRight;
+        _refresh = Button("Refresh", panel, "", .59f, .89f, .75f, .962f, RefreshOffers);
         for (int i = 0; i < 4; i++)
         {
-            int slot = i;
-            float left = .04f + i * .235f;
-            RectTransform card = Box("Offer" + i, panel, left, .51f, left + .215f, .86f, new Color32(25, 45, 57, 255));
-            RectTransform icon = Box("Icon", card, .35f, .61f, .65f, .91f, Color.clear);
-            _icons[i] = icon.GetComponent<Image>(); _icons[i].preserveAspect = true; _icons[i].color = Color.white;
-            _cardTexts[i] = Text("Description", card, "", .06f, .24f, .94f, .62f, 25);
-            _cardTexts[i].alignment = TextAlignmentOptions.Center;
-            _actions[i] = Button("Action", card, "", .06f, .05f, .57f, .21f, () => Act(slot));
-            _secondary[i] = Button("Secondary", card, "", .61f, .05f, .94f, .21f, () => Secondary(slot));
+            int index = i;
+            float left = .035f + i * .181f;
+            RectTransform card = Box("Offer" + i, panel, left, .365f, left + .172f, .853f, Surface);
+            Outline(card);
+            _icons[i] = Icon("Icon", card, .055f, .79f, .31f, .955f);
+            _cardNames[i] = Text("Name", card, "", .35f, .845f, .95f, .966f, 27);
+            _cardTypes[i] = Text("Kind", card, "", .35f, .773f, .96f, .838f, 19);
+            _cardTexts[i] = Text("Description", card, "", .065f, .23f, .935f, .735f, 23);
+            _cardTexts[i].alignment = TextAlignmentOptions.TopLeft;
+            _actions[i] = Button("Action", card, "", .22f, .05f, .78f, .175f, () => Act(index));
+            _secondary[i] = Button("Secondary", card, "", .0f, -.102f, 1f, -.02f, () => Secondary(index));
         }
-        for (int i = 0; i < 6; i++)
-        {
-            int slot = i;
-            float left = .04f + i * .155f;
-            RectTransform cell = Box("WeaponSlot" + i, panel, left, .26f, left + .145f, .46f, new Color32(22, 35, 47, 255));
-            _weaponTexts[i] = Text("Weapon", cell, "", .05f, .43f, .95f, .96f, 23);
-            _weaponTexts[i].alignment = TextAlignmentOptions.Center;
-            _combine[i] = Button("Combine", cell, "合并", .04f, .06f, .48f, .34f, () => WeaponAction(slot, false));
-            _recycle[i] = Button("Recycle", cell, "回收", .52f, .06f, .96f, .34f, () => WeaponAction(slot, true));
-        }
-        _items = Text("Items", panel, "", .04f, .15f, .96f, .245f, 22);
-        _status = Text("Status", panel, "", .04f, .095f, .96f, .15f, 22);
-        _refresh = Button("Refresh", panel, "", .04f, .025f, .27f, .087f, RefreshOffers);
-        _skip = Button("Skip", panel, "跳过", .29f, .025f, .43f, .087f, Skip);
-        _exit = Button("Exit", panel, "返回主菜单", .48f, .025f, .68f, .087f,
+        _skip = Button("Skip", panel, "", .785f, .055f, .965f, .135f, Skip);
+
+        BuildStats(panel);
+        BuildInventory(panel);
+        BuildTooltip(panel);
+        _next = Button("Next", panel, "", .785f, .055f, .965f, .135f, Next);
+        _next.image.color = new Color32(65, 91, 49, 255);
+        Button("Exit", panel, T("menu", "返回主菜单"), .785f, .18f, .965f, .225f,
             () => GameFlowManager.Instance.ReturnToMainMenu());
-        _next = Button("Next", panel, "开始下一回合", .71f, .025f, .96f, .087f, Next);
+        _status = Text("Status", panel, "", .035f, .012f, .75f, .045f, 19);
         _panel.SetActive(false);
     }
 
-    /// <summary>绑定回合事件；无模式的测试/性能场景不会显示此页面。</summary>
+    /// <summary>属性栏按主要/次要分组，读取当前最终值和整局剩余次数。</summary>
+    private void BuildStats(RectTransform parent)
+    {
+        RectTransform board = Box("StatsBoard", parent, .775f, .285f, .965f, .963f, Surface);
+        Outline(board);
+        Text("Heading", board, T("stats", "属性"), .08f, .905f, .92f, .984f, 33).alignment = TextAlignmentOptions.Center;
+        _mainTab = Button("Primary", board, T("primary", "主要"), .06f, .815f, .48f, .89f, () => SelectStats(false));
+        _otherTab = Button("Secondary", board, T("secondary", "次要"), .52f, .815f, .94f, .89f, () => SelectStats(true));
+        _level = Text("Level", board, "", .09f, .75f, .93f, .805f, 22);
+        for (int i = 0; i < _statRows.Length; i++)
+        {
+            float top = .73f - i * .056f;
+            RectTransform row = Box("Stat" + i, board, .07f, top - .049f, .94f, top, Color.clear);
+            row.GetComponent<Image>().raycastTarget = false; _statRows[i] = row.gameObject;
+            _statIcons[i] = Icon("Icon", row, 0, .06f, .10f, .94f);
+            _statNames[i] = Text("Name", row, "", .135f, 0, .72f, 1, 21);
+            _statValues[i] = Text("Value", row, "", .72f, 0, 1, 1, 21);
+            _statValues[i].alignment = TextAlignmentOptions.MidlineRight;
+            _statValues[i].color = Accent;
+        }
+    }
+
+    /// <summary>下方使用可滚动道具图标和三列两行武器图标，物品名称不常驻占位。</summary>
+    private void BuildInventory(RectTransform parent)
+    {
+        _itemHeading = Text("ItemsHeading", parent, "", .035f, .252f, .5f, .304f, 29);
+        _weaponHeading = Text("WeaponsHeading", parent, "", .54f, .252f, .75f, .304f, 29);
+        RectTransform area = Box("ItemsArea", parent, .035f, .059f, .518f, .246f, new Color32(37, 38, 33, 255));
+        _itemScroll = area.gameObject.AddComponent<ScrollRect>();
+        RectTransform viewport = Rect("Viewport", area, .008f, .015f, .99f, .985f);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        RectTransform content = Rect("Content", viewport, 0, 1, 1, 1);
+        content.pivot = new Vector2(.5f, 1);
+        _itemGrid = content.gameObject.AddComponent<GridLayoutGroup>();
+        _itemGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount; _itemGrid.constraintCount = 10;
+        _itemGrid.spacing = new Vector2(8, 8); _itemGrid.padding = new RectOffset(4, 4, 4, 4);
+        var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        _itemScroll.viewport = viewport; _itemScroll.content = content;
+        _itemScroll.horizontal = false; _itemScroll.vertical = true; _itemScroll.scrollSensitivity = 35;
+        _itemScroll.movementType = ScrollRect.MovementType.Clamped;
+        _weaponGrid = Rect("WeaponsArea", parent, .54f, .059f, .75f, .246f);
+        for (int i = 0; i < 6; i++) _weaponCells[i] = CreateCell("WeaponSlot" + i, _weaponGrid);
+    }
+
+    /// <summary>图标详情包含武器操作；延迟离开允许鼠标从图标进入窗体，点击图标可固定。</summary>
+    private void BuildTooltip(RectTransform parent)
+    {
+        _tooltip = Box("InspectTooltip", parent, .30f, .30f, .61f, .83f, new Color32(13, 16, 14, 255));
+        Outline(_tooltip);
+        _tooltipIcon = Icon("Icon", _tooltip, .06f, .80f, .22f, .96f);
+        _tooltipName = Text("Name", _tooltip, "", .27f, .855f, .81f, .96f, 29);
+        _tooltipKind = Text("Kind", _tooltip, "", .27f, .78f, .91f, .85f, 20);
+        _tooltipBody = Text("Description", _tooltip, "", .065f, .22f, .935f, .75f, 23);
+        _tooltipBody.alignment = TextAlignmentOptions.TopLeft;
+        _tooltipCombine = Button("Combine", _tooltip, T("combine", "合并"), .06f, .055f, .47f, .16f, () => WeaponAction(false));
+        _tooltipRecycle = Button("Recycle", _tooltip, T("recycle", "回收"), .53f, .055f, .94f, .16f, () => WeaponAction(true));
+        Button("Close", _tooltip, T("close", "关闭"), .82f, .905f, .96f, .975f, HideTooltip);
+        _tooltip.gameObject.AddComponent<RoundHoverTarget>().Bind(() => _hideAt = -1, () => ScheduleHide(_tooltipOwner));
+        foreach (Button control in _tooltip.GetComponentsInChildren<Button>())
+            control.gameObject.AddComponent<RoundHoverTarget>().Bind(() => _hideAt = -1, () => ScheduleHide(_tooltipOwner));
+        _tooltip.gameObject.SetActive(false);
+    }
+
+    /// <summary>建立可复用图标按钮与角标；背景保留射线以支持整个格子的悬停。</summary>
+    private InventoryCell CreateCell(string name, Transform parent)
+    {
+        RectTransform root = Box(name, parent, 0, 0, 1, 1, Border);
+        Box("Inset", root, .035f, .035f, .965f, .965f, Surface).GetComponent<Image>().raycastTarget = false;
+        root.gameObject.AddComponent<RectMask2D>();
+        Button button = root.gameObject.AddComponent<Button>(); button.targetGraphic = root.GetComponent<Image>();
+        ConfigureButton(button);
+        return new InventoryCell { Root = root, Button = button, Icon = Icon("Icon", root, .11f, .11f, .89f, .89f),
+            Badge = Text("Badge", root, "", .48f, .015f, .94f, .30f, 19),
+            Hover = root.gameObject.AddComponent<RoundHoverTarget>() };
+    }
+
+    /// <summary>场景初始化后绑定低频变化事件，刷新不改变任何玩家状态。</summary>
     private void Start()
     {
         _rounds = RoundController.Instance;
         if (_rounds == null) return;
-        _rounds.Changed += Refresh;
-        _rounds.Wallet.Changed += Refresh;
+        _rounds.Changed += Refresh; _rounds.Wallet.Changed += Refresh;
         Refresh();
     }
 
-    /// <summary>解除事件，避免重开后旧视图继续接收刷新。</summary>
+    /// <summary>解除事件，场景重开后不留下旧视图引用。</summary>
     private void OnDestroy()
     {
         if (_rounds == null) return;
-        _rounds.Changed -= Refresh;
-        _rounds.Wallet.Changed -= Refresh;
+        _rounds.Changed -= Refresh; _rounds.Wallet.Changed -= Refresh;
     }
 
-    /// <summary>交易或属性选择统一入口，失败保持原报价并给出反馈。</summary>
+    /// <summary>分辨率变化只标记布局脏状态，下帧在 Canvas 尺寸确定后重排图标。</summary>
+    private void OnRectTransformDimensionsChange() { _layoutDirty = true; }
+
+    /// <summary>仅处理延时退出和布局脏状态；不在逐帧路径构造商品或详情字符串。</summary>
+    private void Update()
+    {
+        if (_layoutDirty && _weaponGrid != null) { LayoutInventory(); _layoutDirty = false; }
+        if (_hideAt >= 0 && !_pinned && Time.unscaledTime >= _hideAt) HideTooltip();
+        if (_tooltip != null && _tooltip.gameObject.activeSelf && Input.GetKeyDown(KeyCode.Escape)) HideTooltip();
+    }
+
+    /// <summary>用实际视口宽度保持图标正方形，武器始终三列两行。</summary>
+    private void LayoutInventory()
+    {
+        float itemSize = Mathf.Max(20, (_itemScroll.viewport.rect.width - 80) / 10);
+        _itemGrid.cellSize = new Vector2(itemSize, itemSize);
+        float size = Mathf.Min((_weaponGrid.rect.width - 16) / 3, (_weaponGrid.rect.height - 8) / 2);
+        for (int i = 0; i < 6; i++)
+        {
+            RectTransform rect = _weaponCells[i].Root;
+            rect.anchorMin = rect.anchorMax = new Vector2(0, 1); rect.pivot = new Vector2(0, 1);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = new Vector2((_weaponGrid.rect.width - size * 3 - 16) * .5f + (i % 3) * (size + 8), -(i / 3) * (size + 8));
+        }
+    }
+
+    /// <summary>交易和选择仍走原服务，失败不会修改报价或材料。</summary>
     private void Act(int index)
     {
+        HideTooltip();
         bool success = _rounds.Phase == RoundPhase.Upgrades ? _rounds.Choose(index) : _rounds.Shop.Buy(index);
-        _status.text = success ? "" : "材料不足、已满级或装备槽位不足";
+        _status.text = success ? "" : T("buyFailed", "材料不足、已满级或武器槽位不足");
         Refresh();
     }
-
-    /// <summary>同位置的辅助操作在升级阶段为放逐，在商店阶段为锁定。</summary>
+    /// <summary>在同一个辅助栏提供属性放逐或商品锁定。</summary>
     private void Secondary(int index)
     {
         bool success = _rounds.Phase == RoundPhase.Upgrades ? _rounds.Banish(index) : _rounds.Shop.ToggleLock(index);
-        _status.text = success ? "" : "当前无法执行此操作";
-        Refresh();
+        _status.text = success ? "" : T("unavailable", "当前无法执行此操作"); Refresh();
     }
-
-    /// <summary>刷新属性或商品；服务校验余额与免费次数。</summary>
+    /// <summary>顶部刷新按钮复用原有免费重投和材料刷新规则。</summary>
     private void RefreshOffers()
     {
+        HideTooltip();
         bool success = _rounds.Phase == RoundPhase.Upgrades ? _rounds.RerollUpgrade() : _rounds.Shop.Refresh();
-        _status.text = success ? "" : "材料不足或所有商品已锁定";
-        Refresh();
+        _status.text = success ? "" : T("refreshFailed", "材料不足或所有商品已锁定"); Refresh();
     }
+    /// <summary>跳过当前属性选择。</summary>
+    private void Skip() { HideTooltip(); _rounds.SkipUpgrade(); Refresh(); }
+    /// <summary>右下主按钮开始下一回合并关闭所有详情。</summary>
+    private void Next() { HideTooltip(); _rounds.BeginNextRound(); Refresh(); }
 
-    /// <summary>请求消费跳过次数。</summary>
-    private void Skip() { _rounds.SkipUpgrade(); Refresh(); }
-    /// <summary>请求开始下一回合；重复请求由流程状态拒绝。</summary>
-    private void Next() { _rounds.BeginNextRound(); Refresh(); }
-
-    /// <summary>按实例槽索引提交回收或合并，操作结束后重新绑定六槽。</summary>
-    private void WeaponAction(int slot, bool recycle)
+    /// <summary>使用详情绑定的实例引用执行合并或回收，避免图标列表重排后操作错误武器。</summary>
+    private void WeaponAction(bool recycle)
     {
-        if (slot >= _rounds.Loadout.OwnedWeapons.Count) return;
-        WeaponBase weapon = _rounds.Loadout.OwnedWeapons[slot];
+        WeaponBase weapon = _inspectedWeapon;
+        HideTooltip();
         bool success = recycle ? _rounds.Shop.Recycle(weapon) : _rounds.Shop.Combine(weapon);
-        _status.text = success ? "" : "需要另一把同种同品质武器，且未达到最高品质";
+        _status.text = success ? "" : T("combineFailed", "需要另一把同种同品质武器，且未达到最高品质");
         Refresh();
     }
 
-    /// <summary>把只读状态绑定到稳定控件，保持按钮焦点并过滤不可操作入口。</summary>
+    /// <summary>切换属性分组，不触发购买或角色属性变化。</summary>
+    private void SelectStats(bool secondary) { _secondaryStats = secondary; RefreshStats(); }
+
+    /// <summary>将权威状态绑定到现有控件，保持已获得道具只显示图标与叠加角标。</summary>
     public void Refresh()
     {
         if (_rounds == null || _rounds.Shop == null) return;
+        bool upgrades = _rounds.Phase == RoundPhase.Upgrades, shop = _rounds.Phase == RoundPhase.Shop;
         _combatBalance.gameObject.SetActive(_rounds.Phase == RoundPhase.Combat);
-        _combatBalance.text = $"材料 {_rounds.Wallet.Balance}　储备 {_rounds.Wallet.Bagged}";
-        bool upgrades = _rounds.Phase == RoundPhase.Upgrades;
-        bool shop = _rounds.Phase == RoundPhase.Shop;
+        _combatBalance.text = string.Format(T("combatBalance", "材料 {0}　储备 {1}"), _rounds.Wallet.Balance, _rounds.Wallet.Bagged);
         _panel.SetActive(upgrades || shop);
-        if (!upgrades && !shop) { _lastPhase = _rounds.Phase; return; }
+        if (!upgrades && !shop) { HideTooltip(); _lastPhase = _rounds.Phase; return; }
         _panel.transform.SetAsLastSibling();
         if (_lastPhase != _rounds.Phase)
-            _status.text = string.IsNullOrEmpty(_rounds.LastReward) ? "" : "宝箱奖励：" + _rounds.LastReward;
-        _title.text = upgrades ? $"回合 {_rounds.RoundNumber} 完成 · 属性成长（剩余 {_rounds.Player.PendingLevelUps} 次）"
-            : $"回合 {_rounds.RoundNumber} 完成 · 商店";
-        _balance.text = $"材料 {_rounds.Wallet.Balance}　储备 {_rounds.Wallet.Bagged}";
-        for (int i = 0; i < 4; i++)
         {
-            RunShopOffer offer = _rounds.Shop.Offers[i];
-            RoundStatUpgrade stat = upgrades && i < _rounds.Choices.Count ? _rounds.Choices[i] : null;
-            bool has = upgrades ? stat != null : offer != null;
-            _icons[i].sprite = upgrades ? stat?.icon : offer?.Product.Icon;
-            _icons[i].enabled = _icons[i].sprite != null;
-            if (upgrades && stat != null)
-            {
-                PlayerStatModifier mod = stat.modifier;
-                bool percent = mod.Mode != PlayerStatModifierMode.Flat || mod.StatType == PlayerStatType.Defang
-                    || mod.StatType == PlayerStatType.Might || mod.StatType == PlayerStatType.Cooldown
-                    || mod.StatType == PlayerStatType.Luck || mod.StatType == PlayerStatType.Growth
-                    || mod.StatType == PlayerStatType.Area || mod.StatType == PlayerStatType.Greed;
-                float value = mod.Value * _rounds.ChoiceTier * (percent ? 100 : 1);
-                _cardTexts[i].text = stat.displayName + $"\n{value:+0.##;-0.##;0}" + (percent ? "%" : "")
-                    + "\n当前 " + PlayerStatPresentation.FormatFinalValue(mod.StatType, _rounds.Player.GetFinalStat(mod.StatType));
-            }
-            else _cardTexts[i].text = offer == null ? "暂无商品" : offer.Product.Name
-                + (offer.Product.IsWeapon ? $" · 品质 {offer.Tier}" : "")
-                + $"\n{offer.Price} 材料";
-            Label(_actions[i], upgrades ? "选择" : "购买");
-            Label(_secondary[i], upgrades ? "放逐" : offer != null && offer.Locked ? "已锁定" : "锁定");
-            _actions[i].interactable = has;
-            _secondary[i].interactable = has && (!upgrades || RunState.Instance.RemainingBanishes > 0);
+            HideTooltip();
+            _status.text = string.IsNullOrEmpty(_rounds.LastReward) ? "" : T("crate", "宝箱奖励：") + _rounds.LastReward;
         }
-        for (int i = 0; i < 6; i++)
-        {
-            WeaponBase weapon = i < _rounds.Loadout.OwnedWeapons.Count ? _rounds.Loadout.OwnedWeapons[i] : null;
-            _weaponTexts[i].text = weapon != null ? weapon.weaponData.GetDisplayName() + $"\n品质 {weapon.CurrentLevel}" : "空槽";
-            _combine[i].interactable = shop && weapon != null && weapon.CurrentLevel < 4;
-            _recycle[i].interactable = shop && weapon != null;
-        }
-        var items = new StringBuilder("道具：");
-        foreach (OwnedAbilityState item in _rounds.Items.OwnedAbilities)
-            items.Append(item.Data.GetDisplayName()).Append(" ×").Append(item.CurrentLevel).Append("　");
-        _items.text = items.ToString();
+        _title.text = upgrades ? string.Format(T("growthTitle", "属性成长（剩余 {0} 次）"), _rounds.Player.PendingLevelUps)
+            : string.Format(T("shopTitle", "商店（第 {0} 波）"), _rounds.RoundNumber);
+        _balance.text = string.Format(T("balance", "材料  {0}"), _rounds.Wallet.Balance);
+        _reserve.text = string.Format(T("reserve", "储备  {0}"), _rounds.Wallet.Bagged);
+        for (int i = 0; i < 4; i++) RefreshCard(i, upgrades);
+        RefreshInventory(); RefreshStats();
         Label(_refresh, upgrades ? RunState.Instance.RemainingRerolls > 0
-            ? $"重投（免费 {RunState.Instance.RemainingRerolls}）" : $"重投 {_rounds.UpgradeRerollPrice} 材料"
-            : $"刷新 {_rounds.Shop.RefreshPrice} 材料");
+            ? string.Format(T("freeReroll", "重投 · 免费 {0}"), RunState.Instance.RemainingRerolls)
+            : string.Format(T("paidReroll", "重投 · {0}"), _rounds.UpgradeRerollPrice)
+            : string.Format(T("refresh", "刷新 · {0}"), _rounds.Shop.RefreshPrice));
         _skip.gameObject.SetActive(upgrades);
         _skip.interactable = RunState.Instance.RemainingSkips > 0;
+        Label(_skip, string.Format(T("skip", "跳过（{0}）"), RunState.Instance.RemainingSkips));
         _next.gameObject.SetActive(shop);
-        Label(_next, $"开始第 {_rounds.RoundNumber + 1} 回合");
+        Label(_next, string.Format(T("next", "出发（第 {0} 波）"), _rounds.RoundNumber + 1));
         if (_lastPhase != _rounds.Phase && EventSystem.current != null)
             EventSystem.current.SetSelectedGameObject(_actions[0].gameObject);
         _lastPhase = _rounds.Phase;
+        _layoutDirty = true;
     }
 
-    /// <summary>更新按钮标签，不重建 Button 本体。</summary>
-    private static void Label(Button button, string value) { button.GetComponentInChildren<TMP_Text>().text = value; }
+    /// <summary>商品卡直接展示购买前说明，已持有装备的详情则只出现在悬停窗。</summary>
+    private void RefreshCard(int i, bool upgrades)
+    {
+        RunShopOffer offer = _rounds.Shop.Offers[i];
+        RoundStatUpgrade stat = upgrades && i < _rounds.Choices.Count ? _rounds.Choices[i] : null;
+        bool has = upgrades ? stat != null : offer != null;
+        _icons[i].sprite = upgrades ? stat?.icon : offer?.Product.Icon;
+        _icons[i].enabled = _icons[i].sprite != null;
+        _cardNames[i].text = upgrades ? stat?.displayName ?? "" : offer?.Product.Name ?? T("emptyOffer", "暂无商品");
+        _cardTypes[i].text = upgrades ? RoundShopPresentation.Tier(_rounds.ChoiceTier)
+            : offer == null ? "" : offer.Product.IsWeapon ? RoundShopPresentation.Tier(offer.Tier) : T("item", "道具");
+        _cardTypes[i].color = RoundShopPresentation.TierColor(upgrades ? _rounds.ChoiceTier : offer?.Tier ?? 1);
+        if (stat != null)
+        {
+            PlayerStatModifier mod = stat.modifier;
+            bool percent = mod.Mode != PlayerStatModifierMode.Flat || mod.StatType == PlayerStatType.Defang
+                || mod.StatType == PlayerStatType.Might || mod.StatType == PlayerStatType.Cooldown
+                || mod.StatType == PlayerStatType.Luck || mod.StatType == PlayerStatType.Growth
+                || mod.StatType == PlayerStatType.Area || mod.StatType == PlayerStatType.Greed;
+            float value = mod.Value * _rounds.ChoiceTier * (percent ? 100 : 1);
+            _cardTexts[i].text = $"<color=#B5E780>{value:+0.##;-0.##;0}" + (percent ? "%" : "") + "</color>\n\n"
+                + T("current", "当前：") + PlayerStatPresentation.FormatFinalValue(mod.StatType, _rounds.Player.GetFinalStat(mod.StatType));
+        }
+        else if (offer != null)
+        {
+            if (offer.Product.IsWeapon) _cardTexts[i].text = RoundShopPresentation.WeaponDetails(offer.Product.content.weaponToGrant, offer.Tier);
+            else
+            {
+                AbilityDataSO data = offer.Product.content.abilityToGrant;
+                OwnedAbilityState owned = _rounds.Items.GetOwnedAbility(data);
+                _cardTexts[i].text = RoundShopPresentation.ItemDetails(data, (owned?.CurrentLevel ?? 0) + 1);
+            }
+        }
+        else _cardTexts[i].text = "";
+        Label(_actions[i], upgrades ? T("choose", "选择") : offer == null ? "—" : string.Format(T("price", "{0} 材料"), offer.Price));
+        Label(_secondary[i], upgrades ? T("banish", "放逐") : offer != null && offer.Locked ? T("locked", "已锁定") : T("lock", "锁定"));
+        _actions[i].interactable = has;
+        _secondary[i].interactable = has && (!upgrades || RunState.Instance.RemainingBanishes > 0);
+    }
 
-    /// <summary>创建归一化布局矩形，在低频初始化阶段使用。</summary>
+    /// <summary>持有栏只根据实际实例更新图标；空武器格不可交互，道具超出区域可滚动。</summary>
+    private void RefreshInventory()
+    {
+        var weapons = _rounds.Loadout.OwnedWeapons;
+        _weaponHeading.text = string.Format(T("weapons", "武器（{0}/6）"), weapons.Count);
+        for (int i = 0; i < 6; i++)
+        {
+            InventoryCell cell = _weaponCells[i];
+            WeaponBase weapon = i < weapons.Count ? weapons[i] : null;
+            cell.Icon.sprite = weapon != null ? weapon.weaponData.icon : null; cell.Icon.enabled = cell.Icon.sprite != null;
+            cell.Icon.rectTransform.localScale = Vector3.one * (weapon != null ? weapon.weaponData.loadoutIconScale : 1);
+            cell.Icon.rectTransform.anchoredPosition = weapon != null ? weapon.weaponData.loadoutIconOffset : Vector2.zero;
+            cell.Badge.text = weapon != null ? weapon.CurrentLevel.ToString() : ""; cell.Badge.alignment = TextAlignmentOptions.BottomRight;
+            cell.Button.image.color = weapon != null ? RoundShopPresentation.TierColor(weapon.CurrentLevel) : Border;
+            cell.Button.interactable = weapon != null; cell.Button.onClick.RemoveAllListeners();
+            cell.Hover.Bind(() => ShowWeapon(cell.Root, weapon, false), () => ScheduleHide(cell.Root));
+            if (weapon != null) cell.Button.onClick.AddListener(() => ShowWeapon(cell.Root, weapon, true));
+        }
+        var items = _rounds.Items.OwnedAbilities;
+        _itemHeading.text = string.Format(T("items", "道具（{0}）"), items.Count);
+        while (_itemCells.Count < items.Count) _itemCells.Add(CreateCell("ItemSlot" + _itemCells.Count, _itemScroll.content));
+        for (int i = 0; i < _itemCells.Count; i++)
+        {
+            InventoryCell cell = _itemCells[i]; cell.Root.gameObject.SetActive(i < items.Count);
+            if (i >= items.Count) continue;
+            OwnedAbilityState item = items[i];
+            cell.Icon.sprite = item.Data.icon; cell.Icon.enabled = cell.Icon.sprite != null;
+            cell.Icon.rectTransform.localScale = Vector3.one * item.Data.loadoutIconScale;
+            cell.Icon.rectTransform.anchoredPosition = item.Data.loadoutIconOffset;
+            cell.Badge.text = item.CurrentLevel > 1 ? "×" + item.CurrentLevel : ""; cell.Badge.alignment = TextAlignmentOptions.BottomRight;
+            cell.Hover.Bind(() => ShowItem(cell.Root, item), () => ScheduleHide(cell.Root));
+            cell.Button.onClick.RemoveAllListeners(); cell.Button.onClick.AddListener(() => ShowItem(cell.Root, item));
+        }
+    }
+
+    /// <summary>显示角色最终属性；资源栏显示剩余次数而非已消耗前的容量。</summary>
+    private void RefreshStats()
+    {
+        if (_rounds?.Player == null) return;
+        _mainTab.image.color = _secondaryStats ? Surface : new Color32(64, 74, 51, 255);
+        _otherTab.image.color = _secondaryStats ? new Color32(64, 74, 51, 255) : Surface;
+        _level.text = string.Format(T("level", "当前等级  {0}"), _rounds.Player.currentLevel);
+        PlayerStatType[] stats = _secondaryStats ? SecondaryStats : PrimaryStats;
+        for (int i = 0; i < 12; i++)
+        {
+            _statRows[i].SetActive(i < stats.Length);
+            if (i >= stats.Length) continue;
+            PlayerStatType stat = stats[i];
+            _statNames[i].text = PlayerStatPresentation.GetDisplayName(stat);
+            float value = _rounds.Player.GetFinalStat(stat);
+            if (stat == PlayerStatType.Revival) value = RunState.Instance.RemainingRevivals;
+            if (stat == PlayerStatType.Reroll) value = RunState.Instance.RemainingRerolls;
+            if (stat == PlayerStatType.Skip) value = RunState.Instance.RemainingSkips;
+            if (stat == PlayerStatType.Banish) value = RunState.Instance.RemainingBanishes;
+            _statValues[i].text = PlayerStatPresentation.FormatFinalValue(stat, value);
+            Sprite icon = null;
+            foreach (RoundStatUpgrade definition in _rounds.config.shopCatalog.stats)
+                if (definition.modifier.StatType == stat) { icon = definition.icon; break; }
+            _statIcons[i].sprite = icon; _statIcons[i].enabled = icon != null;
+        }
+    }
+
+    /// <summary>武器详情绑定实例，库存变动后的按钮永远重新走服务校验。</summary>
+    private void ShowWeapon(RectTransform owner, WeaponBase weapon, bool pin)
+    {
+        if (weapon == null || !_panel.activeSelf) return;
+        _inspectedWeapon = weapon; _pinned = pin; ShowTooltip(owner, weapon.weaponData.icon,
+            weapon.weaponData.GetDisplayName(), RoundShopPresentation.Tier(weapon.CurrentLevel),
+            RoundShopPresentation.WeaponDetails(weapon.weaponData, weapon.CurrentLevel));
+        _tooltipCombine.gameObject.SetActive(true); _tooltipRecycle.gameObject.SetActive(true);
+        bool shop = _rounds.Phase == RoundPhase.Shop;
+        bool pair = false;
+        foreach (WeaponBase other in _rounds.Loadout.OwnedWeapons)
+            if (other != weapon && other.weaponData == weapon.weaponData && other.CurrentLevel == weapon.CurrentLevel) pair = true;
+        _tooltipCombine.interactable = shop && pair && weapon.CurrentLevel < 4;
+        _tooltipRecycle.interactable = shop;
+    }
+
+    /// <summary>道具悬停只显示当前叠加层数与对应说明，没有新增消费行为。</summary>
+    private void ShowItem(RectTransform owner, OwnedAbilityState item)
+    {
+        if (item == null || !_panel.activeSelf) return;
+        _pinned = false; _inspectedWeapon = null;
+        RevealItem(owner);
+        ShowTooltip(owner, item.Data.icon, item.Data.GetDisplayName(),
+            string.Format(T("stacks", "已获得 ×{0}"), item.CurrentLevel),
+            RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel));
+        _tooltipCombine.gameObject.SetActive(false); _tooltipRecycle.gameObject.SetActive(false);
+    }
+
+    /// <summary>键盘聚焦到滚动区域外的道具时滚动到可见范围，再定位详情窗。</summary>
+    private void RevealItem(RectTransform owner)
+    {
+        Canvas.ForceUpdateCanvases();
+        RectTransform viewport = _itemScroll.viewport;
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, owner);
+        float delta = bounds.min.y < viewport.rect.yMin ? viewport.rect.yMin - bounds.min.y
+            : bounds.max.y > viewport.rect.yMax ? viewport.rect.yMax - bounds.max.y : 0;
+        Vector2 position = _itemScroll.content.anchoredPosition;
+        position.y = Mathf.Clamp(position.y + delta, 0, Mathf.Max(0, _itemScroll.content.rect.height - viewport.rect.height));
+        _itemScroll.content.anchoredPosition = position;
+    }
+
+    /// <summary>详情窗放在源图标上方并约束在屏幕安全区；保持静止便于进入按钮区域。</summary>
+    private void ShowTooltip(RectTransform owner, Sprite icon, string name, string kind, string body)
+    {
+        _tooltipOwner = owner; _hideAt = -1;
+        _tooltipName.text = name; _tooltipKind.text = kind; _tooltipBody.text = body;
+        _tooltipIcon.sprite = icon; _tooltipIcon.enabled = icon != null;
+        RectTransform panel = (RectTransform)_panel.transform;
+        var corners = new Vector3[4]; owner.GetWorldCorners(corners);
+        // 世界坐标转换到统一 Canvas 坐标后归一化，不依赖窗口像素或相机投影。
+        Vector2 top = panel.InverseTransformPoint(corners[1]);
+        bool weapon = _inspectedWeapon != null;
+        float bodyHeight = _tooltipBody.GetPreferredValues(body, panel.rect.width * .31f * .87f, float.PositiveInfinity).y;
+        float height = Mathf.Clamp(bodyHeight + 114 + (weapon ? 95 : 20), 220, panel.rect.height * .62f);
+        float normalizedHeight = height / panel.rect.height;
+        float x = Mathf.Clamp((top.x - panel.rect.xMin) / panel.rect.width, .025f, .655f);
+        float y = Mathf.Clamp((top.y - panel.rect.yMin) / panel.rect.height + .014f, .035f, .97f - normalizedHeight);
+        _tooltip.anchorMin = new Vector2(x, y); _tooltip.anchorMax = new Vector2(x + .31f, y + normalizedHeight);
+        _tooltip.offsetMin = _tooltip.offsetMax = Vector2.zero;
+        SetAnchors(_tooltipIcon.rectTransform, .06f, 1 - 90 / height, .22f, 1 - 18 / height);
+        SetAnchors(_tooltipName.rectTransform, .27f, 1 - 65 / height, .81f, 1 - 18 / height);
+        SetAnchors(_tooltipKind.rectTransform, .27f, 1 - 94 / height, .94f, 1 - 68 / height);
+        SetAnchors(_tooltipBody.rectTransform, .065f, (weapon ? 95 : 20) / height, .935f, 1 - 114 / height);
+        SetAnchors((RectTransform)_tooltipCombine.transform, .06f, 18 / height, .47f, 68 / height);
+        SetAnchors((RectTransform)_tooltipRecycle.transform, .53f, 18 / height, .94f, 68 / height);
+        SetAnchors((RectTransform)_tooltip.Find("Close"), .83f, 1 - 44 / height, .96f, 1 - 10 / height);
+        _tooltip.gameObject.SetActive(true); _tooltip.SetAsLastSibling();
+    }
+
+    /// <summary>内容高度变化时重排详情内部元素，保留固定文字行高和边距。</summary>
+    private static void SetAnchors(RectTransform rect, float x0, float y0, float x1, float y1)
+    {
+        rect.anchorMin = new Vector2(x0, y0); rect.anchorMax = new Vector2(x1, y1);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+    }
+
+    /// <summary>仅允许当前源图标关闭自己的提示，避免相邻图标快速切换时被旧退出事件干扰。</summary>
+    private void ScheduleHide(RectTransform owner)
+    {
+        if (owner != _tooltipOwner || _pinned) return;
+        _hideAt = Time.unscaledTime + .15f;
+    }
+
+    /// <summary>关闭时把焦点从不可见详情按钮送回源图标。</summary>
+    private void HideTooltip()
+    {
+        if (_tooltip == null) return;
+        bool restore = EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null
+            && EventSystem.current.currentSelectedGameObject.transform.IsChildOf(_tooltip);
+        RectTransform owner = _tooltipOwner;
+        _tooltip.gameObject.SetActive(false); _hideAt = -1; _pinned = false; _inspectedWeapon = null; _tooltipOwner = null;
+        if (restore && owner != null && owner.gameObject.activeInHierarchy)
+        {
+            EventSystem.current.SetSelectedGameObject(owner.gameObject);
+            // OnSelect 可再次打开详情；显式关闭请求最终保持隐藏。
+            _tooltip.gameObject.SetActive(false); _tooltipOwner = null;
+        }
+    }
+
+    /// <summary>更新按钮标签而不重建控件。</summary>
+    private static void Label(Button button, string value) { button.GetComponentInChildren<TMP_Text>().text = value; }
+    /// <summary>创建归一化布局矩形。</summary>
     private static RectTransform Rect(string name, Transform parent, float x0, float y0, float x1, float y1)
     {
         var go = new GameObject(name, typeof(RectTransform));
@@ -196,31 +506,48 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         rect.anchorMin = new Vector2(x0, y0); rect.anchorMax = new Vector2(x1, y1);
         rect.offsetMin = rect.offsetMax = Vector2.zero; return rect;
     }
-
-    /// <summary>创建背景块与可选按钮底图。</summary>
+    /// <summary>创建基础背景块。</summary>
     private static RectTransform Box(string name, Transform parent, float x0, float y0, float x1, float y1, Color color)
     {
         RectTransform rect = Rect(name, parent, x0, y0, x1, y1);
         rect.gameObject.AddComponent<Image>().color = color; return rect;
     }
-
-    /// <summary>创建统一字体文本；允许缩小但保持最低字号，避免裁切。</summary>
+    /// <summary>矩形边线复用 UI 顶点效果，无需新增位图资源。</summary>
+    private static void Outline(RectTransform rect)
+    {
+        var outline = rect.gameObject.AddComponent<UnityEngine.UI.Outline>();
+        outline.effectColor = new Color32(10, 12, 10, 255); outline.effectDistance = new Vector2(2, -2);
+    }
+    /// <summary>使用原图与正方形区域，禁止图像拦截父控件的悬停射线。</summary>
+    private static Image Icon(string name, Transform parent, float x0, float y0, float x1, float y1)
+    {
+        Image icon = Box(name, parent, x0, y0, x1, y1, Color.white).GetComponent<Image>();
+        icon.preserveAspect = true; icon.raycastTarget = false; return icon;
+    }
+    /// <summary>创建统一字体文本，允许有限缩放应对长中文和较小窗口。</summary>
     private TMP_Text Text(string name, Transform parent, string text, float x0, float y0, float x1, float y1, int size)
     {
         var label = Rect(name, parent, x0, y0, x1, y1).gameObject.AddComponent<TextMeshProUGUI>();
         label.font = font; label.text = text; label.fontSize = size; label.enableAutoSizing = true;
-        label.fontSizeMin = size * .75f; label.fontSizeMax = size; label.color = Color.white;
+        label.fontSizeMin = size * .78f; label.fontSizeMax = size; label.color = Color.white;
         label.raycastTarget = false; label.alignment = TextAlignmentOptions.MidlineLeft; return label;
     }
-
-    /// <summary>创建可导航按钮，业务操作仅通过回调调用服务。</summary>
+    /// <summary>统一聚焦、悬停与不可用反馈，避免只改变文字颜色而缺乏焦点提示。</summary>
+    private static void ConfigureButton(Button button)
+    {
+        ColorBlock colors = button.colors; colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.35f, 1.35f, 1.2f);
+        colors.selectedColor = new Color(1.25f, 1.38f, 1.13f);
+        colors.disabledColor = new Color(.48f, .48f, .48f, 1);
+        button.colors = colors;
+    }
+    /// <summary>创建可导航按钮，点击只调用服务或展示回调。</summary>
     private Button Button(string name, Transform parent, string text, float x0, float y0, float x1, float y1, Action action)
     {
-        RectTransform rect = Box(name, parent, x0, y0, x1, y1, new Color32(36, 93, 106, 255));
+        RectTransform rect = Box(name, parent, x0, y0, x1, y1, new Color32(48, 53, 44, 255));
         Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = rect.GetComponent<Image>();
-        button.onClick.AddListener(() => action());
-        TMP_Text label = Text("Label", rect, text, .03f, .04f, .97f, .96f, 24);
-        label.alignment = TextAlignmentOptions.Center;
-        return button;
+        ConfigureButton(button); button.onClick.AddListener(() => action());
+        TMP_Text label = Text("Label", rect, text, .025f, .025f, .975f, .975f, 27);
+        label.alignment = TextAlignmentOptions.Center; return button;
     }
 }

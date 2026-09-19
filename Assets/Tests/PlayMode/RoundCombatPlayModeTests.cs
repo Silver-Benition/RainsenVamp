@@ -177,6 +177,114 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
         }
 
+        /// <summary>验证图标悬停、移入浮窗、导航聚焦和实例回收，不依赖私有方法直接打开详情。</summary>
+        [UnityTest]
+        public IEnumerator Inventory_HoverTransferAndFocusKeepInstanceActionsCorrect()
+        {
+            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            GameObject panel = Get<GameObject>(ui, "Panel"), tooltip = Get<GameObject>(ui, "Tooltip");
+            object loadout = Get<object>(_rounds, "Loadout");
+            IList owned = Get<IList>(loadout, "OwnedWeapons");
+            object first = owned[0];
+            object data = first.GetType().GetField("weaponData").GetValue(first);
+            object second = Call(loadout, "BuyRoundWeapon", data, 1);
+            GrantCatalogItems();
+            Call(ui, "Refresh"); yield return null;
+            GameObject icon = panel.transform.Find("WeaponsArea/WeaponSlot0").gameObject;
+            var pointer = new PointerEventData(EventSystem.current);
+            Assert.IsFalse(tooltip.activeSelf);
+            ExecuteEvents.Execute(icon, pointer, ExecuteEvents.pointerEnterHandler);
+            Assert.IsTrue(tooltip.activeSelf);
+            Assert.IsTrue(tooltip.transform.Find("Combine").GetComponent<Button>().interactable);
+            ExecuteEvents.Execute(icon, pointer, ExecuteEvents.pointerExitHandler);
+            ExecuteEvents.Execute(tooltip, pointer, ExecuteEvents.pointerEnterHandler);
+            yield return new WaitForSecondsRealtime(.2f);
+            Assert.IsTrue(tooltip.activeSelf, "鼠标移入详情操作区后必须保持显示。");
+            ExecuteEvents.Execute(tooltip, pointer, ExecuteEvents.pointerExitHandler);
+            yield return new WaitForSecondsRealtime(.2f);
+            Assert.IsFalse(tooltip.activeSelf, "离开图标和详情后应关闭。");
+
+            EventSystem.current.SetSelectedGameObject(icon);
+            Assert.IsTrue(tooltip.activeSelf, "键盘/手柄聚焦应展示详情。");
+            GameObject recycle = tooltip.transform.Find("Recycle").gameObject;
+            EventSystem.current.SetSelectedGameObject(recycle);
+            yield return new WaitForSecondsRealtime(.2f);
+            Assert.IsTrue(tooltip.activeSelf, "导航进入详情按钮后不能被图标失焦关闭。");
+            ExecuteEvents.Execute(recycle, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreEqual(1, owned.Count);
+            Assert.AreSame(second, owned[0], "回收必须作用于查看的实例，不得误删同类另一把。");
+            Assert.IsFalse(tooltip.activeSelf);
+
+            GameObject itemIcon = panel.transform.Find("ItemsArea/Viewport/Content/ItemSlot0").gameObject;
+            ExecuteEvents.Execute(itemIcon, pointer, ExecuteEvents.pointerEnterHandler);
+            Assert.IsTrue(tooltip.activeSelf);
+            Assert.IsFalse(tooltip.transform.Find("Recycle").gameObject.activeSelf);
+            Assert.IsFalse(tooltip.transform.Find("Combine").gameObject.activeSelf);
+            Assert.IsNotEmpty(Get<string>(tooltip.transform.Find("Description").GetComponent("TextMeshProUGUI"), "text"));
+            ExecuteEvents.Execute(itemIcon, pointer, ExecuteEvents.pointerExitHandler);
+            yield return new WaitForSecondsRealtime(.2f);
+            Assert.IsFalse(tooltip.activeSelf);
+            ExecuteEvents.Execute(panel.transform.Find("StatsBoard/Secondary").gameObject,
+                new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreEqual("成长", Get<string>(panel.transform.Find("StatsBoard/Stat0/Name").GetComponent("TextMeshProUGUI"), "text"));
+        }
+
+        /// <summary>持有大量道具时滚动区保持图标尺寸，导航到底部会自动露出目标图标。</summary>
+        [UnityTest]
+        public IEnumerator Inventory_OverflowScrollRevealsFocusedIcon()
+        {
+            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            object items = Get<object>(_rounds, "Items");
+            object catalog = _rounds.GetType().GetField("config").GetValue(_rounds);
+            catalog = catalog.GetType().GetField("shopCatalog").GetValue(catalog);
+            IList products = (IList)catalog.GetType().GetField("products").GetValue(catalog);
+            ScriptableObject template = null;
+            foreach (object product in products)
+            {
+                if (Get<bool>(product, "IsWeapon")) continue;
+                object content = product.GetType().GetField("content").GetValue(product);
+                template = (ScriptableObject)content.GetType().GetField("abilityToGrant").GetValue(content);
+                break;
+            }
+            var copies = new System.Collections.Generic.List<ScriptableObject>();
+            try
+            {
+                for (int i = 0; i < 31; i++)
+                {
+                    ScriptableObject copy = UnityEngine.Object.Instantiate(template); copies.Add(copy);
+                    copy.GetType().GetField("abilityID").SetValue(copy, "round.ui.scroll." + i);
+                    Call(items, "GrantOrUpgrade", copy);
+                }
+                Call(ui, "Refresh"); yield return null; Canvas.ForceUpdateCanvases();
+                GameObject panel = Get<GameObject>(ui, "Panel");
+                ScrollRect scroll = panel.transform.Find("ItemsArea").GetComponent<ScrollRect>();
+                Assert.Greater(scroll.content.rect.height, scroll.viewport.rect.height);
+                RectTransform last = (RectTransform)scroll.content.GetChild(30);
+                EventSystem.current.SetSelectedGameObject(last.gameObject);
+                Canvas.ForceUpdateCanvases();
+                Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, last);
+                Assert.GreaterOrEqual(bounds.min.y, scroll.viewport.rect.yMin - 1);
+                Assert.LessOrEqual(bounds.max.y, scroll.viewport.rect.yMax + 1);
+                Assert.IsTrue(Get<GameObject>(ui, "Tooltip").activeSelf);
+            }
+            finally { foreach (ScriptableObject copy in copies) UnityEngine.Object.Destroy(copy); }
+        }
+
+        /// <summary>通过正式道具授予链补齐现有目录，用于验证图标库存和详情。</summary>
+        private void GrantCatalogItems()
+        {
+            object config = _rounds.GetType().GetField("config").GetValue(_rounds);
+            object catalog = config.GetType().GetField("shopCatalog").GetValue(config);
+            foreach (object product in (IList)catalog.GetType().GetField("products").GetValue(catalog))
+            {
+                if (Get<bool>(product, "IsWeapon")) continue;
+                object content = product.GetType().GetField("content").GetValue(product);
+                Call(Get<object>(_rounds, "Items"), "GrantOrUpgrade", content.GetType().GetField("abilityToGrant").GetValue(content));
+            }
+        }
+
         /// <summary>1080p 局间布局使用真实相机和正式 UI，可选输出截图。</summary>
         [UnityTest]
         public IEnumerator Layout_1920x1080() { yield return VerifyLayout(1920, 1080); }
@@ -208,7 +316,7 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.enabled = true;
             try
             {
-                foreach (string page in new[] { "combat", "upgrades", "shop" })
+                foreach (string page in new[] { "combat", "upgrades", "shop", "weapon-details", "item-details", "secondary-stats" })
                 {
                     if (page == "upgrades")
                     {
@@ -223,8 +331,22 @@ namespace RainsenVampSur.Tests.PlayMode
                         IList owned = Get<IList>(loadout, "OwnedWeapons");
                         object data = owned[0].GetType().GetField("weaponData").GetValue(owned[0]);
                         while (owned.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
+                        GrantCatalogItems();
                         Call(Get<object>(_rounds, "Wallet"), "Credit", 1234);
                         Call(ui, "Refresh");
+                    }
+                    GameObject layoutPanel = Get<GameObject>(ui, "Panel");
+                    var hover = new PointerEventData(EventSystem.current);
+                    if (page == "weapon-details")
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("WeaponsArea/WeaponSlot0").gameObject, hover, ExecuteEvents.pointerEnterHandler);
+                    if (page == "item-details")
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("ItemsArea/Viewport/Content/ItemSlot0").gameObject, hover, ExecuteEvents.pointerEnterHandler);
+                    if (page == "secondary-stats")
+                    {
+                        ExecuteEvents.Execute(Get<GameObject>(ui, "Tooltip").transform.Find("Close").gameObject,
+                            new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("StatsBoard/Secondary").gameObject,
+                            new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
                     }
                     Canvas.ForceUpdateCanvases();
                     for (int frame = 0; frame < 4; frame++) yield return null;
