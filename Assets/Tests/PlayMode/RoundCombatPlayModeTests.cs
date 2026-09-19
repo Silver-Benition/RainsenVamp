@@ -650,6 +650,8 @@ namespace RainsenVampSur.Tests.PlayMode
                         Call(Get<object>(_rounds, "Wallet"), "Credit", 1234);
                         Call(ui, "Refresh");
                     }
+                    if (Get<object>(_rounds, "Phase").ToString() == "Shop")
+                        Assert.AreEqual(1, ui.transform.Find("PassOverlay").GetComponent<Image>().color.a, "商店必须完全遮挡竞技场");
                     GameObject layoutPanel = Get<GameObject>(ui, "Panel");
                     var hover = new PointerEventData(EventSystem.current);
                     if (page == "weapon-details")
@@ -760,6 +762,113 @@ namespace RainsenVampSur.Tests.PlayMode
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; canvas.sortingOrder = originalOrder; canvas.sortingLayerID = originalLayer;
                 target.Release(); UnityEngine.Object.Destroy(target);
             }
+        }
+
+        /// <summary>点击第二行武器后经过第一行和道具不改操作对象；显式点击另一把才切换。</summary>
+        [UnityTest]
+        public IEnumerator Feedback5_PinnedWeaponSurvivesCrossingOtherIcons()
+        {
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            object loadout = Get<object>(_rounds, "Loadout"); IList owned = Get<IList>(loadout, "OwnedWeapons");
+            object data = owned[0].GetType().GetField("weaponData").GetValue(owned[0]);
+            while (owned.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
+            GrantCatalogItems();
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI")); Call(ui, "Refresh");
+            Transform panel = Get<GameObject>(ui, "Panel").transform; GameObject tooltip = Get<GameObject>(ui, "Tooltip");
+            object target = owned[4], upper = owned[1];
+            GameObject bottom = panel.Find("WeaponsArea/WeaponSlot4").gameObject;
+            GameObject top = panel.Find("WeaponsArea/WeaponSlot1").gameObject;
+            var pointer = new PointerEventData(EventSystem.current);
+            ExecuteEvents.Execute(bottom, pointer, ExecuteEvents.pointerEnterHandler);
+            ExecuteEvents.Execute(bottom, pointer, ExecuteEvents.pointerDownHandler);
+            ExecuteEvents.Execute(bottom, pointer, ExecuteEvents.pointerUpHandler);
+            ExecuteEvents.Execute(bottom, pointer, ExecuteEvents.pointerClickHandler);
+            ExecuteEvents.Execute(bottom, pointer, ExecuteEvents.pointerExitHandler);
+            ExecuteEvents.Execute(top, pointer, ExecuteEvents.pointerEnterHandler);
+            ExecuteEvents.Execute(panel.Find("ItemsArea/Viewport/Content/ItemSlot0").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+            yield return new WaitForSecondsRealtime(.2f);
+            Assert.IsTrue(tooltip.activeSelf);
+            Assert.AreSame(target, RuntimeComponentTestUtility.GetFieldValue<object>(ui, "_inspectedWeapon"));
+            ExecuteEvents.Execute(tooltip.transform.Find("Combine").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreEqual(2, Get<int>(target, "CurrentLevel")); Assert.AreEqual(1, Get<int>(upper, "CurrentLevel"));
+            Assert.IsFalse(tooltip.activeSelf);
+            Call(ui, "Refresh");
+            ExecuteEvents.Execute(panel.Find("WeaponsArea/WeaponSlot0").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            ExecuteEvents.Execute(panel.Find("WeaponsArea/WeaponSlot1").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreSame(owned[1], RuntimeComponentTestUtility.GetFieldValue<object>(ui, "_inspectedWeapon"));
+            ExecuteEvents.Execute(tooltip.transform.Find("Close").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.IsFalse(tooltip.activeSelf);
+        }
+
+        /// <summary>实际购买清空后零材料补货，保留正常刷新档位；锁定和禁用清空也遵守同一报价。</summary>
+        [UnityTest]
+        public IEnumerator Feedback5_EmptyShopRestocksFreeWithoutRaisingPrice()
+        {
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            object shop = Get<object>(_rounds, "Shop"), wallet = Get<object>(_rounds, "Wallet");
+            IList offers = Get<IList>(shop, "Offers"); Call(wallet, "Credit", 10000);
+            int normalPrice = Get<int>(shop, "RefreshPrice"); Assert.Greater(normalPrice, 0);
+            object item = null;
+            object config = RuntimeComponentTestUtility.GetFieldValue<object>(_rounds, "config");
+            object catalog = RuntimeComponentTestUtility.GetFieldValue<object>(config, "shopCatalog");
+            foreach (object product in RuntimeComponentTestUtility.GetFieldValue<IList>(catalog, "products"))
+                if (!Get<bool>(product, "IsWeapon")) { item = product; break; }
+            // 首屏合法地可能全是武器；禁用夹具从目录取道具，不依赖商店随机结果。
+            for (int i = 0; i < offers.Count; i++)
+            {
+                if (offers[i] == null) continue;
+                object product = Get<object>(offers[i], "Product"); if (!Get<bool>(product, "IsWeapon")) item = product;
+                Assert.IsTrue((bool)Call(shop, "Buy", i));
+            }
+            Assert.AreEqual(0, Get<int>(shop, "RefreshPrice"));
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI")); Call(ui, "Refresh");
+            Component refreshLabel = Get<GameObject>(ui, "Panel").transform.Find("Refresh/Label").GetComponent("TextMeshProUGUI");
+            Assert.That(Get<string>(refreshLabel, "text"), Does.EndWith("0"));
+            Call(wallet, "TrySpend", Get<int>(wallet, "Balance"));
+            Assert.IsTrue((bool)Call(shop, "Refresh")); Assert.AreEqual(0, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(normalPrice, Get<int>(shop, "RefreshPrice"));
+            Assert.IsFalse((bool)Call(shop, "Refresh"));
+            for (int i = 0; i < offers.Count; i++) if (offers[i] != null) Call(shop, "ToggleLock", i);
+            Call(wallet, "Credit", 100);
+            Assert.IsFalse((bool)Call(shop, "Refresh")); Assert.AreEqual(100, Get<int>(wallet, "Balance"));
+            Assert.IsNotNull(item); SetCountStat(Get<object>(_rounds, "Player"), "Banish", 1);
+            for (int i = 0; i < offers.Count; i++) offers[i] = Activator.CreateInstance(TypeOf("RunShopOffer"), item, 1, 10);
+            Assert.IsTrue((bool)Call(shop, "Banish", 0)); Assert.AreEqual(0, Get<int>(shop, "RefreshPrice"));
+            Assert.IsTrue((bool)Call(shop, "Refresh")); Assert.AreEqual(100, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(normalPrice, Get<int>(shop, "RefreshPrice"));
+            Assert.IsTrue((bool)Call(shop, "Refresh"));
+            Assert.AreEqual(100 - normalPrice, Get<int>(wallet, "Balance"));
+            Assert.Greater(Get<int>(shop, "RefreshPrice"), normalPrice);
+        }
+
+        /// <summary>远离中心结束回合后，下一波同一帧的真实武器攻击必须使用中心位置。</summary>
+        [UnityTest]
+        public IEnumerator Feedback5_NextRoundFirstShotUsesCenteredTransform()
+        {
+            Component player = (Component)Get<object>(_rounds, "Player"); Rigidbody2D body = player.GetComponent<Rigidbody2D>();
+            Vector3 end = new Vector3(7, 3, 0); body.position = end; player.transform.position = end;
+            Physics2D.SyncTransforms(); yield return new WaitForFixedUpdate(); yield return null;
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            Assert.AreEqual(1, ui.transform.Find("PassOverlay").GetComponent<Image>().color.a);
+            Assert.Less(player.transform.position.sqrMagnitude, .01f, "进入商店时应已复位");
+            Assert.Less(body.position.sqrMagnitude, .01f); Assert.AreEqual(Vector2.zero, body.velocity);
+            Assert.AreEqual(RigidbodyInterpolation2D.Interpolate, body.interpolation, "不能永久改变角色插值设置");
+            for (int i = 0; i < 3; i++) yield return null;
+            Assert.Less(player.transform.position.sqrMagnitude, .01f, "暂停期间不应回放旧的插值位置");
+            Assert.AreEqual(0, UnityEngine.Object.FindObjectsOfType(TypeOf("ProjectileBase")).Length);
+            Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+            Component weapon = (Component)Get<IList>(Get<object>(_rounds, "Loadout"), "OwnedWeapons")[0];
+            RuntimeComponentTestUtility.Invoke(weapon, "Update");
+            UnityEngine.Object[] shots = UnityEngine.Object.FindObjectsOfType(TypeOf("ProjectileBase"));
+            TestContext.Out.WriteLine("first-frame body=" + body.position + ", player=" + player.transform.position + ", weapon=" + weapon.transform.position + ", shots=" + shots.Length);
+            Assert.Greater(shots.Length, 0, "必须实际发射，不能通过禁用全部攻击让测试假通过。");
+            foreach (Component shot in shots)
+                Assert.Less(shot.transform.position.sqrMagnitude, .01f, "新回合首发仍在旧位置：" + shot.transform.position);
+            Assert.Less(player.transform.position.sqrMagnitude, .01f);
+            yield return new WaitForFixedUpdate(); yield return null;
+            Assert.Less(player.transform.position.sqrMagnitude, .01f, "恢复物理后不能跳回旧位置");
         }
 
         /// <summary>高速移动边界与安全生成点使用真实竞技场组件。</summary>

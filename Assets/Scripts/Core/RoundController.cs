@@ -212,6 +212,8 @@ public sealed class RoundController : MonoBehaviour
         }
         CurrentCrate = null;
         if (RoundNumber >= config.rounds.Count) { _director.CompleteRoundRun(); return; }
+        // 仍保持战斗关闭；同一帧内完成复位并通知视图显示不透明商店，渲染不暴露瞬移过程。
+        ResetPlayerPosition();
         Phase = RoundPhase.Shop;
         Shop.Enter(RoundNumber);
         Changed?.Invoke();
@@ -320,8 +322,8 @@ public sealed class RoundController : MonoBehaviour
         RoundNumber++;
         Current = new RoundRuntime(config.rounds[RoundNumber - 1], RoundNumber);
         _health.PrepareRound();
-        Rigidbody2D body = _player.GetComponent<Rigidbody2D>();
-        body.position = Vector2.zero; body.velocity = Vector2.zero;
+        // 后续波已经在进入商店时准备位置；首次进入整局尚未经过商店，单独初始化一次。
+        if (RoundNumber == 1) ResetPlayerPosition();
         WorldFreezeController.Instance?.CancelFreeze();
         _director.PrepareRoundEncounter();
         _waves.BeginRound(Current.Definition.spawnConfig);
@@ -333,14 +335,28 @@ public sealed class RoundController : MonoBehaviour
         Changed?.Invoke(); return true;
     }
 
+    /// <summary>仅在战斗关闭时瞬移到中心，并同步子武器发射点；临时关闭插值防止旧姿态在恢复时回放。</summary>
+    private void ResetPlayerPosition()
+    {
+        Rigidbody2D body = _player.GetComponent<Rigidbody2D>();
+        RigidbodyInterpolation2D interpolation = body.interpolation;
+        body.interpolation = RigidbodyInterpolation2D.None;
+        body.velocity = Vector2.zero; body.angularVelocity = 0;
+        body.position = Vector2.zero;
+        // Rigidbody2D.position 在物理步之前不保证 Transform 已更新，而武器从 Transform 读取发射原点。
+        _player.transform.position = new Vector3(0, 0, _player.transform.position.z);
+        Physics2D.SyncTransforms();
+        body.interpolation = interpolation;
+    }
+
     /// <summary>控制所有独立武器实例；禁用时持续光环与环绕物各自完成回池。</summary>
     private void SetWeaponsActive(bool active)
     {
         foreach (WeaponBase weapon in _loadout.OwnedWeapons)
         {
             if (weapon == null) continue;
-            weapon.enabled = active;
             if (active) weapon.ResetRoundCooldown();
+            weapon.enabled = active;
         }
     }
 

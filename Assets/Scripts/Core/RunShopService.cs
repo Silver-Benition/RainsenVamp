@@ -30,7 +30,18 @@ public sealed class RunShopService
     private int _rerolls;
     public bool IsBusy => _busy;
     public IReadOnlyList<RunShopOffer> Offers => _offers;
-    public int RefreshPrice => (int)Math.Min(int.MaxValue, (long)_catalog.initialRerollPrice + _wave + (long)_rerolls * _catalog.rerollPriceStep);
+    /// <summary>全部报价为空时免费补货；存在任何商品（含锁定商品）时按本波付费刷新档位报价。</summary>
+    public int RefreshPrice => IsEmpty ? 0 : (int)Math.Min(int.MaxValue, (long)_catalog.initialRerollPrice + _wave + (long)_rerolls * _catalog.rerollPriceStep);
+
+    /// <summary>空店按四格报价的实际状态判断，购买或禁用清空均适用，无需额外标记。</summary>
+    private bool IsEmpty
+    {
+        get
+        {
+            foreach (RunShopOffer offer in _offers) if (offer != null) return false;
+            return true;
+        }
+    }
 
     /// <summary>注入本局依赖；外部决定当前阶段是否允许交易。</summary>
     public RunShopService(RunShopCatalogSO catalog, RunMaterialWallet wallet, LevelUpManager loadout,
@@ -161,9 +172,10 @@ public sealed class RunShopService
         _busy = true;
         try
         {
+            bool freeRestock = IsEmpty;
             int price = RefreshPrice;
             return _wallet.Transact(price, 0, () =>
-            { FillUnlocked(); _rerolls++; return true; });
+            { FillUnlocked(); if (!freeRestock) _rerolls++; return true; });
         }
         finally { _busy = false; }
     }

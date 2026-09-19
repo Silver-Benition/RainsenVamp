@@ -378,6 +378,9 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             group.alpha = visible ? 1 : 0; group.blocksRaycasts = visible;
         }
         _passOverlay.gameObject.SetActive(settling || upgrades || crates || shop);
+        // 商店遮挡已复位的竞技场；升级和宝箱仍保留原半透明过渡背景。
+        Color overlayColor = Background; if (shop) overlayColor.a = 1;
+        _passOverlay.GetComponent<Image>().color = overlayColor;
         _passText.gameObject.SetActive(settling);
         RefreshProgress();
         _combatBalance.gameObject.SetActive(_rounds.Phase == RoundPhase.Combat);
@@ -527,7 +530,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             cell.Icon.rectTransform.anchoredPosition = item.Data.loadoutIconOffset;
             cell.Badge.text = item.CurrentLevel > 1 ? "×" + item.CurrentLevel : ""; cell.Badge.alignment = TextAlignmentOptions.BottomRight;
             cell.Hover.Bind(() => ShowItem(cell.Root, item), () => ScheduleHide(cell.Root));
-            cell.Button.onClick.RemoveAllListeners(); cell.Button.onClick.AddListener(() => ShowItem(cell.Root, item));
+            cell.Button.onClick.RemoveAllListeners(); cell.Button.onClick.AddListener(() => ShowItem(cell.Root, item, true));
         }
     }
 
@@ -561,7 +564,8 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>武器详情绑定实例，库存变动后的按钮永远重新走服务校验。</summary>
     private void ShowWeapon(RectTransform owner, WeaponBase weapon, bool pin)
     {
-        if (weapon == null || !_panel.activeSelf) return;
+        if (weapon == null || !_panel.activeSelf || (_pinned && !pin)) return;
+        // 点击锁定后，悬停及导航经过其他图标均不得覆盖操作实例；再次点击才切换。
         _inspectedWeapon = weapon; _pinned = pin; ShowTooltip(owner, weapon.weaponData.icon,
             weapon.weaponData.GetDisplayName(), RoundShopPresentation.Tier(weapon.CurrentLevel),
             RoundShopPresentation.WeaponDetails(weapon.weaponData, weapon.CurrentLevel));
@@ -575,9 +579,9 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     }
 
     /// <summary>道具悬停只显示当前叠加层数与对应说明，没有新增消费行为。</summary>
-    private void ShowItem(RectTransform owner, OwnedAbilityState item)
+    private void ShowItem(RectTransform owner, OwnedAbilityState item, bool explicitSelection = false)
     {
-        if (item == null || !_panel.activeSelf) return;
+        if (item == null || !_panel.activeSelf || (_pinned && !explicitSelection)) return;
         _pinned = false; _inspectedWeapon = null;
         RevealItem(owner);
         ShowTooltip(owner, item.Data.icon, item.Data.GetDisplayName(),
