@@ -130,7 +130,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(valueRows.Length, Is.EqualTo(21));
             Assert.That(valueRows[3], Is.EqualTo("5"));
             Assert.IsNotNull(boardRoot);
-            Assert.That(boardRoot.anchorMax.x, Is.EqualTo(1f).Within(FloatTolerance));
+            Assert.That(boardRoot.anchorMax.x, Is.EqualTo(.965f).Within(FloatTolerance));
         }
 
         /// <summary>创建并登记带指定生存属性的运行时角色资产。</summary>

@@ -15,7 +15,7 @@ namespace RainsenVampSur.Tests.PlayMode
 
         /// <summary>手动暂停应展开等级；九级内显示点阵，超过九级显示当前等级数字。</summary>
         [UnityTest]
-        public IEnumerator LoadoutDisplay_手动暂停_显示等级并保持十二格布局()
+        public IEnumerator LoadoutDisplay_仅暂停显示武器_右下布局且隐藏能力()
         {
             Sprite firstIcon = CreateTrackedSprite(Color.red);
             Sprite secondIcon = CreateTrackedSprite(Color.cyan);
@@ -106,10 +106,11 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(panelRoot.childCount, Is.EqualTo(12));
 
             RectTransform panelRect = panelRoot.GetComponent<RectTransform>();
-            Assert.That(panelRect.anchorMin, Is.EqualTo(Vector2.one));
-            Assert.That(panelRect.anchorMax, Is.EqualTo(Vector2.one));
-            Assert.That(panelRect.pivot, Is.EqualTo(Vector2.one));
-            Assert.That(panelRect.anchoredPosition, Is.EqualTo(new Vector2(-24f, -24f)));
+            Assert.IsFalse(panelRoot.gameObject.activeSelf);
+            Assert.That(panelRect.anchorMin, Is.EqualTo(new Vector2(.735f, .035f)));
+            Assert.That(panelRect.anchorMax, Is.EqualTo(new Vector2(.965f, .17f)));
+            Assert.That(panelRect.pivot, Is.EqualTo(new Vector2(1, 0)));
+            Assert.That(panelRect.offsetMin, Is.EqualTo(Vector2.zero));
 
             Image firstWeaponIcon = RequireSlotIcon(panelRoot, "WeaponSlot_1");
             Assert.IsTrue(firstWeaponIcon.enabled);
@@ -117,7 +118,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(firstWeaponIcon.rectTransform.localScale.x, Is.EqualTo(1.5f).Within(FloatTolerance));
             Assert.That(firstWeaponIcon.rectTransform.localScale.y, Is.EqualTo(1.5f).Within(FloatTolerance));
             Assert.That(firstWeaponIcon.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(2f, -1f)));
-            Assert.IsNotNull(firstWeaponIcon.GetComponentInParent<RectMask2D>());
+            Assert.IsNotNull(firstWeaponIcon.GetComponentInParent<RectMask2D>(true));
 
             for (int slotIndex = 1; slotIndex <= 6; slotIndex++)
             {
@@ -148,6 +149,9 @@ namespace RainsenVampSur.Tests.PlayMode
             RuntimeComponentTestUtility.Invoke(gameFlowManager, "PauseGame");
 
             Assert.IsTrue(RuntimeComponentTestUtility.GetProperty<bool>(display, "IsShowingLevels"));
+            Assert.IsTrue(panelRoot.gameObject.activeSelf);
+            Assert.IsFalse(panelRoot.Find("AbilitySlot_1").gameObject.activeSelf);
+            Assert.IsFalse(panelRoot.Find("WeaponSlot_3").gameObject.activeSelf);
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(display, "CurrentCellHeight"),
                 Is.EqualTo(84f).Within(FloatTolerance));
@@ -206,6 +210,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 Is.Not.EqualTo(activeDotColor));
 
             RuntimeComponentTestUtility.Invoke(gameFlowManager, "ResumeGame");
+            Assert.IsFalse(panelRoot.gameObject.activeSelf);
 
             Assert.IsFalse(RuntimeComponentTestUtility.GetProperty<bool>(display, "IsShowingLevels"));
             Assert.That(

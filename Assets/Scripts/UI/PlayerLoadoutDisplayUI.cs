@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 在屏幕右上角展示玩家持有的武器与能力槽位，并在手动暂停时展开等级信息。
+/// 仅在手动暂停时于右下角展示已持有武器及等级；能力由局间持有栏展示。
 /// 本组件只读取装备状态并负责 UI 表现，不参与容量判定、升级结算或暂停规则决策。
 /// </summary>
 [DisallowMultipleComponent]
@@ -155,7 +155,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
         ConfigurePanelLayout();
     }
 
-    /// <summary>把网格固定到父 Canvas 右上角，并按暂停状态计算整体区域。</summary>
+    /// <summary>武器网格位于暂停属性下方；按 Canvas 比例定位并仅启用已占用武器槽。</summary>
     private void ConfigurePanelLayout()
     {
         if (panelRoot == null)
@@ -164,15 +164,11 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
         }
 
         float cellHeight = CalculateCellHeight();
-        panelRoot.anchorMin = Vector2.one;
-        panelRoot.anchorMax = Vector2.one;
-        panelRoot.pivot = Vector2.one;
-        // 回合模式右上方留给升级和宝箱提示，原装备栏下移避免覆盖新增提示。
-        panelRoot.anchoredPosition = anchoredOffset + (RoundController.Enabled ? new Vector2(0, -140f) : Vector2.zero);
-        panelRoot.sizeDelta = new Vector2(
-            slotSize.x * PlayerLoadoutRules.MaxWeaponCount +
-            spacing.x * (PlayerLoadoutRules.MaxWeaponCount - 1),
-            cellHeight * 2f + spacing.y);
+        panelRoot.anchorMin = new Vector2(.735f, .035f);
+        panelRoot.anchorMax = new Vector2(.965f, .17f);
+        panelRoot.pivot = new Vector2(1, 0);
+        panelRoot.offsetMin = panelRoot.offsetMax = Vector2.zero;
+        panelRoot.gameObject.SetActive(_showLevels);
 
         GridLayoutGroup grid = panelRoot.GetComponent<GridLayoutGroup>();
         if (grid == null)
@@ -181,14 +177,18 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
         }
 
         grid.padding = new RectOffset();
-        grid.cellSize = new Vector2(slotSize.x, cellHeight);
+        grid.cellSize = new Vector2(Mathf.Min(slotSize.x, Mathf.Max(1, (panelRoot.rect.width - spacing.x * 5) / 6)), cellHeight);
         grid.spacing = spacing;
         grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
         grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-        grid.childAlignment = TextAnchor.UpperRight;
+        grid.childAlignment = TextAnchor.LowerRight;
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         grid.constraintCount = PlayerLoadoutRules.MaxWeaponCount;
     }
+
+    /// <summary>窗口尺寸改变时重新适配右下方网格；只改布局，不重建槽位。</summary>
+    private void OnRectTransformDimensionsChange()
+    { if (panelRoot != null) ConfigurePanelLayout(); }
 
     /// <summary>返回紧凑图标高度；手动暂停时额外包含等级区域与间距。</summary>
     private float CalculateCellHeight()
@@ -503,6 +503,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     /// <summary>切换等级区域并重新计算网格高度，不创建或销毁任何 UI 对象。</summary>
     private void SetLevelVisibility(bool showLevels)
     {
+        if (panelRoot != null) panelRoot.gameObject.SetActive(showLevels);
         if (_showLevels == showLevels)
         {
             RefreshAllLevelIndicators();
@@ -560,6 +561,8 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
             }
         }
 
+        foreach (LoadoutSlotView slot in _weaponSlots) slot.Root.gameObject.SetActive(slot.IsOccupied);
+        foreach (LoadoutSlotView slot in _abilitySlots) slot.Root.gameObject.SetActive(false);
         if (_abilityManager == null)
         {
             return;

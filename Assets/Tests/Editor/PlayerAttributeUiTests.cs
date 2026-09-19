@@ -29,7 +29,7 @@ namespace RainsenVampSur.Tests
 
                 Assert.That(board.DisplayedStatCount, Is.EqualTo(21));
                 Assert.IsNotNull(board.BoardRoot);
-                Assert.That(board.BoardRoot.anchorMin.x, Is.EqualTo(1f).Within(FloatTolerance));
+                Assert.That(board.BoardRoot.anchorMin.x, Is.EqualTo(.735f).Within(FloatTolerance));
                 Assert.That(board.BoardRoot.pivot.x, Is.EqualTo(1f).Within(FloatTolerance));
 
                 TMP_Text labels = board.BoardRoot.Find("Labels").GetComponent<TMP_Text>();

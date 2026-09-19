@@ -193,7 +193,10 @@ namespace RainsenVampSur.Tests.PlayMode
             Component timerText = timerTextObject != null
                 ? timerTextObject.GetComponent("TextMeshProUGUI")
                 : null;
-            GameObject loadoutObject = GameObject.Find("PlayerLoadoutDisplay");
+            Component loadoutDisplay = (Component)UnityEngine.Object.FindObjectOfType(
+                Type.GetType("PlayerLoadoutDisplayUI, Assembly-CSharp", true));
+            Transform loadoutRoot = loadoutDisplay != null ? loadoutDisplay.transform.Find("PlayerLoadoutDisplay") : null;
+            GameObject loadoutObject = loadoutRoot != null ? loadoutRoot.gameObject : null;
             RectTransform loadoutRect = loadoutObject != null
                 ? loadoutObject.GetComponent<RectTransform>()
                 : null;
@@ -469,8 +472,10 @@ namespace RainsenVampSur.Tests.PlayMode
                                        Mathf.Approximately(timerRect.anchorMin.y, 0f) &&
                                        Mathf.Approximately(timerRect.anchorMax.y, 0f) &&
                                        timerRect.anchoredPosition.y > 0f;
-            bool loadoutAvoidsExpBar = loadoutRect != null &&
-                                       loadoutRect.anchoredPosition.y <= -56f;
+            bool loadoutAtBottomRight = loadoutRect != null &&
+                                       Mathf.Approximately(loadoutRect.anchorMax.x, .965f) &&
+                                       Mathf.Approximately(loadoutRect.anchorMax.y, .17f);
+            bool loadoutHiddenInCombat = loadoutObject != null && !loadoutObject.activeInHierarchy;
             bool runStatsBelowExpBar = runStatsRect != null &&
                                        Mathf.Approximately(runStatsRect.anchorMin.x, 0f) &&
                                        Mathf.Approximately(runStatsRect.anchorMax.x, 0f) &&
@@ -517,7 +522,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(timerTextSize, Is.GreaterThanOrEqualTo(30f));
             Assert.IsTrue(timerTextBold, "计时器文本没有使用粗体样式。");
             Assert.IsTrue(loadoutFound, "MainLevel 缺少运行时装备栏。");
-            Assert.IsTrue(loadoutAvoidsExpBar, "装备栏没有向下避让顶部经验条。");
+            Assert.IsTrue(loadoutAtBottomRight, "暂停装备栏没有定位在右下角。");
+            Assert.IsTrue(loadoutHiddenInCombat, "战斗期间不应显示武器或能力栏。");
             Assert.IsTrue(runStatsFound, "MainLevel 缺少 RunStatsUI。");
             Assert.IsTrue(killCounterFound, "MainLevel 缺少击杀计数器容器。");
             Assert.IsTrue(goldCounterFound, "MainLevel 缺少金币计数器容器。");

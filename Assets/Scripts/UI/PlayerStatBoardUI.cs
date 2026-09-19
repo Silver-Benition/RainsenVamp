@@ -180,25 +180,51 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
         ConfigureBoardLayout();
     }
 
+    /// <summary>暂停属性位于右侧上方，底部为武器预留独立区域；与武器栏使用同一列边界。</summary>
     private void ConfigureBoardLayout()
     {
-        _boardRoot.anchorMin = new Vector2(1f, 0f);
-        _boardRoot.anchorMax = new Vector2(1f, 0f);
-        _boardRoot.pivot = new Vector2(1f, 0f);
-        _boardRoot.anchoredPosition = anchoredOffset;
-        _boardRoot.sizeDelta = boardSize;
+        _boardRoot.anchorMin = new Vector2(.735f, .19f);
+        _boardRoot.anchorMax = new Vector2(.965f, .865f);
+        _boardRoot.pivot = new Vector2(1, 1);
+        _boardRoot.offsetMin = _boardRoot.offsetMax = Vector2.zero;
         _boardRoot.SetAsLastSibling();
+        RectTransform title = (RectTransform)_boardRoot.Find("Title");
+        if (title != null)
+        {
+            title.anchorMin = new Vector2(.05f, .89f); title.anchorMax = new Vector2(.95f, .98f);
+            title.offsetMin = title.offsetMax = Vector2.zero;
+            TMP_Text text = title.GetComponent<TMP_Text>();
+            text.enableAutoSizing = true; text.fontSizeMin = 10; text.fontSizeMax = titleFontSize;
+        }
+        RectTransform divider = (RectTransform)_boardRoot.Find("Divider");
+        if (divider != null)
+        {
+            divider.anchorMin = new Vector2(.05f, .875f); divider.anchorMax = new Vector2(.95f, .875f);
+            divider.anchoredPosition = Vector2.zero; divider.sizeDelta = new Vector2(0, 2);
+        }
+        if (_labelsText != null && _valuesText != null)
+        {
+            // 两列采用同一字号，避免独立自动缩放后同一属性的名称和值错行。
+            float height = Mathf.Max(1, _boardRoot.rect.height * .81f);
+            float size = Mathf.Min(rowFontSize, Mathf.Max(8, (height / PlayerStatPresentation.StatCount - rowSpacing) / 1.35f));
+            _labelsText.fontSize = _valuesText.fontSize = size;
+        }
     }
 
+    /// <summary>分辨率变化后按当前 Canvas 尺寸重新计算相同的属性列字号。</summary>
+    private void OnRectTransformDimensionsChange()
+    { if (_boardRoot != null) ConfigureBoardLayout(); }
+
+    /// <summary>属性名称和值分别占据左右两列，使用比例边界避免固定像素挤压。</summary>
     private void ConfigureBodyColumn(RectTransform column, float leftInset, float rightInset)
     {
-        column.anchorMin = Vector2.zero;
-        column.anchorMax = Vector2.one;
-        column.pivot = new Vector2(0.5f, 0.5f);
-        column.offsetMin = new Vector2(leftInset, 22f);
-        column.offsetMax = new Vector2(rightInset, -86f);
+        bool values = column.name == "Values";
+        column.anchorMin = new Vector2(values ? .70f : .06f, .035f);
+        column.anchorMax = new Vector2(values ? .94f : .70f, .845f);
+        column.offsetMin = column.offsetMax = Vector2.zero;
     }
 
+    /// <summary>构建不拦截输入的属性文本，字体使用暂停菜单已有资源。</summary>
     private TextMeshProUGUI CreateText(
         Transform parent,
         string objectName,

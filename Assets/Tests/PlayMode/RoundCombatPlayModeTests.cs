@@ -315,14 +315,14 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.AreEqual(3, Get<int>(_rounds, "PendingCrates"));
                 yield return null;
                 int money = Get<int>(wallet, "Balance"), pending = Get<int>(player, "PendingLevelUps");
-                ExecuteEvents.Execute(card.Find("Recycle").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                yield return HoldCrateButton(card.Find("Recycle").gameObject);
                 Assert.AreEqual(money + refund, Get<int>(wallet, "Balance")); Assert.AreEqual(pending, Get<int>(player, "PendingLevelUps"));
                 Assert.AreEqual(1, Get<int>(Call(items, "GetOwnedAbility", ability), "CurrentLevel"));
                 yield return null;
                 object shop = Get<object>(_rounds, "Shop"); IList offers = Get<IList>(shop, "Offers");
                 offers[0] = Activator.CreateInstance(TypeOf("RunShopOffer"), item, 1, 20);
                 offers[0].GetType().GetProperty("Locked").SetValue(offers[0], true);
-                ExecuteEvents.Execute(card.Find("Banish").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                yield return HoldCrateButton(card.Find("Banish").gameObject);
                 object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
                 Assert.AreEqual(0, Get<int>(state, "RemainingBanishes"));
                 Assert.IsTrue((bool)Call(state, "IsBanished", Get<string>(item, "Id")));
@@ -333,6 +333,21 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.AreEqual(0, Get<int>(_rounds, "PendingUpgrades")); Assert.AreEqual(0, Get<int>(_rounds, "PendingCrates"));
             }
             finally { _rounds.GetType().GetField("config").SetValue(_rounds, original); UnityEngine.Object.Destroy(config); UnityEngine.Object.Destroy(catalog); }
+        }
+
+        /// <summary>通过真实指针按下与真实时间完成长按，普通 Submit 不能绕过确认。</summary>
+        private IEnumerator HoldCrateButton(GameObject button)
+        {
+            int before = Get<int>(_rounds, "PendingCrates");
+            ExecuteEvents.Execute(button, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreEqual(before, Get<int>(_rounds, "PendingCrates"));
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            ExecuteEvents.Execute(button, pointer, ExecuteEvents.pointerDownHandler);
+            yield return new WaitForSecondsRealtime(.35f);
+            Assert.AreEqual(before, Get<int>(_rounds, "PendingCrates"));
+            Assert.That(button.transform.Find("HoldProgress").GetComponent<RectTransform>().anchorMax.x, Is.InRange(.1f, .99f));
+            yield return new WaitForSecondsRealtime(.6f);
+            ExecuteEvents.Execute(button, pointer, ExecuteEvents.pointerUpHandler);
         }
 
         /// <summary>过渡中失败立即取消回血吸收和奖励队列，不允许之后继续进入商店。</summary>
@@ -579,10 +594,19 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.enabled = true;
             try
             {
-                foreach (string page in new[] { "combat", "passed", "upgrades", "milestone-upgrades", "crate-reward", "shop", "weapon-details", "item-details", "secondary-stats" })
+                foreach (string page in new[] { "combat", "pause", "passed", "upgrades", "milestone-upgrades", "crate-reward", "crate-hold", "shop", "weapon-details", "item-details", "secondary-stats" })
                 {
+                    if (page == "pause")
+                    {
+                        object loadout = Get<object>(_rounds, "Loadout");
+                        IList weapons = Get<IList>(loadout, "OwnedWeapons");
+                        object data = weapons[0].GetType().GetField("weaponData").GetValue(weapons[0]);
+                        while (weapons.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
+                        Call(UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")), "PauseGame");
+                    }
                     if (page == "passed")
                     {
+                        Call(UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")), "ResumeGame");
                         Call(Get<object>(_rounds, "Player"), "AddExp", 100f);
                         Call(_rounds, "QueueCrate"); Call(_rounds, "QueueCrate");
                         Call(_rounds, "Tick", 100f); yield return null;
@@ -594,6 +618,15 @@ namespace RainsenVampSur.Tests.PlayMode
                         { Call(_rounds, "Choose", 0); yield return null; }
                         SetCountStat(Get<object>(_rounds, "Player"), "Banish", 2);
                         Call(ui, "Refresh");
+                    }
+                    if (page == "crate-hold")
+                    {
+                        Transform button = Get<GameObject>(ui, "Panel").transform.Find("CrateReward/Recycle");
+                        Component hold = button.GetComponent(TypeOf("HoldToConfirmButton"));
+                        // 延长本次截图夹具的阈值，稳定捕捉中段进度；生产默认值仍为 0.8 秒。
+                        RuntimeComponentTestUtility.SetField(hold, "holdSeconds", 4f);
+                        ExecuteEvents.Execute(button.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerDownHandler);
+                        yield return new WaitForSecondsRealtime(1.5f);
                     }
                     if (page == "milestone-upgrades")
                     {
@@ -651,14 +684,38 @@ namespace RainsenVampSur.Tests.PlayMode
                         }
                         Assert.AreEqual(Get<int>(_rounds, "PendingUpgrades"), visible);
                     }
-                    if (page != "combat" && page != "passed")
+                    Transform loadoutPanel = ui.transform.Find("PlayerLoadoutDisplay");
+                    Assert.AreEqual(page == "pause", loadoutPanel.gameObject.activeInHierarchy, "装备仅在手动暂停中显示");
+                    if (page == "pause")
+                    {
+                        Component attributes = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerStatBoardUI"));
+                        RectTransform board = Get<RectTransform>(attributes, "BoardRoot");
+                        var boardCorners = new Vector3[4]; var weaponCorners = new Vector3[4];
+                        board.GetWorldCorners(boardCorners); ((RectTransform)loadoutPanel).GetWorldCorners(weaponCorners);
+                        Assert.Greater(boardCorners[0].y, weaponCorners[1].y, "属性必须完整位于武器上方");
+                        Assert.That(boardCorners[3].x, Is.EqualTo(weaponCorners[3].x).Within(.5f));
+                        foreach (Transform slot in loadoutPanel)
+                            if (slot.name.StartsWith("Ability")) Assert.IsFalse(slot.gameObject.activeSelf);
+                        Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+                        foreach (Component label in board.GetComponentsInChildren(textType))
+                            Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), "暂停属性溢出:" + label.name);
+                    }
+                    if (page == "passed" || page == "upgrades" || page == "crate-reward")
+                    {
+                        Transform crates = ui.transform.Find("RoundProgress/Crates");
+                        int count = 0;
+                        foreach (Transform icon in crates) if (icon.gameObject.activeSelf) { count++; Assert.IsNotNull(icon.GetComponent<Image>().sprite); }
+                        Assert.AreEqual(Get<int>(_rounds, "PendingCrates"), count);
+                        Assert.IsNull(ui.transform.Find("RoundProgress/CrateCount"));
+                    }
+                    if (page != "combat" && page != "passed" && page != "pause")
                     {
                         GameObject panel = Get<GameObject>(ui, "Panel");
                         Assert.IsTrue(panel.activeInHierarchy);
                         Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
                         foreach (Component label in panel.GetComponentsInChildren(textType))
                             Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), page + "/" + label.name + " at " + width);
-                        for (int card = 0; card < (page == "crate-reward" ? 0 : 4); card++)
+                        for (int card = 0; card < (page.StartsWith("crate-") ? 0 : 4); card++)
                         {
                             Image icon = panel.transform.Find("Offer" + card + "/Icon").GetComponent<Image>();
                             Assert.IsNotNull(icon.sprite);
@@ -688,6 +745,12 @@ namespace RainsenVampSur.Tests.PlayMode
                             System.IO.File.WriteAllBytes(System.IO.Path.Combine(directory, page + "-" + width + "x" + height + ".png"), pixels.EncodeToPNG());
                         }
                         finally { RenderTexture.active = previous; UnityEngine.Object.Destroy(pixels); }
+                    }
+                    if (page == "crate-hold")
+                    {
+                        Component hold = Get<GameObject>(ui, "Panel").transform.Find("CrateReward/Recycle").GetComponent(TypeOf("HoldToConfirmButton"));
+                        Call(hold, "CancelHold");
+                        RuntimeComponentTestUtility.SetField(hold, "holdSeconds", .8f);
                     }
                 }
             }
