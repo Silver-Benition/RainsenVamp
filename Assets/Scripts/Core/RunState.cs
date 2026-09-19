@@ -48,6 +48,8 @@ public sealed class RunState : MonoBehaviour
 
     /// <summary>剩余放逐次数。</summary>
     public int RemainingBanishes => _remainingBanishes;
+    /// <summary>当前属性提供的放逐总容量，供禁用按钮展示本局上限。</summary>
+    public int BanishCapacity => _banishCapacity;
 
     /// <summary>本局已经放逐的升级稳定 ID 集合。</summary>
     public IReadOnlyCollection<string> BanishedUpgradeIds => _banishedUpgradeIds;

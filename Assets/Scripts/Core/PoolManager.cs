@@ -117,14 +117,17 @@ public class PoolManager : MonoBehaviour
     }
 
     /// <summary>回合边界一次性回收活动池对象，不走敌人死亡和掉落逻辑；活动表去重。</summary>
-    public void ReleaseRoundObjects()
+    public void ReleaseRoundObjects(bool preserveHealingPickups = false)
     {
         _releaseBuffer.Clear();
         foreach (GameObject instance in _activePrefabs.Keys) _releaseBuffer.Add(instance);
         for (int i = 0; i < _releaseBuffer.Count; i++)
         {
             GameObject instance = _releaseBuffer[i];
-            if (instance != null && _activePrefabs.TryGetValue(instance, out GameObject prefab)) Release(prefab, instance);
+            if (instance == null) continue;
+            if (preserveHealingPickups && instance.TryGetComponent(out MapInstantEffectPickup pickup)
+                && !pickup.IsConsumed && pickup.PickupData?.Effect is HealingMapInstantEffectSO) continue;
+            if (_activePrefabs.TryGetValue(instance, out GameObject prefab)) Release(prefab, instance);
         }
         _releaseBuffer.Clear();
     }

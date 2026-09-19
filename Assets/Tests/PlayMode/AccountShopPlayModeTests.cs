@@ -291,7 +291,7 @@ namespace RainsenVampSur.Tests.PlayMode
             RuntimeComponentTestUtility.SetField(stats, "currentLevel", 3);
             Call(stats, "CheckLevelUpQueue");
             Assert.AreEqual(2, Get<int>(stats, "PendingLevelUps"), "战斗中不能弹出或消费属性选择。");
-            Call(rounds, "Tick", 100f);
+            Call(rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(rounds);
             yield return null; yield return null;
             Assert.AreEqual(2, Get<int>(stats, "PendingLevelUps"), "本局放逐集合不再移除属性升级选项。");
             Assert.AreEqual("Upgrades", Get<object>(rounds, "Phase").ToString());

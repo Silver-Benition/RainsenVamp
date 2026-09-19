@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>整局阶段；死亡/手动暂停由 GameFlowManager 独立管理，不破坏当前回合。</summary>
-public enum RoundPhase { Preparing, Combat, Settling, Upgrades, Shop, Finished }
+public enum RoundPhase { Preparing, Combat, Settling, Upgrades, Shop, Finished, Crates }
 
 /// <summary>回合流程执行器；RunDirector 驱动时间，本组件负责阶段和局间服务。</summary>
 [DefaultExecutionOrder(-200)]
@@ -37,7 +37,15 @@ public sealed class RoundController : MonoBehaviour
     private AbilityManager _items;
     private WorldWaveManager _waves;
     private RunDirector _director;
+    public int PendingCrates => _crates;
+    public int PendingUpgrades => _player != null ? _player.PendingLevelUps : 0;
+    public RunCrateReward CurrentCrate { get; private set; }
     private int _crates;
+    private float _settlingElapsed;
+    private int _lastCrateFrame = -1;
+    private readonly List<MapInstantEffectPickup> _healingPickups = new List<MapInstantEffectPickup>();
+    private readonly List<Vector3> _healingOrigins = new List<Vector3>();
+    private readonly List<RunShopProduct> _crateCandidates = new List<RunShopProduct>();
     private int _choiceSequence;
     private int _upgradeRerolls;
     private bool _busy;
@@ -55,6 +63,7 @@ public sealed class RoundController : MonoBehaviour
     /// <summary>依赖 Start 尚未完成时等待；准备完成后只启动一次。</summary>
     private void Update()
     {
+        if (Phase == RoundPhase.Settling) { AdvanceSettlement(Time.unscaledDeltaTime); return; }
         if (config == null || Shop != null || Phase != RoundPhase.Preparing) return;
         _loadout = LevelUpManager.Instance;
         if (_loadout == null || !_loadout.IsInitialWeaponsReady || RunDirector.Instance == null) return;
@@ -62,6 +71,7 @@ public sealed class RoundController : MonoBehaviour
         _director = RunDirector.Instance;
         _player = FindObjectOfType<PlayerStats>();
         _health = _player.GetComponent<PlayerHealth>();
+        _player.LevelGained += HandleLevelGained;
         _items = _player.GetComponent<AbilityManager>();
         WorldLineCoordinator coordinator = FindObjectOfType<WorldLineCoordinator>();
         coordinator.SetWorldSwitchLocked(true);
@@ -73,7 +83,13 @@ public sealed class RoundController : MonoBehaviour
 
     /// <summary>销毁时释放单例；场景重开自然创建全新钱包与目标状态。</summary>
     private void OnDestroy()
-    { if (Instance == this) Instance = null; }
+    {
+        if (_player != null) _player.LevelGained -= HandleLevelGained;
+        if (Instance == this) Instance = null;
+    }
+
+    /// <summary>每次真实升级通知提示栏，一次经验获得多级也逐级广播。</summary>
+    private void HandleLevelGained(int level) { Changed?.Invoke(); }
 
     /// <summary>只累计战斗时间；生存时间不受敌对冻结影响。</summary>
     public void Tick(float delta)
@@ -99,8 +115,10 @@ public sealed class RoundController : MonoBehaviour
     /// <summary>拾取宝箱仅入队，奖励在回合通过后发放。</summary>
     public bool QueueCrate()
     {
-        if (!AllowsCombat) return false;
-        _crates = Math.Min(int.MaxValue, _crates + 1);
+        if (!AllowsCombat && Phase != RoundPhase.Settling) return false;
+        if (_crates == int.MaxValue) return false;
+        _crates++;
+        Changed?.Invoke();
         return true;
     }
 
@@ -112,22 +130,47 @@ public sealed class RoundController : MonoBehaviour
         Changed?.Invoke();
     }
 
-    /// <summary>关闭攻击后处理剩余材料与宝箱，然后按非死亡回收路径清场。</summary>
+    /// <summary>先关闭战斗并显示通过蒙版；清场不调用死亡入口，只保留回血道具用于短暂吸收动画。</summary>
     private void SettleRound()
     {
         Phase = RoundPhase.Settling;
+        _settlingElapsed = 0;
+        CompletedRounds = RoundNumber;
         _waves.enabled = false;
         GameFlowManager.Instance.SetIntermission(true);
         SetWeaponsActive(false);
-        // 清场前读取地面价值；这些低频遍历只发生在回合边界。
+        Changed?.Invoke();
+        // 回合边界一次性快照，不在战斗热路径搜索对象。材料只装袋，不经过经验入口。
         foreach (ExpGem gem in FindObjectsOfType<ExpGem>()) Wallet.Bag(gem.RoundMaterialValue);
-        foreach (TreasureChestPickup chest in FindObjectsOfType<TreasureChestPickup>()) _crates++;
-        PoolManager.Instance.ReleaseRoundObjects();
+        foreach (TreasureChestPickup chest in FindObjectsOfType<TreasureChestPickup>()) chest.CollectForSettlement();
+        foreach (CoinPickup coin in FindObjectsOfType<CoinPickup>()) coin.CollectForSettlement(_player);
+        _healingPickups.Clear(); _healingOrigins.Clear();
+        foreach (MapInstantEffectPickup pickup in FindObjectsOfType<MapInstantEffectPickup>())
+        {
+            if (pickup.IsConsumed || !(pickup.PickupData?.Effect is HealingMapInstantEffectSO)) continue;
+            _healingPickups.Add(pickup); _healingOrigins.Add(pickup.transform.position);
+            pickup.GetComponent<Collider2D>().enabled = false;
+        }
+        PoolManager.Instance.ReleaseRoundObjects(true);
         WorldFreezeController.Instance?.CancelFreeze();
-        CompletedRounds = RoundNumber;
         LastReward = "";
-        while (_crates > 0) { LastReward = Shop.GrantCrate(); _crates--; }
-        if (RoundNumber >= config.rounds.Count) { _director.CompleteRoundRun(); return; }
+    }
+
+    /// <summary>使用真实时间推进结算；0.45 秒吸收回血物，完整停留后进入奖励，退出或失败自然取消。</summary>
+    private void AdvanceSettlement(float delta)
+    {
+        if (Phase != RoundPhase.Settling) return;
+        _settlingElapsed += Mathf.Max(0, delta);
+        float travel = Mathf.Clamp01(_settlingElapsed / .45f);
+        for (int i = 0; i < _healingPickups.Count; i++)
+        {
+            MapInstantEffectPickup pickup = _healingPickups[i];
+            if (pickup == null || !pickup.gameObject.activeInHierarchy || pickup.IsConsumed) continue;
+            pickup.transform.position = Vector3.Lerp(_healingOrigins[i], _player.transform.position, travel * travel);
+            if (travel >= 1) pickup.CollectForSettlement(_player);
+        }
+        if (_settlingElapsed < Mathf.Max(.45f, config.settlementSeconds)) return;
+        _healingPickups.Clear(); _healingOrigins.Clear();
         ContinueGrowth();
     }
 
@@ -142,9 +185,65 @@ public sealed class RoundController : MonoBehaviour
             if (_choices.Count > 0) { Changed?.Invoke(); return; }
             _player.ConsumePendingLevelUp();
         }
+        ContinueCrates();
+    }
+
+    /// <summary>逐箱生成当前合法道具；空池兑换补偿，最终波也先处理奖励再提交胜利快照。</summary>
+    private void ContinueCrates()
+    {
+        Phase = RoundPhase.Crates;
+        while (_crates > 0)
+        {
+            _crateCandidates.Clear();
+            foreach (RunShopProduct product in config.shopCatalog.products)
+            {
+                if (product.IsWeapon || RunState.Instance.IsBanished(product.Id)) continue;
+                OwnedAbilityState owned = _items.GetOwnedAbility(product.content.abilityToGrant);
+                if (owned == null || owned.CurrentLevel < owned.Data.MaxLevel) _crateCandidates.Add(product);
+            }
+            if (_crateCandidates.Count > 0)
+            {
+                RunShopProduct product = _crateCandidates[UnityEngine.Random.Range(0, _crateCandidates.Count)];
+                CurrentCrate = new RunCrateReward(product, RoundNumber, config.shopCatalog.recycleRatio);
+                Changed?.Invoke(); return;
+            }
+            _crates--; Wallet.Credit(10);
+            LastReward = RoundShopPresentation.Text("round.crate.empty", "无可用道具，材料 +10");
+        }
+        CurrentCrate = null;
+        if (RoundNumber >= config.rounds.Count) { _director.CompleteRoundRun(); return; }
         Phase = RoundPhase.Shop;
         Shop.Enter(RoundNumber);
         Changed?.Invoke();
+    }
+
+    /// <summary>按当前奖励快照完成拿取、回收或禁用；同帧及事件重入不能连续处理下一箱。</summary>
+    public bool ResolveCrate(CrateRewardAction action)
+    {
+        if (_busy || Phase != RoundPhase.Crates || CurrentCrate == null || _lastCrateFrame == Time.frameCount
+            || !Enum.IsDefined(typeof(CrateRewardAction), action)) return false;
+        RunCrateReward reward = CurrentCrate;
+        RunState state = RunState.Instance;
+        if (action == CrateRewardAction.Banish && (state.RemainingBanishes <= 0 || state.IsBanished(reward.Product.Id))) return false;
+        if (action == CrateRewardAction.Take)
+        {
+            OwnedAbilityState owned = _items.GetOwnedAbility(reward.Product.content.abilityToGrant);
+            if (owned != null && owned.CurrentLevel >= owned.Data.MaxLevel) return false;
+        }
+        _busy = true;
+        try
+        {
+            bool committed = Wallet.Transact(0, action == CrateRewardAction.Take ? 0 : reward.RecycleValue, () =>
+            {
+                if (action == CrateRewardAction.Banish && !state.TryBanishUpgrade(reward.Product.Id)) return false;
+                if (action == CrateRewardAction.Take && _items.GrantOrUpgrade(reward.Product.content.abilityToGrant) == null) return false;
+                _crates--; CurrentCrate = null; _lastCrateFrame = Time.frameCount;
+                return true;
+            });
+            if (!committed) return false;
+            ContinueCrates(); return true;
+        }
+        finally { _busy = false; }
     }
 
     /// <summary>属性池无放回抽四项；普通页逐卡抽品质，十级页共用不低于三级的品质。</summary>

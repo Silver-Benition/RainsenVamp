@@ -1,6 +1,6 @@
 using UnityEngine;
 
-/// <summary>池化宝箱拾取物；拾取后请求升级系统即时授予一个合法武器奖励。</summary>
+/// <summary>池化宝箱拾取物；回合模式拾取仅入队，结算后由玩家处理道具奖励。</summary>
 [RequireComponent(typeof(Collider2D))]
 public sealed class TreasureChestPickup : MonoBehaviour, IPoolable
 {
@@ -77,7 +77,6 @@ public sealed class TreasureChestPickup : MonoBehaviour, IPoolable
         if (RoundController.Enabled)
         {
             RoundController.Instance.QueueCrate();
-            PlayOpenVfx();
         }
         else if (LevelUpManager.Instance != null)
         {
@@ -90,6 +89,17 @@ public sealed class TreasureChestPickup : MonoBehaviour, IPoolable
         }
 
         ReleaseToPool();
+    }
+
+    /// <summary>波末自动收取绕过出生保护；与碰撞共享消费标记，不播放战斗中的开箱效果。</summary>
+    public bool CollectForSettlement()
+    {
+        if (_consumed || !gameObject.activeInHierarchy || !RoundController.Enabled
+            || RoundController.Instance.Phase != RoundPhase.Settling) return false;
+        _consumed = true;
+        bool queued = RoundController.Instance.QueueCrate();
+        ReleaseToPool();
+        return queued;
     }
 
     /// <summary>从对象池生成一次宝箱开启爆闪；配置缺失时静默跳过，不影响奖励结算。</summary>

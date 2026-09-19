@@ -176,6 +176,7 @@ namespace RainsenVampSur.Tests.PlayMode
             for (int wave = 1; wave < 20; wave++)
             {
                 RuntimeComponentTestUtility.Invoke(rounds, "Tick", 100f);
+                yield return RuntimeComponentTestUtility.WaitForRoundSettlement(rounds);
                 yield return null; yield return null;
                 while (RuntimeComponentTestUtility.GetProperty<object>(rounds, "Phase").ToString() == "Upgrades")
                 { RuntimeComponentTestUtility.Invoke(rounds, "Choose", 0); yield return null; }
@@ -226,6 +227,8 @@ namespace RainsenVampSur.Tests.PlayMode
                 "Boss 死亡出口不应拥有普通敌人掉落数据。");
 
             yield return null; // 回合在 LateUpdate 统一裁决，伤害必须已经完成记账。
+            yield return RuntimeComponentTestUtility.WaitForRoundSettlement(rounds);
+            yield return RuntimeComponentTestUtility.ResolveRoundRewards(rounds);
             object finalSnapshot = RuntimeComponentTestUtility.GetProperty<object>(director, "FinalSnapshot");
             Assert.IsNotNull(finalSnapshot);
             Assert.That(

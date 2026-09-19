@@ -84,6 +84,32 @@ namespace RainsenVampSur.Tests.PlayMode
     /// </summary>
     internal static class RuntimeComponentTestUtility
     {
+        /// <summary>等待真实结算过渡完成；先让 LateUpdate 裁决，超时即失败，不改正式时长配置。</summary>
+        public static IEnumerator WaitForRoundSettlement(object rounds)
+        {
+            yield return null;
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (GetProperty<object>(rounds, "Phase").ToString() == "Settling")
+            {
+                Assert.Less(Time.realtimeSinceStartup, deadline, "结算过渡未按时结束。");
+                yield return null;
+            }
+        }
+
+        /// <summary>完成自然产生的升级与宝箱队列，用于跨波生命周期测试。</summary>
+        public static IEnumerator ResolveRoundRewards(object rounds)
+        {
+            for (int safety = 0; safety < 200; safety++)
+            {
+                string phase = GetProperty<object>(rounds, "Phase").ToString();
+                if (phase == "Upgrades") Invoke(rounds, "Choose", 0);
+                else if (phase == "Crates") Invoke(rounds, "ResolveCrate", Enum.Parse(RequireRuntimeType("CrateRewardAction"), "Take"));
+                else yield break;
+                yield return null;
+            }
+            Assert.Fail("奖励队列未收敛。");
+        }
+
         private const string RuntimeAssemblyName = "Assembly-CSharp";
         private const BindingFlags AllInstanceMembers =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;

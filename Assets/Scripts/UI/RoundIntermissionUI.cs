@@ -9,7 +9,7 @@ using UnityEngine.UI;
 public sealed class RoundIntermissionUI : MonoBehaviour
 {
     public TMP_FontAsset font;
-    private static readonly Color Background = new Color32(49, 47, 41, 255);
+    private static readonly Color Background = new Color32(45, 45, 45, 205);
     private static readonly Color Surface = new Color32(18, 20, 19, 255);
     private static readonly Color Border = new Color32(88, 88, 74, 255);
     private static readonly Color Accent = new Color32(170, 221, 111, 255);
@@ -22,6 +22,12 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         PlayerStatType.Reroll, PlayerStatType.Skip, PlayerStatType.Banish, PlayerStatType.Charm, PlayerStatType.Defang };
 
     private GameObject _panel;
+    private RectTransform _passOverlay, _progressHud, _levelIcons, _crateCard;
+    private TMP_Text _passText, _crateName, _crateBody, _crateCount, _crateHeading;
+    private Image _crateImage, _crateHudIcon;
+    private Button _takeCrate, _recycleCrate, _banishCrate;
+    private readonly List<Graphic> _progressIcons = new List<Graphic>();
+    private readonly List<CanvasGroup> _combatHud = new List<CanvasGroup>();
     private TMP_Text _title, _balance, _reserve, _status, _combatBalance, _weaponHeading, _itemHeading, _level;
     private readonly TMP_Text[] _cardNames = new TMP_Text[4], _cardTypes = new TMP_Text[4], _cardTexts = new TMP_Text[4];
     private readonly Image[] _icons = new Image[4];
@@ -66,7 +72,11 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private void Awake()
     {
         _combatBalance = Text("RoundMaterials", transform, "", .04f, .84f, .38f, .90f, 26);
-        RectTransform panel = Box("RoundIntermission", transform, 0, 0, 1, 1, Background);
+        _passOverlay = Box("PassOverlay", transform, 0, 0, 1, 1, Background);
+        _passText = Text("Passed", _passOverlay, T("passed", "通过！"), .25f, .43f, .75f, .60f, 72);
+        _passText.alignment = TextAlignmentOptions.Center;
+        _passOverlay.gameObject.SetActive(false);
+        RectTransform panel = Box("RoundIntermission", transform, 0, 0, 1, 1, Color.clear);
         _panel = panel.gameObject;
         _title = Text("Title", panel, "", .035f, .89f, .36f, .965f, 38);
         _balance = Text("Balance", panel, "", .38f, .92f, .56f, .967f, 35);
@@ -93,11 +103,84 @@ public sealed class RoundIntermissionUI : MonoBehaviour
 
         BuildStats(panel);
         BuildInventory(panel);
+        BuildCrate(panel);
         BuildTooltip(panel);
         _next = Button("Next", panel, "", .785f, .055f, .965f, .135f, Next);
         _next.image.color = new Color32(65, 91, 49, 255);
         _status = Text("Status", panel, "", .035f, .012f, .75f, .045f, 19);
         _panel.SetActive(false);
+        BuildProgressHud();
+    }
+
+    /// <summary>宝箱页使用单张详情卡和三种互斥操作，物品效果仍由控制器执行。</summary>
+    private void BuildCrate(RectTransform panel)
+    {
+        _crateCard = Box("CrateReward", panel, .20f, .365f, .58f, .85f, Color.clear);
+        _crateHeading = Text("Heading", _crateCard, T("foundItem", "发现道具！"), 0, .88f, 1, 1, 38);
+        _crateHeading.alignment = TextAlignmentOptions.Center;
+        RectTransform details = Box("Details", _crateCard, .12f, .34f, .88f, .85f, Surface);
+        Outline(details);
+        _crateImage = Icon("Icon", details, .055f, .64f, .25f, .94f);
+        _crateName = Text("Name", details, "", .29f, .64f, .95f, .94f, 26);
+        _crateBody = Text("Description", details, "", .06f, .045f, .94f, .60f, 22);
+        _crateBody.alignment = TextAlignmentOptions.TopLeft;
+        _takeCrate = Button("Take", _crateCard, T("take", "拿取"), .04f, .225f, .96f, .32f, () => ResolveCrate(CrateRewardAction.Take));
+        _recycleCrate = Button("Recycle", _crateCard, "", .04f, .112f, .96f, .207f, () => ResolveCrate(CrateRewardAction.Recycle));
+        _banishCrate = Button("Banish", _crateCard, "", .04f, 0, .96f, .095f, () => ResolveCrate(CrateRewardAction.Banish));
+    }
+
+    /// <summary>右上角使用复用图标展示待领取升级，宝箱采用图标与数量；不创建业务副本。</summary>
+    private void BuildProgressHud()
+    {
+        _progressHud = Rect("RoundProgress", transform, .785f, .85f, .965f, .99f);
+        _levelIcons = Rect("Levels", _progressHud, 0, .37f, 1, 1);
+        _crateHudIcon = Icon("Crates", _progressHud, 0, 0, .20f, .33f);
+        _crateCount = Text("CrateCount", _progressHud, "", .23f, 0, 1, .33f, 24);
+    }
+
+    /// <summary>一次处理后显示下一个宝箱；失败保留原卡，成功后恢复可用操作焦点。</summary>
+    private void ResolveCrate(CrateRewardAction action)
+    {
+        HideTooltip();
+        bool success = _rounds.ResolveCrate(action);
+        _status.text = success ? "" : T("unavailable", "当前无法执行此操作");
+        Refresh();
+        if (success && _rounds.Phase == RoundPhase.Crates && EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(_takeCrate.gameObject);
+    }
+
+    /// <summary>只在变化事件或窗口尺寸变化时更新图标；过多升级换行并缩放到保留区域内。</summary>
+    private void RefreshProgress()
+    {
+        bool visible = _rounds.Phase != RoundPhase.Finished && _rounds.Phase != RoundPhase.Preparing && _rounds.Phase != RoundPhase.Shop;
+        _progressHud.gameObject.SetActive(visible);
+        if (!visible) return;
+        _progressHud.SetAsLastSibling();
+        _progressHud.anchorMax = new Vector2(.965f, _rounds.Phase == RoundPhase.Combat ? .945f : .99f);
+        int count = _rounds.PendingUpgrades;
+        while (_progressIcons.Count < count)
+        {
+            RectTransform rect = Rect("Level" + _progressIcons.Count, _levelIcons, 0, 0, 1, 1);
+            rect.gameObject.AddComponent<CanvasRenderer>();
+            Graphic icon = rect.gameObject.AddComponent<RoundUpgradeIcon>();
+            icon.color = Accent; icon.raycastTarget = false;
+            _progressIcons.Add(icon);
+        }
+        int rows = Mathf.Max(1, Mathf.CeilToInt(count / 6f));
+        float size = Mathf.Max(1, Mathf.Min(32, Mathf.Min(_levelIcons.rect.width / 6, _levelIcons.rect.height / rows)));
+        for (int i = 0; i < _progressIcons.Count; i++)
+        {
+            Graphic icon = _progressIcons[i]; icon.gameObject.SetActive(i < count);
+            if (i >= count) continue;
+            RectTransform rect = icon.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1, 1);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = new Vector2(-(i % 6) * size, -(i / 6) * size);
+        }
+        _crateHudIcon.sprite = _rounds.config.crateIcon;
+        _crateHudIcon.gameObject.SetActive(_rounds.PendingCrates > 0);
+        _crateCount.gameObject.SetActive(_rounds.PendingCrates > 0);
+        _crateCount.text = string.Format(T("pendingCrates", "x {0}"), _rounds.PendingCrates);
     }
 
     /// <summary>属性栏按主要/次要分组，读取当前最终值和整局剩余次数。</summary>
@@ -183,6 +266,15 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _rounds = RoundController.Instance;
         if (_rounds == null) return;
         _rounds.Changed += Refresh; _rounds.Wallet.Changed += Refresh;
+        foreach (string name in new[] { "ExpBarContainer", "RunStatsDisplay", "GameTimer", "PlayerLoadoutDisplay" })
+        {
+            Transform root = transform.Find(name);
+            if (root == null) continue;
+            CanvasGroup group = root.GetComponent<CanvasGroup>();
+            // Unity 的缺失组件使用其重载空值判断，不使用 CLR 空合并运算符。
+            if (group == null) group = root.gameObject.AddComponent<CanvasGroup>();
+            _combatHud.Add(group);
+        }
         Refresh();
     }
 
@@ -199,7 +291,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>仅处理延时退出和布局脏状态；不在逐帧路径构造商品或详情字符串。</summary>
     private void Update()
     {
-        if (_layoutDirty && _weaponGrid != null) { LayoutInventory(); _layoutDirty = false; }
+        if (_layoutDirty && _weaponGrid != null) { LayoutInventory(); if (_rounds != null) RefreshProgress(); _layoutDirty = false; }
         if (_hideAt >= 0 && !_pinned && Time.unscaledTime >= _hideAt) HideTooltip();
         if (_tooltip != null && _tooltip.gameObject.activeSelf && Input.GetKeyDown(KeyCode.Escape)) HideTooltip();
     }
@@ -271,21 +363,44 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     {
         if (_rounds == null || _rounds.Shop == null) return;
         bool upgrades = _rounds.Phase == RoundPhase.Upgrades, shop = _rounds.Phase == RoundPhase.Shop;
+        bool crates = _rounds.Phase == RoundPhase.Crates, settling = _rounds.Phase == RoundPhase.Settling;
+        foreach (CanvasGroup group in _combatHud)
+        {
+            bool visible = _rounds.Phase == RoundPhase.Combat;
+            group.alpha = visible ? 1 : 0; group.blocksRaycasts = visible;
+        }
+        _passOverlay.gameObject.SetActive(settling || upgrades || crates || shop);
+        _passText.gameObject.SetActive(settling);
+        RefreshProgress();
         _combatBalance.gameObject.SetActive(_rounds.Phase == RoundPhase.Combat);
         _combatBalance.text = string.Format(T("combatBalance", "材料 {0}　储备 {1}"), _rounds.Wallet.Balance, _rounds.Wallet.Bagged);
-        _panel.SetActive(upgrades || shop);
-        if (!upgrades && !shop) { HideTooltip(); _lastPhase = _rounds.Phase; return; }
+        _panel.SetActive(upgrades || shop || crates);
+        if (!upgrades && !shop && !crates) { HideTooltip(); _lastPhase = _rounds.Phase; return; }
         _panel.transform.SetAsLastSibling();
+        _progressHud.SetAsLastSibling();
+        RectTransform board = (RectTransform)_panel.transform.Find("StatsBoard");
+        board.anchorMax = new Vector2(.965f, shop ? .963f : .835f);
         if (_lastPhase != _rounds.Phase)
         {
             HideTooltip();
             _status.text = string.IsNullOrEmpty(_rounds.LastReward) ? "" : T("crate", "宝箱奖励：") + _rounds.LastReward;
         }
         _title.text = upgrades ? string.Format(T("growthLevelTitle", "升级至 {0} 级 · 剩余 {1} 次"), _rounds.UpgradeLevel, _rounds.Player.PendingLevelUps)
-            : string.Format(T("shopTitle", "商店（第 {0} 波）"), _rounds.RoundNumber);
+            : crates ? "" : string.Format(T("shopTitle", "商店（第 {0} 波）"), _rounds.RoundNumber);
         _balance.text = string.Format(T("balance", "材料  {0}"), _rounds.Wallet.Balance);
         _reserve.text = string.Format(T("reserve", "储备  {0}"), _rounds.Wallet.Bagged);
-        for (int i = 0; i < 4; i++) RefreshCard(i, upgrades);
+        for (int i = 0; i < 4; i++)
+        {
+            RectTransform card = (RectTransform)_actions[i].transform.parent;
+            card.gameObject.SetActive(!crates);
+            float left = .035f + i * .181f;
+            card.anchorMin = new Vector2(left, upgrades ? .40f : .365f);
+            card.anchorMax = new Vector2(left + .172f, upgrades ? .77f : .853f);
+            if (!crates) RefreshCard(i, upgrades);
+        }
+        _refresh.gameObject.SetActive(!crates);
+        _crateCard.gameObject.SetActive(crates);
+        if (crates) RefreshCrate();
         RefreshInventory(); RefreshStats();
         Label(_refresh, upgrades ? RunState.Instance.RemainingRerolls > 0
             ? string.Format(T("freeReroll", "重投 · 免费 {0}"), RunState.Instance.RemainingRerolls)
@@ -297,9 +412,27 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _next.gameObject.SetActive(shop);
         Label(_next, string.Format(T("next", "出发（第 {0} 波）"), _rounds.RoundNumber + 1));
         if (_lastPhase != _rounds.Phase && EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(_actions[0].gameObject);
+            EventSystem.current.SetSelectedGameObject(crates ? _takeCrate.gameObject : _actions[0].gameObject);
         _lastPhase = _rounds.Phase;
         _layoutDirty = true;
+    }
+
+    /// <summary>展示固定宝箱奖励及回收金额，禁用计数读取共享单局名单和容量。</summary>
+    private void RefreshCrate()
+    {
+        RunCrateReward reward = _rounds.CurrentCrate;
+        if (reward == null) return;
+        AbilityDataSO data = reward.Product.content.abilityToGrant;
+        OwnedAbilityState owned = _rounds.Items.GetOwnedAbility(data);
+        _crateImage.sprite = reward.Product.Icon;
+        _crateName.text = reward.Product.Name + "\n" + string.Format(T("itemLimit", "持有 {0}/{1}"), owned?.CurrentLevel ?? 0, data.MaxLevel);
+        _crateBody.text = RoundShopPresentation.ItemDetails(data, (owned?.CurrentLevel ?? 0) + 1);
+        _crateHeading.text = string.Format(T("foundItemCount", "发现道具！剩余 {0}"), _rounds.PendingCrates);
+        Label(_recycleCrate, string.Format(T("crateRecycle", "回收（+{0}）"), reward.RecycleValue));
+        RunState run = RunState.Instance;
+        Label(_banishCrate, string.Format(T("crateBanish", "禁用（{0}/{1}）（+{2}）"), run.BanishedUpgradeIds.Count, run.BanishCapacity, reward.RecycleValue));
+        _banishCrate.interactable = run.RemainingBanishes > 0;
+        _takeCrate.interactable = owned == null || owned.CurrentLevel < data.MaxLevel;
     }
 
     /// <summary>商品卡直接展示购买前说明，已持有装备的详情则只出现在悬停窗。</summary>

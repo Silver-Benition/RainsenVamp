@@ -167,7 +167,8 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
         panelRoot.anchorMin = Vector2.one;
         panelRoot.anchorMax = Vector2.one;
         panelRoot.pivot = Vector2.one;
-        panelRoot.anchoredPosition = anchoredOffset;
+        // 回合模式右上方留给升级和宝箱提示，原装备栏下移避免覆盖新增提示。
+        panelRoot.anchoredPosition = anchoredOffset + (RoundController.Enabled ? new Vector2(0, -140f) : Vector2.zero);
         panelRoot.sizeDelta = new Vector2(
             slotSize.x * PlayerLoadoutRules.MaxWeaponCount +
             spacing.x * (PlayerLoadoutRules.MaxWeaponCount - 1),

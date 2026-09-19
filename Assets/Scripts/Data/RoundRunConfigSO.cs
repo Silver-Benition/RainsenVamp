@@ -32,6 +32,8 @@ public sealed class RoundDefinition
 [CreateAssetMenu(menuName = "GameData/Rounds/Run")]
 public sealed class RoundRunConfigSO : ScriptableObject
 {
+    [Min(.45f)] public float settlementSeconds = 1.5f;
+    public Sprite crateIcon;
     public Vector2 arenaSize = new Vector2(24, 16);
     public RunShopCatalogSO shopCatalog;
     public List<RoundDefinition> rounds = new List<RoundDefinition>();
@@ -40,6 +42,8 @@ public sealed class RoundRunConfigSO : ScriptableObject
     public bool Validate(out string error)
     {
         error = "";
+        if (float.IsNaN(settlementSeconds) || float.IsInfinity(settlementSeconds) || settlementSeconds < .45f)
+            { error = "结算过渡必须至少包含 0.45 秒的吸收时间。"; return false; }
         if (arenaSize.x < 8 || arenaSize.y < 8 || rounds == null || rounds.Count == 0 || shopCatalog == null)
             { error = "回合、商店或竞技场配置缺失。"; return false; }
         foreach (RoundDefinition round in rounds)

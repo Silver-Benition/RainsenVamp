@@ -226,7 +226,7 @@ namespace RainsenVampSur.Tests
 
         /// <summary>普通敌人掉落表必须以 2.5% 基础概率和 4:1 权重接入两件拾取物。</summary>
         [Test]
-        public void WeakEnemyDropTable_接入两件地图拾取物()
+        public void WeakEnemyDropTable_只启用回血道具并保留停用资产()
         {
             EnemyDropTableSO table = AssetDatabase.LoadAssetAtPath<EnemyDropTableSO>(DropTablePath);
             GameObject captain = AssetDatabase.LoadAssetAtPath<GameObject>(CaptainPrefabPath);
@@ -240,7 +240,7 @@ namespace RainsenVampSur.Tests
             Assert.AreSame(captain, table.mapInstantEffectDrops[0].prefab);
             Assert.That(table.mapInstantEffectDrops[0].weight, Is.EqualTo(4f));
             Assert.AreSame(crystal, table.mapInstantEffectDrops[1].prefab);
-            Assert.That(table.mapInstantEffectDrops[1].weight, Is.EqualTo(1f));
+            Assert.That(table.mapInstantEffectDrops[1].weight, Is.EqualTo(0f));
         }
 
         /// <summary>MainLevel 必须绑定唯一冻结权威和位于世界层与玩家层之间的蓝色蒙版。</summary>

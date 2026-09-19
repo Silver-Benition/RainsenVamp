@@ -152,3 +152,48 @@
 | 720p / 1080p 截图 | 已复核普通升级、十级保底、商店放逐；无文本溢出和屏外按钮 | Logs/Session23UI/Iteration2Screenshots/ |
 
 截图目录额外包含 milestone-upgrades 页面；显示的等级、道具、放逐次数由测试构造，不改变真实账号数据。当前主 Agent 完成静态自审，人工视觉及操作手感仍待老大体验。继续保留在 QA 的 codex/session-23-round-combat，不集成 main、不推送、不执行正式三份归档。
+
+
+## 2026-09-19：试玩反馈第三轮（通关过渡与宝箱选择）
+
+本节覆盖前文“通过后立即授予宝箱奖励并进入升级”的旧行为；本轮由老大明确确认计划后执行。
+
+### 最终流程与边界
+
+- 回合通过 → Settling（默认 1.5 秒）→ 全部属性升级 → Crates（逐个宝箱）→ Shop。第 20 波在升级与宝箱处理完后提交胜利结果，不再进入商店。
+- 通过时立即停止战斗，并出现灰色半透明“通过！”蒙版。敌人、子弹及攻击对象按非死亡路径回池，不增加击杀或产生死亡掉落。
+- 地面材料按价值累加储备，当前余额与经验不增加。地面金币按原金币统计链收取，不写入材料钱包。
+- 地面回血道具保留约 0.45 秒飞向玩家后触发回血，并通过单次消费入口回池；与碰撞共享守卫。水晶球等非回血即时道具不在结算时触发，正式弱敌掉落表中的水晶球权重置 0，保留其资产与代码。
+- 战斗拾取宝箱只增加待处理数量；波末剩余宝箱也加入同一队列，均不即时授予武器或道具。
+- 升级期间显示持有道具与武器图标，悬停详情沿用已有逻辑。灰色蒙版后保留清空的竞技场；旧经验条、统计和装备 HUD 在局间隐藏，防止重叠。
+- 右上升级箭头每获得一级增加一个，奖励处理时减少；宝箱显示图标和待处理数量。图标复用，数量较多时换行并适配保留区域。战斗中的原装备栏向下让位。
+- 宝箱只抽道具，当前卡固定至处理完成；下一箱再按最新持有上限与本局禁用名单抽取。拿取授予或升级道具；回收按本波道具价格的 25% 向下取整；禁用消耗一次共享放逐次数并发相同回收材料，同时排除后续商店与宝箱。回收不增加经验或消耗储备。
+- 宝箱禁用与商店放逐共用 RunState 的名单和次数，上限读取 BanishCapacity。上波锁定报价若被宝箱禁用，进入商店时也会被清除；账号永久 Seal 仍为独立机制。
+- 合法宝箱道具池耗尽，每箱补偿 10 材料。回收/拿取/禁用均阻止同帧重复和同步事件重入。失败或退出会取消延迟结算，不继续回血或发奖。
+
+### 修改与等价 Unity 配置
+
+- RoundController：分阶段结算、自动收取、真实时间过渡、逐箱奖励与最终胜利出口。
+- RunCrateReward（新增）：固定当前宝箱商品及回收报价；CrateRewardAction 定义三种选择。运行时状态不写回共享资产。
+- PoolManager：清场可暂留回血拾取物，之后由统一拾取入口消费；默认完整清场行为保留。
+- TreasureChestPickup、MapInstantEffectPickup、CoinPickup：新增受阶段保护的单次结算拾取入口。PlayerStats 增加 LevelGained 事件供提示栏读取。
+- RunShopService：移除旧的宝箱即时授予入口；刷新候选前清除已被宝箱禁用的锁定道具。RunState 暴露当前放逐总容量。
+- RoundIntermissionUI：通关蒙版、宝箱单卡三按钮、升级/宝箱 HUD、局间旧 HUD 显隐。RoundUpgradeIcon（新增）通过 UI 顶点绘制箭头，显式依赖 CanvasRenderer，无新位图纹理。
+- PlayerLoadoutDisplayUI：回合模式装备栏下移，避免战斗 HUD 重叠。
+- Standard20.asset：settlementSeconds=1.5；crateIcon 绑定现有 TreasureChest Sprite。WeakEnemyDropTable.asset：CrystalBallPickup 权重从 1 改为 0，CaptainPickup 权重保持 4。
+- 无需手工挂载新场景组件；新视图和箭头由既有 RoundIntermissionUI 自动构建。未修改正式 Scene、Prefab 或账号存档结构。
+
+### 验证与人工待验
+
+| 检查 | 结果 | 报告 |
+| --- | --- | --- |
+| 完整 EditMode 与 Unity 编译 | 177/177，零失败/跳过 | Logs/Automation/20260919-233327/EditMode.xml |
+| 完整 PlayMode | 77/77，零失败/跳过 | Logs/Automation/20260919-233327/PlayMode.xml |
+| 完整门禁 | passedQualityGate=true | Logs/Automation/20260919-233327/summary.json |
+| 图形回合集成 | 14/14；随后进一步修正升级箭头和旧统计栏显示，并由完整回归及下列布局测试覆盖 | Logs/Session23UI/settlement-verified.xml |
+| 最终图形布局 | 2/2，720p / 1080p，无屏外按钮或文本溢出，升级箭头存在实际绘制组件 | Logs/Session23UI/settlement-layout-final.xml |
+| 最终截图 | 已查看 passed、upgrades、crate-reward 等页面；道具与等级由测试构造 | Logs/Session23UI/SettlementFinalScreenshots/ |
+
+完整报告后的运行时代码和数据未改；另强化了二十波测试中“最后一波带升级与宝箱”的顺序断言，定向验证 1/1 通过（零失败/跳过），报告：Logs/Session23UI/final-wave-rewards.xml。新增 meta 仅规范行尾空白。
+
+本轮由当前主 Agent 实现和静态自审；通关停顿长度、吸收动画与实际鼠标/手柄体验仍待老大试玩。继续保留在 QA 的 codex/session-23-round-combat，未集成 main、未推送，不触发三份正式归档。

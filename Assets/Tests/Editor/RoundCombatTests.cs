@@ -25,6 +25,19 @@ public sealed class RoundCombatTests
         Assert.AreEqual(4, RoundUpgradeRollRules.RollTier(0, 1, 3));
     }
 
+    /// <summary>回收按当前波次价格向下取整，奖励展示后固定金额，防止后续目录变化影响已展示选择。</summary>
+    [Test]
+    public void CrateReward_PriceIsFlooredAndSnapshotIsStable()
+    {
+        var product = new RunShopProduct { basePrice = 17 };
+        var reward = new RunCrateReward(product, 3, .25f);
+        Assert.AreEqual(5, reward.RecycleValue);
+        product.basePrice = 100;
+        Assert.AreEqual(5, reward.RecycleValue);
+        var config = AssetDatabase.LoadAssetAtPath<RoundRunConfigSO>("Assets/Data/Rounds/Standard20.asset");
+        Assert.AreEqual(1.5f, config.settlementSeconds); Assert.IsNotNull(config.crateIcon);
+    }
+
     /// <summary>目标提前完成仍需达到最低存活时间。</summary>
     [Test]
     public void ObjectiveCompletedEarly_WaitsForMinimumTime()

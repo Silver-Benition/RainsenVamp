@@ -46,10 +46,22 @@ namespace RainsenVampSur.Tests.PlayMode
             for (int wave = 1; wave <= 20; wave++)
             {
                 Assert.AreEqual(wave, Get<int>(_rounds, "RoundNumber"));
-                Call(_rounds, "Tick", 100f);
+                if (wave == 20) { Call(run, "AddExp", 100f); Assert.IsTrue((bool)Call(_rounds, "QueueCrate")); }
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
                 yield return null; yield return null;
                 Assert.AreEqual(wave, Get<int>(_rounds, "CompletedRounds"));
-                if (wave == 20) break;
+                if (wave == 20)
+                {
+                    object pendingDirector = UnityEngine.Object.FindObjectOfType(TypeOf("RunDirector"));
+                    Assert.AreEqual("Upgrades", Get<object>(_rounds, "Phase").ToString());
+                    Assert.IsNull(Get<object>(pendingDirector, "FinalSnapshot"));
+                    while (Get<object>(_rounds, "Phase").ToString() == "Upgrades") { Call(_rounds, "Choose", 0); yield return null; }
+                    Assert.AreEqual("Crates", Get<object>(_rounds, "Phase").ToString());
+                    Assert.IsNull(Get<object>(pendingDirector, "FinalSnapshot"));
+                    Assert.IsTrue((bool)Call(_rounds, "ResolveCrate", Enum.Parse(TypeOf("CrateRewardAction"), "Take")));
+                    yield return null;
+                    break;
+                }
                 while (Get<object>(_rounds, "Phase").ToString() == "Upgrades")
                 { Call(_rounds, "Choose", 0); yield return null; }
                 Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
@@ -75,7 +87,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Call(player, "AddExp", 100f);
             int pending = Get<int>(player, "PendingLevelUps");
             Assert.Greater(pending, 0); Assert.AreEqual(1, Time.timeScale);
-            Call(_rounds, "Tick", 100f);
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
             yield return null; yield return null;
             Assert.AreEqual("Upgrades", Get<object>(_rounds, "Phase").ToString());
             Transform panel = GameObject.Find("RoundIntermission").transform;
@@ -110,7 +122,7 @@ namespace RainsenVampSur.Tests.PlayMode
             UnityEngine.Random.InitState(230919);
             try
             {
-                Call(_rounds, "Tick", 100f); yield return null;
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null;
                 Transform panel = GameObject.Find("RoundIntermission").transform;
                 Assert.IsNull(panel.Find("Exit"));
                 bool mixed = false;
@@ -157,7 +169,7 @@ namespace RainsenVampSur.Tests.PlayMode
             object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
             object shop = Get<object>(_rounds, "Shop");
             Assert.IsFalse((bool)Call(shop, "Banish", 0), "战斗阶段不可放逐。");
-            Call(_rounds, "Tick", 100f); yield return null;
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null;
             object config = _rounds.GetType().GetField("config").GetValue(_rounds);
             object catalog = config.GetType().GetField("shopCatalog").GetValue(config);
             object item = null, weapon = null;
@@ -222,11 +234,138 @@ namespace RainsenVampSur.Tests.PlayMode
             Call(player, "SetModifiers", "test.round." + stat, modifiers);
         }
 
+        /// <summary>通过瞬间无死亡收益地清敌；材料入袋、回血吸收和宝箱入队各执行一次。</summary>
+        [UnityTest]
+        public IEnumerator Settlement_DespawnBagHealAndQueueWithoutDeathLoot()
+        {
+            object player = Get<object>(_rounds, "Player");
+            Component health = ((Component)player).GetComponent("PlayerHealth");
+            RuntimeComponentTestUtility.SetField(health, "_currentHealth", 20f);
+            GameObject enemy = SpawnFixture("Assets/Prefab/Enemy/EnemyWeak_1.prefab", new Vector3(10, 6));
+            GameObject heal = SpawnFixture("Assets/Prefab/Pickup/CaptainPickup.prefab", new Vector3(8, 5));
+            GameObject crystal = SpawnFixture("Assets/Prefab/Pickup/CrystalBallPickup.prefab", new Vector3(9, 5));
+            GameObject gem = SpawnFixture("Assets/Prefab/ExpGem.prefab", new Vector3(10, 0));
+            RuntimeComponentTestUtility.SetField(gem.GetComponent("ExpGem"), "expValue", 7f);
+            SpawnFixture("Assets/Prefab/Pickup/CoinPickup.prefab", new Vector3(9, -5));
+            GameObject touched = SpawnFixture("Assets/Prefab/Pickup/TreasureChestPickup.prefab", new Vector3(8, -5));
+            RuntimeComponentTestUtility.Invoke(touched.GetComponent("TreasureChestPickup"), "OnTriggerEnter2D", ((Component)player).GetComponent<Collider2D>());
+            Assert.AreEqual(1, Get<int>(_rounds, "PendingCrates"));
+            Assert.AreEqual(0, Get<IList>(Get<object>(_rounds, "Items"), "OwnedAbilities").Count);
+            GameObject chest = SpawnFixture("Assets/Prefab/Pickup/TreasureChestPickup.prefab", new Vector3(7, -5));
+            object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
+            object wallet = Get<object>(_rounds, "Wallet");
+            int kills = Get<int>(state, "KillCount");
+            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Assert.AreEqual("Settling", Get<object>(_rounds, "Phase").ToString());
+            Assert.IsTrue(GameObject.Find("PassOverlay").activeInHierarchy);
+            Assert.IsFalse(enemy.activeSelf); Assert.IsFalse(crystal.activeSelf); Assert.IsFalse(gem.activeSelf);
+            Assert.AreEqual(kills, Get<int>(state, "KillCount"));
+            Assert.AreEqual(7, Get<int>(wallet, "Bagged")); Assert.AreEqual(0, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(0, Get<int>(player, "PendingLevelUps")); Assert.AreEqual(2, Get<int>(_rounds, "PendingCrates"));
+            Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
+            yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            Assert.AreEqual(65f, Get<float>(health, "CurrentHealth")); Assert.IsFalse(heal.activeSelf);
+            Assert.IsFalse((bool)Call(heal.GetComponent("MapInstantEffectPickup"), "CollectForSettlement", player));
+            Assert.IsFalse((bool)Call(chest.GetComponent("TreasureChestPickup"), "CollectForSettlement"));
+            Assert.AreEqual(0f, Get<float>(UnityEngine.Object.FindObjectOfType(TypeOf("WorldFreezeController")), "RemainingDuration"));
+            Assert.AreEqual("Crates", Get<object>(_rounds, "Phase").ToString());
+            Assert.AreEqual(0, Get<IList>(Get<object>(_rounds, "Items"), "OwnedAbilities").Count);
+        }
+
+        /// <summary>宝箱三种选择通过真实按钮领取；同帧和观察者重入不能双领，禁用排除后续宝箱及锁定商店报价。</summary>
+        [UnityTest]
+        public IEnumerator Crates_TakeRecycleBanishAreAtomicAndShareExclusions()
+        {
+            object player = Get<object>(_rounds, "Player"); SetCountStat(player, "Banish", 1);
+            object items = Get<object>(_rounds, "Items"), wallet = Get<object>(_rounds, "Wallet");
+            ScriptableObject original = (ScriptableObject)_rounds.GetType().GetField("config").GetValue(_rounds);
+            ScriptableObject config = UnityEngine.Object.Instantiate(original);
+            ScriptableObject catalog = UnityEngine.Object.Instantiate((ScriptableObject)config.GetType().GetField("shopCatalog").GetValue(config));
+            IList products = (IList)catalog.GetType().GetField("products").GetValue(catalog);
+            object item = null;
+            foreach (object product in products) if (!Get<bool>(product, "IsWeapon")) { item = product; break; }
+            products.Clear(); products.Add(item); config.GetType().GetField("shopCatalog").SetValue(config, catalog);
+            _rounds.GetType().GetField("config").SetValue(_rounds, config);
+            try
+            {
+                for (int i = 0; i < 4; i++) Assert.IsTrue((bool)Call(_rounds, "QueueCrate"));
+                Call(player, "AddExp", 10f);
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+                Assert.AreEqual("Upgrades", Get<object>(_rounds, "Phase").ToString());
+                Assert.IsNull(Get<object>(_rounds, "CurrentCrate"));
+                while (Get<object>(_rounds, "Phase").ToString() == "Upgrades") { Call(_rounds, "Choose", 0); yield return null; }
+                object reward = Get<object>(_rounds, "CurrentCrate");
+                Assert.AreSame(item, Get<object>(reward, "Product"));
+                int refund = Get<int>(reward, "RecycleValue");
+                object content = item.GetType().GetField("content").GetValue(item);
+                object ability = content.GetType().GetField("abilityToGrant").GetValue(content);
+                Transform card = GameObject.Find("RoundIntermission").transform.Find("CrateReward");
+                int callbacks = 0;
+                Action observer = () => {
+                    callbacks++;
+                    Assert.AreEqual(3, Get<int>(_rounds, "PendingCrates"));
+                    Assert.IsFalse((bool)Call(_rounds, "ResolveCrate", Enum.Parse(TypeOf("CrateRewardAction"), "Take")));
+                    Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
+                };
+                EventInfo changed = items.GetType().GetEvent("OwnedAbilitiesChanged"); changed.AddEventHandler(items, observer);
+                try { ExecuteEvents.Execute(card.Find("Take").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler); }
+                finally { changed.RemoveEventHandler(items, observer); }
+                Assert.AreEqual(1, callbacks); Assert.AreEqual(1, Get<int>(Call(items, "GetOwnedAbility", ability), "CurrentLevel"));
+                ExecuteEvents.Execute(card.Find("Take").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Assert.AreEqual(3, Get<int>(_rounds, "PendingCrates"));
+                yield return null;
+                int money = Get<int>(wallet, "Balance"), pending = Get<int>(player, "PendingLevelUps");
+                ExecuteEvents.Execute(card.Find("Recycle").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Assert.AreEqual(money + refund, Get<int>(wallet, "Balance")); Assert.AreEqual(pending, Get<int>(player, "PendingLevelUps"));
+                Assert.AreEqual(1, Get<int>(Call(items, "GetOwnedAbility", ability), "CurrentLevel"));
+                yield return null;
+                object shop = Get<object>(_rounds, "Shop"); IList offers = Get<IList>(shop, "Offers");
+                offers[0] = Activator.CreateInstance(TypeOf("RunShopOffer"), item, 1, 20);
+                offers[0].GetType().GetProperty("Locked").SetValue(offers[0], true);
+                ExecuteEvents.Execute(card.Find("Banish").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
+                Assert.AreEqual(0, Get<int>(state, "RemainingBanishes"));
+                Assert.IsTrue((bool)Call(state, "IsBanished", Get<string>(item, "Id")));
+                Assert.AreEqual(money + refund * 2 + 10, Get<int>(wallet, "Balance"), "最后一箱因唯一候选被禁用而补偿十材料。");
+                Assert.AreEqual(0, Get<int>(_rounds, "PendingCrates")); Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
+                foreach (object offer in offers) if (offer != null) Assert.AreNotEqual(Get<string>(item, "Id"), Get<string>(Get<object>(offer, "Product"), "Id"));
+                Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+                Assert.AreEqual(0, Get<int>(_rounds, "PendingUpgrades")); Assert.AreEqual(0, Get<int>(_rounds, "PendingCrates"));
+            }
+            finally { _rounds.GetType().GetField("config").SetValue(_rounds, original); UnityEngine.Object.Destroy(config); UnityEngine.Object.Destroy(catalog); }
+        }
+
+        /// <summary>过渡中失败立即取消回血吸收和奖励队列，不允许之后继续进入商店。</summary>
+        [UnityTest]
+        public IEnumerator Settlement_FailureCancelsDelayedRewards()
+        {
+            object player = Get<object>(_rounds, "Player");
+            Component health = ((Component)player).GetComponent("PlayerHealth"); RuntimeComponentTestUtility.SetField(health, "_currentHealth", 20f);
+            SpawnFixture("Assets/Prefab/Pickup/CaptainPickup.prefab", new Vector3(8,5));
+            Call(_rounds, "QueueCrate"); Call(_rounds, "Tick", 100f); yield return null;
+            object director = UnityEngine.Object.FindObjectOfType(TypeOf("RunDirector")); Call(director, "EndRunAsDefeat");
+            yield return new WaitForSecondsRealtime(1.7f);
+            Assert.AreEqual("Finished", Get<object>(_rounds, "Phase").ToString());
+            Assert.AreEqual(20f, Get<float>(health, "CurrentHealth"));
+            Assert.AreEqual(0, Get<IList>(Get<object>(_rounds, "Items"), "OwnedAbilities").Count);
+            Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
+        }
+
+        /// <summary>在编辑器 PlayMode 中从正式 Prefab 通过生产对象池构造地面验收样本。</summary>
+        private static GameObject SpawnFixture(string path, Vector3 position)
+        {
+            Type database = Type.GetType("UnityEditor.AssetDatabase, UnityEditor.CoreModule", true);
+            GameObject prefab = (GameObject)database.GetMethod("LoadAssetAtPath", new[] { typeof(string), typeof(Type) }).Invoke(null, new object[] { path, typeof(GameObject) });
+            Assert.IsNotNull(prefab, path);
+            object pool = UnityEngine.Object.FindObjectOfType(TypeOf("PoolManager"));
+            return (GameObject)Call(pool, "Spawn", prefab, position, Quaternion.identity);
+        }
+
         /// <summary>满槽购买自动合并，独立实例合并和回收不会影响账号金币。</summary>
         [UnityTest]
         public IEnumerator Shop_FullSlotsAutoCombine_LocksAndRecyclingRemainConsistent()
         {
-            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null; yield return null;
             object wallet = Get<object>(_rounds, "Wallet"); Call(wallet, "Credit", 10000);
             object loadout = Get<object>(_rounds, "Loadout");
             IList owned = Get<IList>(loadout, "OwnedWeapons");
@@ -268,7 +407,7 @@ namespace RainsenVampSur.Tests.PlayMode
         [UnityTest]
         public IEnumerator Shop_ReentrantInventoryCallbackCannotSplitTransaction()
         {
-            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null; yield return null;
             object shop = Get<object>(_rounds, "Shop"), wallet = Get<object>(_rounds, "Wallet");
             object loadout = Get<object>(_rounds, "Loadout");
             IList offers = Get<IList>(shop, "Offers"), owned = Get<IList>(loadout, "OwnedWeapons");
@@ -305,7 +444,7 @@ namespace RainsenVampSur.Tests.PlayMode
         [UnityTest]
         public IEnumerator Inventory_HoverTransferAndFocusKeepInstanceActionsCorrect()
         {
-            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null; yield return null;
             Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
             GameObject panel = Get<GameObject>(ui, "Panel"), tooltip = Get<GameObject>(ui, "Tooltip");
             object loadout = Get<object>(_rounds, "Loadout");
@@ -358,7 +497,7 @@ namespace RainsenVampSur.Tests.PlayMode
         [UnityTest]
         public IEnumerator Inventory_OverflowScrollRevealsFocusedIcon()
         {
-            Call(_rounds, "Tick", 100f); yield return null; yield return null;
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null; yield return null;
             Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
             object items = Get<object>(_rounds, "Items");
             object catalog = _rounds.GetType().GetField("config").GetValue(_rounds);
@@ -440,12 +579,21 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.enabled = true;
             try
             {
-                foreach (string page in new[] { "combat", "upgrades", "milestone-upgrades", "shop", "weapon-details", "item-details", "secondary-stats" })
+                foreach (string page in new[] { "combat", "passed", "upgrades", "milestone-upgrades", "crate-reward", "shop", "weapon-details", "item-details", "secondary-stats" })
                 {
-                    if (page == "upgrades")
+                    if (page == "passed")
                     {
                         Call(Get<object>(_rounds, "Player"), "AddExp", 100f);
-                        Call(_rounds, "Tick", 100f);
+                        Call(_rounds, "QueueCrate"); Call(_rounds, "QueueCrate");
+                        Call(_rounds, "Tick", 100f); yield return null;
+                    }
+                    if (page == "upgrades") yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+                    if (page == "crate-reward")
+                    {
+                        while (Get<object>(_rounds, "Phase").ToString() == "Upgrades")
+                        { Call(_rounds, "Choose", 0); yield return null; }
+                        SetCountStat(Get<object>(_rounds, "Player"), "Banish", 2);
+                        Call(ui, "Refresh");
                     }
                     if (page == "milestone-upgrades")
                     {
@@ -457,6 +605,7 @@ namespace RainsenVampSur.Tests.PlayMode
                     }
                     if (page == "shop")
                     {
+                        yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
                         while (Get<object>(_rounds, "Phase").ToString() == "Upgrades")
                         { Call(_rounds, "Choose", 0); yield return null; }
                         object loadout = Get<object>(_rounds, "Loadout");
@@ -484,14 +633,32 @@ namespace RainsenVampSur.Tests.PlayMode
                     Canvas.ForceUpdateCanvases();
                     for (int frame = 0; frame < 4; frame++) yield return null;
                     Assert.AreEqual(width, camera.pixelWidth); Assert.AreEqual(height, camera.pixelHeight);
-                    if (page != "combat")
+                    if (page == "passed" || page == "upgrades")
+                    {
+                        Image overlay = ui.transform.Find("PassOverlay").GetComponent<Image>();
+                        Assert.That(overlay.color.a, Is.InRange(.5f, .9f));
+                        Assert.IsFalse(overlay.canvasRenderer.cull);
+                        Transform progress = ui.transform.Find("RoundProgress/Levels");
+                        int visible = 0;
+                        foreach (Transform icon in progress)
+                        {
+                            if (!icon.gameObject.activeSelf) continue;
+                            visible++;
+                            Graphic graphic = icon.GetComponent<Graphic>();
+                            Assert.IsNotNull(icon.GetComponent<CanvasRenderer>());
+                            Assert.Greater(((RectTransform)icon).rect.width, 10f);
+                            Assert.IsFalse(graphic.canvasRenderer.cull);
+                        }
+                        Assert.AreEqual(Get<int>(_rounds, "PendingUpgrades"), visible);
+                    }
+                    if (page != "combat" && page != "passed")
                     {
                         GameObject panel = Get<GameObject>(ui, "Panel");
                         Assert.IsTrue(panel.activeInHierarchy);
                         Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
                         foreach (Component label in panel.GetComponentsInChildren(textType))
                             Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), page + "/" + label.name + " at " + width);
-                        for (int card = 0; card < 4; card++)
+                        for (int card = 0; card < (page == "crate-reward" ? 0 : 4); card++)
                         {
                             Image icon = panel.transform.Find("Offer" + card + "/Icon").GetComponent<Image>();
                             Assert.IsNotNull(icon.sprite);

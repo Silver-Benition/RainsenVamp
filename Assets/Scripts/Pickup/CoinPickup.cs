@@ -6,6 +6,7 @@ public sealed class CoinPickup : MonoBehaviour, IPoolable
 {
     private GameObject _prefabReference;
     private int _baseValue = 1;
+    private bool _consumed;
 
     /// <summary>保存对象池使用的原始金币 Prefab 键。</summary>
     public void SetPrefabReference(GameObject prefab)
@@ -23,19 +24,36 @@ public sealed class CoinPickup : MonoBehaviour, IPoolable
     private void OnEnable()
     {
         _baseValue = 1;
+        _consumed = false;
     }
 
     /// <summary>碰到玩家时按最终 Greed 结算金币，并归还对象池。</summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (!collision.TryGetComponent(out PlayerStats playerStats))
+        if (!RoundController.AllowsCombat || !collision.TryGetComponent(out PlayerStats playerStats))
         {
             return;
         }
 
+        Consume(playerStats);
+    }
+
+    /// <summary>波末自动收取金币仍走账号金币统计，不进入材料钱包或储备。</summary>
+    public bool CollectForSettlement(PlayerStats player)
+    {
+        if (!RoundController.Enabled || RoundController.Instance.Phase != RoundPhase.Settling) return false;
+        return Consume(player);
+    }
+
+    /// <summary>碰撞与结算共享单次消费守卫，事件重入和已回池对象不会重复记账。</summary>
+    private bool Consume(PlayerStats playerStats)
+    {
+        if (_consumed || !gameObject.activeInHierarchy || playerStats == null) return false;
+        _consumed = true;
         int awardedGold = Mathf.Max(0, Mathf.RoundToInt(_baseValue * playerStats.Greed));
         RunState.GetOrCreate(playerStats)?.AddGold(awardedGold);
         ReleaseToPool();
+        return true;
     }
 
     /// <summary>通过原始 Prefab 键归还金币；缺少池依赖时禁用对象作为安全降级。</summary>

@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e8747c5a1ab0f7f4cb37c3b3d8fd64f0, type: 3}
   m_Name: Standard20
   m_EditorClassIdentifier:
+  settlementSeconds: 1.5
+  crateIcon: {fileID: 21300000, guid: 134885dadb2c4854ab3c1a6b95ae9624, type: 3}
   arenaSize: {x: 24, y: 16}
   shopCatalog: {fileID: 11400000, guid: f92634fc0f99c764d8e97798b5980091, type: 2}
   rounds:

@@ -47,6 +47,8 @@ public class PlayerStats : MonoBehaviour
 
     /// <summary>任一最终属性重算完成后触发；监听者应只刷新自己消费的低频状态。</summary>
     public event Action StatsChanged;
+    /// <summary>每获得一级广播目标等级，表现层据此显示本回合待领取升级。</summary>
+    public event Action<int> LevelGained;
 
     /// <summary>当前角色静态配置资产。</summary>
     public CharacterDataSO CharacterData => characterData;
@@ -237,6 +239,7 @@ public class PlayerStats : MonoBehaviour
             currentLevel++;
             expToNextLevel = GetExperienceRequiredForLevel(currentLevel);
             _levelUpQueue++;
+            RunTransactionEvents.Publish(LevelGained, currentLevel);
         }
 
         CheckLevelUpQueue();

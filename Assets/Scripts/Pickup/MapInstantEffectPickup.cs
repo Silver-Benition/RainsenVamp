@@ -36,6 +36,7 @@ public sealed class MapInstantEffectPickup : MonoBehaviour, IPoolable
     private void OnEnable()
     {
         _consumed = false;
+        GetComponent<Collider2D>().enabled = true;
         if (_reporter == null)
         {
             _reporter = GetComponent<MapInstantEffectPickupReporter>();
@@ -48,11 +49,26 @@ public sealed class MapInstantEffectPickup : MonoBehaviour, IPoolable
     /// </summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (_consumed || collision == null || !collision.TryGetComponent(out PlayerStats playerStats))
+        if (_consumed || !RoundController.AllowsCombat || collision == null || !collision.TryGetComponent(out PlayerStats playerStats))
         {
             return;
         }
 
+        Consume(playerStats, false);
+    }
+
+    /// <summary>结算只允许回血效果；重复调用、已回池或非结算阶段均不产生收益。</summary>
+    public bool CollectForSettlement(PlayerStats player)
+    {
+        if (!RoundController.Enabled || RoundController.Instance.Phase != RoundPhase.Settling) return false;
+        return Consume(player, true);
+    }
+
+    /// <summary>统一碰撞与自动吸收消费入口；先标记再应用效果，避免事件重入导致重复回血。</summary>
+    private bool Consume(PlayerStats playerStats, bool healingOnly)
+    {
+        if (_consumed || !gameObject.activeInHierarchy || playerStats == null) return false;
+        if (healingOnly && !(PickupData?.Effect is HealingMapInstantEffectSO)) return false;
         _consumed = true;
         MapInstantEffectPickupDataSO data = PickupData;
         MapInstantEffectSO effect = data != null ? data.Effect : null;
@@ -65,6 +81,7 @@ public sealed class MapInstantEffectPickup : MonoBehaviour, IPoolable
         }
 
         ReleaseToPool();
+        return true;
     }
 
     /// <summary>通过原始 Prefab 键归还对象池；缺少池依赖时禁用对象作为安全降级。</summary>

@@ -55,6 +55,10 @@ public sealed class RunShopService
     private void FillUnlocked()
     {
         _eligible.Clear();
+        // 宝箱阶段也能禁用道具；进入商店时连同上波锁定报价一起清除。
+        for (int i = 0; i < _offers.Length; i++)
+            if (_offers[i] != null && !_offers[i].Product.IsWeapon && RunState.GetOrCreate(_stats).IsBanished(_offers[i].Product.Id))
+                _offers[i] = null;
         foreach (RunShopProduct product in _catalog.products)
         {
             if (AccountProgressService.Current.IsUpgradeSealed(product.Id)) continue;
@@ -188,15 +192,4 @@ public sealed class RunShopService
         finally { _busy = false; }
     }
 
-    /// <summary>宝箱队列授予一个合法道具；满池时兑换固定材料，保证队列可结束。</summary>
-    public string GrantCrate()
-    {
-        _eligible.Clear();
-        foreach (RunShopProduct product in _catalog.products)
-            if (!product.IsWeapon && CanGrantItem(product)) _eligible.Add(product);
-        if (_eligible.Count == 0) { _wallet.Credit(10); return "材料 +10"; }
-        RunShopProduct selected = _eligible[UnityEngine.Random.Range(0, _eligible.Count)];
-        _items.GrantOrUpgrade(selected.content.abilityToGrant);
-        return selected.Name;
-    }
 }
