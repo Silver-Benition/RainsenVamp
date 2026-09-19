@@ -98,6 +98,130 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.AreEqual(hp, Get<float>(health, "CurrentHealth"));
         }
 
+        /// <summary>一次积累多级时逐级领取；十级和二十级含重投均同品质保底，其他页允许混合。</summary>
+        [UnityTest]
+        public IEnumerator UpgradeQueue_MixedCardsMilestonesAndAppliedTierAgree()
+        {
+            object player = Get<object>(_rounds, "Player");
+            RuntimeComponentTestUtility.SetField(player, "currentLevel", 21);
+            RuntimeComponentTestUtility.SetField(player, "_levelUpQueue", 20);
+            Call(Get<object>(_rounds, "Wallet"), "Credit", 10000);
+            UnityEngine.Random.State saved = UnityEngine.Random.state;
+            UnityEngine.Random.InitState(230919);
+            try
+            {
+                Call(_rounds, "Tick", 100f); yield return null;
+                Transform panel = GameObject.Find("RoundIntermission").transform;
+                Assert.IsNull(panel.Find("Exit"));
+                bool mixed = false;
+                for (int level = 2; level <= 21; level++)
+                {
+                    Assert.AreEqual(level, Get<int>(_rounds, "UpgradeLevel"));
+                    IList tiers = Get<IList>(_rounds, "ChoiceTiers");
+                    Assert.AreEqual(4, tiers.Count);
+                    if (level % 10 == 0)
+                    {
+                        for (int reroll = 0; reroll < 4; reroll++)
+                        {
+                            foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.GreaterOrEqual(tier, 3); }
+                            Assert.IsTrue((bool)Call(_rounds, "RerollUpgrade"));
+                            Assert.AreEqual(level, Get<int>(_rounds, "UpgradeLevel"));
+                        }
+                        foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.GreaterOrEqual(tier, 3); }
+                    }
+                    else foreach (int tier in tiers) mixed |= tier != (int)tiers[0];
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Assert.IsFalse(panel.Find("Offer" + i + "/Secondary").gameObject.activeSelf);
+                        Assert.IsFalse(panel.Find("Offer" + i + "/Banish").gameObject.activeSelf);
+                    }
+                    object choice = Get<IList>(_rounds, "Choices")[3];
+                    object modifier = choice.GetType().GetField("modifier").GetValue(choice);
+                    float expected = Get<float>(modifier, "Value") * (int)tiers[3];
+                    Assert.IsTrue((bool)Call(_rounds, "Choose", 3));
+                    IDictionary sources = (IDictionary)player.GetType().GetField("_modifierSources", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(player);
+                    Assert.AreEqual(expected, Get<float>(((IList)sources["round.level." + (level - 1)])[0], "Value"));
+                    yield return null;
+                }
+                Assert.IsTrue(mixed, "普通页应能同时出现不同品质。");
+                Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
+            }
+            finally { UnityEngine.Random.state = saved; }
+        }
+
+        /// <summary>真实按钮只放逐道具；锁定不能保留被放逐商品，后续刷新和跨波继续排除，重开清零。</summary>
+        [UnityTest]
+        public IEnumerator Shop_BanishConsumesOnceAndExcludesOnlyRunItem()
+        {
+            object player = Get<object>(_rounds, "Player");
+            object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
+            object shop = Get<object>(_rounds, "Shop");
+            Assert.IsFalse((bool)Call(shop, "Banish", 0), "战斗阶段不可放逐。");
+            Call(_rounds, "Tick", 100f); yield return null;
+            object config = _rounds.GetType().GetField("config").GetValue(_rounds);
+            object catalog = config.GetType().GetField("shopCatalog").GetValue(config);
+            object item = null, weapon = null;
+            foreach (object product in (IList)catalog.GetType().GetField("products").GetValue(catalog))
+                if (Get<bool>(product, "IsWeapon")) weapon = product; else item = product;
+            IList offers = Get<IList>(shop, "Offers");
+            offers[0] = Activator.CreateInstance(TypeOf("RunShopOffer"), weapon, 1, 10);
+            offers[1] = Activator.CreateInstance(TypeOf("RunShopOffer"), item, 1, 10);
+            Assert.IsFalse((bool)Call(shop, "Banish", 1), "没有次数不得操作。");
+            SetCountStat(player, "Banish", 2);
+            Assert.IsFalse((bool)Call(shop, "Banish", 0), "武器不能放逐。");
+            Assert.IsTrue((bool)Call(shop, "ToggleLock", 1));
+            object ui = UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            Call(ui, "Refresh");
+            Transform panel = Get<GameObject>(ui, "Panel").transform;
+            Assert.IsNull(panel.Find("Exit"));
+            Assert.IsFalse(panel.Find("Offer0/Banish").gameObject.activeSelf);
+            Assert.IsTrue(panel.Find("Offer1/Banish").gameObject.activeSelf);
+            Assert.IsTrue(panel.Find("Offer1/Secondary").gameObject.activeSelf);
+            string id = Get<string>(item, "Id");
+            object wallet = Get<object>(_rounds, "Wallet");
+            int money = Get<int>(wallet, "Balance"), notifications = 0;
+            Action observer = () => {
+                notifications++;
+                Assert.AreEqual(1, Get<int>(state, "RemainingBanishes")); Assert.IsNull(offers[1]);
+                Assert.IsTrue((bool)Call(state, "IsBanished", id));
+                Assert.IsFalse((bool)Call(shop, "Buy", 0)); Assert.IsFalse((bool)Call(shop, "Banish", 1));
+                Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
+            };
+            EventInfo changed = state.GetType().GetEvent("StateChanged"); changed.AddEventHandler(state, observer);
+            try { ExecuteEvents.Execute(panel.Find("Offer1/Banish").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler); }
+            finally { changed.RemoveEventHandler(state, observer); }
+            Assert.AreEqual(1, notifications); Assert.AreEqual(money, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(1, Get<int>(state, "RemainingBanishes")); Assert.IsNull(offers[1]);
+            Assert.IsFalse((bool)Call(shop, "Banish", 1));
+            Assert.IsFalse(panel.Find("Offer1/Banish").gameObject.activeSelf);
+            object account = TypeOf("AccountProgressService").GetProperty("Current").GetValue(null);
+            Assert.IsFalse((bool)Call(account, "IsUpgradeSealed", id));
+            // 用仅含目标道具的局部目录验证刷新与下波候选，不把随机未出现当成排除成功。
+            ScriptableObject clone = UnityEngine.Object.Instantiate((ScriptableObject)catalog);
+            try
+            {
+                IList products = (IList)clone.GetType().GetField("products").GetValue(clone); products.Clear(); products.Add(item);
+                object isolated = Activator.CreateInstance(TypeOf("RunShopService"), clone, wallet,
+                    Get<object>(_rounds, "Loadout"), Get<object>(_rounds, "Items"), player, new Func<bool>(() => true));
+                Call(wallet, "Credit", 1000); Call(isolated, "Enter", 1);
+                Assert.IsTrue((bool)Call(isolated, "Refresh")); Call(isolated, "Enter", 2);
+                foreach (object offer in Get<IList>(isolated, "Offers")) Assert.IsNull(offer);
+                Call(state, "ResetRun"); Call(isolated, "Enter", 1);
+                Assert.IsNotNull(Get<IList>(isolated, "Offers")[0]); Assert.AreEqual(2, Get<int>(state, "RemainingBanishes"));
+            }
+            finally { UnityEngine.Object.Destroy(clone); }
+        }
+
+        /// <summary>经属性重算增加测试次数，验证 RunState 的实际容量同步而非直接篡改剩余值。</summary>
+        private static void SetCountStat(object player, string stat, int amount)
+        {
+            Type modifierType = TypeOf("PlayerStatModifier");
+            Array modifiers = Array.CreateInstance(modifierType, 1);
+            modifiers.SetValue(Activator.CreateInstance(modifierType, Enum.Parse(TypeOf("PlayerStatType"), stat),
+                Enum.Parse(TypeOf("PlayerStatModifierMode"), "Flat"), (float)amount), 0);
+            Call(player, "SetModifiers", "test.round." + stat, modifiers);
+        }
+
         /// <summary>满槽购买自动合并，独立实例合并和回收不会影响账号金币。</summary>
         [UnityTest]
         public IEnumerator Shop_FullSlotsAutoCombine_LocksAndRecyclingRemainConsistent()
@@ -316,12 +440,20 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.enabled = true;
             try
             {
-                foreach (string page in new[] { "combat", "upgrades", "shop", "weapon-details", "item-details", "secondary-stats" })
+                foreach (string page in new[] { "combat", "upgrades", "milestone-upgrades", "shop", "weapon-details", "item-details", "secondary-stats" })
                 {
                     if (page == "upgrades")
                     {
                         Call(Get<object>(_rounds, "Player"), "AddExp", 100f);
                         Call(_rounds, "Tick", 100f);
+                    }
+                    if (page == "milestone-upgrades")
+                    {
+                        object player = Get<object>(_rounds, "Player");
+                        RuntimeComponentTestUtility.SetField(player, "currentLevel", 12);
+                        RuntimeComponentTestUtility.SetField(player, "_levelUpQueue", 3);
+                        Call(Get<object>(_rounds, "Wallet"), "Credit", 100);
+                        Call(_rounds, "RerollUpgrade");
                     }
                     if (page == "shop")
                     {
@@ -332,6 +464,7 @@ namespace RainsenVampSur.Tests.PlayMode
                         object data = owned[0].GetType().GetField("weaponData").GetValue(owned[0]);
                         while (owned.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
                         GrantCatalogItems();
+                        SetCountStat(Get<object>(_rounds, "Player"), "Banish", 2);
                         Call(Get<object>(_rounds, "Wallet"), "Credit", 1234);
                         Call(ui, "Refresh");
                     }

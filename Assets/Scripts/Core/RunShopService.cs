@@ -51,13 +51,14 @@ public sealed class RunShopService
         return _wave >= 2 && roll < Mathf.Min(0.7f, 0.3f * luck) ? 2 : 1;
     }
 
-    /// <summary>过滤封印、已满道具与锁定内容；候选不足时保留空位。</summary>
+    /// <summary>过滤封印、本局放逐道具、已满道具与锁定内容；候选不足时保留空位。</summary>
     private void FillUnlocked()
     {
         _eligible.Clear();
         foreach (RunShopProduct product in _catalog.products)
         {
             if (AccountProgressService.Current.IsUpgradeSealed(product.Id)) continue;
+            if (!product.IsWeapon && RunState.GetOrCreate(_stats).IsBanished(product.Id)) continue;
             bool locked = false;
             foreach (RunShopOffer offer in _offers)
                 if (offer != null && offer.Locked && offer.Product.Id == product.Id) locked = true;
@@ -109,6 +110,30 @@ public sealed class RunShopService
                     : _items.GrantOrUpgrade(offer.Product.content.abilityToGrant) != null;
                 if (!granted) _offers[slot] = offer;
                 return granted;
+            });
+        }
+        finally { _busy = false; }
+    }
+
+    /// <summary>只允许在商店放逐道具；消费次数、登记排除和清空同 ID 报价在发布事件前完成。</summary>
+    public bool Banish(int slot)
+    {
+        if (_busy || !_canTrade() || slot < 0 || slot >= _offers.Length) return false;
+        RunShopOffer offer = _offers[slot];
+        if (offer == null || offer.Product.IsWeapon) return false;
+        RunState state = RunState.GetOrCreate(_stats);
+        if (state.RemainingBanishes <= 0 || state.IsBanished(offer.Product.Id)) return false;
+        _busy = true;
+        try
+        {
+            return _wallet.Transact(0, 0, () =>
+            {
+                if (!state.TryBanishUpgrade(offer.Product.Id)) return false;
+                // 清除所有同 ID 道具报价；锁定不能绕过本局排除。
+                for (int i = 0; i < _offers.Length; i++)
+                    if (_offers[i] != null && !_offers[i].Product.IsWeapon && _offers[i].Product.Id == offer.Product.Id)
+                        _offers[i] = null;
+                return true;
             });
         }
         finally { _busy = false; }

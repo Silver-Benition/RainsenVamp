@@ -273,7 +273,7 @@ namespace RainsenVampSur.Tests.PlayMode
 
         /// <summary>封印过滤局内商店；属性放逐耗尽时回合升级队列可继续，解封恢复合法商品。</summary>
         [UnityTest]
-        public IEnumerator SealAndBanish_RoundQueueContinues_UnsealRestoresShopProduct()
+        public IEnumerator SealAndBanish_ShopExclusionsDoNotDiscardStatQueue()
         {
             yield return SceneManager.LoadSceneAsync("MainLevel"); yield return null; yield return null;
             object rounds = Find("RoundController");
@@ -288,11 +288,16 @@ namespace RainsenVampSur.Tests.PlayMode
             foreach (object option in Field<IList>(catalog, "stats"))
                 Call(state, "BanishUpgrade", Field<string>(option, "id"));
             RuntimeComponentTestUtility.SetField(stats, "_levelUpQueue", 2);
+            RuntimeComponentTestUtility.SetField(stats, "currentLevel", 3);
             Call(stats, "CheckLevelUpQueue");
             Assert.AreEqual(2, Get<int>(stats, "PendingLevelUps"), "战斗中不能弹出或消费属性选择。");
             Call(rounds, "Tick", 100f);
             yield return null; yield return null;
-            Assert.AreEqual(0, Get<int>(stats, "PendingLevelUps"), "候选耗尽仍应完成队列。");
+            Assert.AreEqual(2, Get<int>(stats, "PendingLevelUps"), "本局放逐集合不再移除属性升级选项。");
+            Assert.AreEqual("Upgrades", Get<object>(rounds, "Phase").ToString());
+            for (int i = 0; i < 2; i++)
+            { Assert.IsTrue((bool)Call(rounds, "Choose", 0)); yield return null; }
+            Assert.AreEqual(0, Get<int>(stats, "PendingLevelUps"));
             Assert.AreEqual("Shop", Get<object>(rounds, "Phase").ToString());
             object shop = Get<object>(rounds, "Shop");
             foreach (object offer in Get<IList>(shop, "Offers"))

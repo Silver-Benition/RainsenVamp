@@ -25,7 +25,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private TMP_Text _title, _balance, _reserve, _status, _combatBalance, _weaponHeading, _itemHeading, _level;
     private readonly TMP_Text[] _cardNames = new TMP_Text[4], _cardTypes = new TMP_Text[4], _cardTexts = new TMP_Text[4];
     private readonly Image[] _icons = new Image[4];
-    private readonly Button[] _actions = new Button[4], _secondary = new Button[4];
+    private readonly Button[] _actions = new Button[4], _secondary = new Button[4], _banish = new Button[4];
     private readonly List<InventoryCell> _itemCells = new List<InventoryCell>();
     private readonly InventoryCell[] _weaponCells = new InventoryCell[6];
     private readonly TMP_Text[] _statNames = new TMP_Text[12], _statValues = new TMP_Text[12];
@@ -87,6 +87,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             _cardTexts[i].alignment = TextAlignmentOptions.TopLeft;
             _actions[i] = Button("Action", card, "", .22f, .05f, .78f, .175f, () => Act(index));
             _secondary[i] = Button("Secondary", card, "", .0f, -.102f, 1f, -.02f, () => Secondary(index));
+            _banish[i] = Button("Banish", card, "", .51f, -.102f, 1f, -.02f, () => Banish(index));
         }
         _skip = Button("Skip", panel, "", .785f, .055f, .965f, .135f, Skip);
 
@@ -95,8 +96,6 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         BuildTooltip(panel);
         _next = Button("Next", panel, "", .785f, .055f, .965f, .135f, Next);
         _next.image.color = new Color32(65, 91, 49, 255);
-        Button("Exit", panel, T("menu", "返回主菜单"), .785f, .18f, .965f, .225f,
-            () => GameFlowManager.Instance.ReturnToMainMenu());
         _status = Text("Status", panel, "", .035f, .012f, .75f, .045f, 19);
         _panel.SetActive(false);
     }
@@ -228,11 +227,19 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _status.text = success ? "" : T("buyFailed", "材料不足、已满级或武器槽位不足");
         Refresh();
     }
-    /// <summary>在同一个辅助栏提供属性放逐或商品锁定。</summary>
+    /// <summary>商品辅助栏切换报价锁定。</summary>
     private void Secondary(int index)
     {
-        bool success = _rounds.Phase == RoundPhase.Upgrades ? _rounds.Banish(index) : _rounds.Shop.ToggleLock(index);
+        bool success = _rounds.Shop.ToggleLock(index);
         _status.text = success ? "" : T("unavailable", "当前无法执行此操作"); Refresh();
+    }
+    /// <summary>道具卡上的放逐消耗单局次数；操作后收起详情并刷新剩余次数。</summary>
+    private void Banish(int index)
+    {
+        HideTooltip();
+        bool success = _rounds.Shop.Banish(index);
+        _status.text = success ? T("banishedItem", "已放逐，该道具本局不再出现在商店") : T("unavailable", "当前无法执行此操作");
+        Refresh();
     }
     /// <summary>顶部刷新按钮复用原有免费重投和材料刷新规则。</summary>
     private void RefreshOffers()
@@ -274,7 +281,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             HideTooltip();
             _status.text = string.IsNullOrEmpty(_rounds.LastReward) ? "" : T("crate", "宝箱奖励：") + _rounds.LastReward;
         }
-        _title.text = upgrades ? string.Format(T("growthTitle", "属性成长（剩余 {0} 次）"), _rounds.Player.PendingLevelUps)
+        _title.text = upgrades ? string.Format(T("growthLevelTitle", "升级至 {0} 级 · 剩余 {1} 次"), _rounds.UpgradeLevel, _rounds.Player.PendingLevelUps)
             : string.Format(T("shopTitle", "商店（第 {0} 波）"), _rounds.RoundNumber);
         _balance.text = string.Format(T("balance", "材料  {0}"), _rounds.Wallet.Balance);
         _reserve.text = string.Format(T("reserve", "储备  {0}"), _rounds.Wallet.Bagged);
@@ -301,12 +308,13 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         RunShopOffer offer = _rounds.Shop.Offers[i];
         RoundStatUpgrade stat = upgrades && i < _rounds.Choices.Count ? _rounds.Choices[i] : null;
         bool has = upgrades ? stat != null : offer != null;
+        int tier = stat != null ? _rounds.ChoiceTiers[i] : offer?.Tier ?? 1;
         _icons[i].sprite = upgrades ? stat?.icon : offer?.Product.Icon;
         _icons[i].enabled = _icons[i].sprite != null;
         _cardNames[i].text = upgrades ? stat?.displayName ?? "" : offer?.Product.Name ?? T("emptyOffer", "暂无商品");
-        _cardTypes[i].text = upgrades ? RoundShopPresentation.Tier(_rounds.ChoiceTier)
+        _cardTypes[i].text = upgrades ? RoundShopPresentation.Tier(tier)
             : offer == null ? "" : offer.Product.IsWeapon ? RoundShopPresentation.Tier(offer.Tier) : T("item", "道具");
-        _cardTypes[i].color = RoundShopPresentation.TierColor(upgrades ? _rounds.ChoiceTier : offer?.Tier ?? 1);
+        _cardTypes[i].color = RoundShopPresentation.TierColor(upgrades ? tier : offer?.Tier ?? 1);
         if (stat != null)
         {
             PlayerStatModifier mod = stat.modifier;
@@ -314,7 +322,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
                 || mod.StatType == PlayerStatType.Might || mod.StatType == PlayerStatType.Cooldown
                 || mod.StatType == PlayerStatType.Luck || mod.StatType == PlayerStatType.Growth
                 || mod.StatType == PlayerStatType.Area || mod.StatType == PlayerStatType.Greed;
-            float value = mod.Value * _rounds.ChoiceTier * (percent ? 100 : 1);
+            float value = mod.Value * tier * (percent ? 100 : 1);
             _cardTexts[i].text = $"<color=#B5E780>{value:+0.##;-0.##;0}" + (percent ? "%" : "") + "</color>\n\n"
                 + T("current", "当前：") + PlayerStatPresentation.FormatFinalValue(mod.StatType, _rounds.Player.GetFinalStat(mod.StatType));
         }
@@ -330,9 +338,15 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         }
         else _cardTexts[i].text = "";
         Label(_actions[i], upgrades ? T("choose", "选择") : offer == null ? "—" : string.Format(T("price", "{0} 材料"), offer.Price));
-        Label(_secondary[i], upgrades ? T("banish", "放逐") : offer != null && offer.Locked ? T("locked", "已锁定") : T("lock", "锁定"));
+        Label(_secondary[i], offer != null && offer.Locked ? T("locked", "已锁定") : T("lock", "锁定"));
+        bool canBanish = !upgrades && offer != null && !offer.Product.IsWeapon && RunState.Instance.RemainingBanishes > 0;
+        _secondary[i].gameObject.SetActive(!upgrades && has);
+        _banish[i].gameObject.SetActive(canBanish);
+        Label(_banish[i], string.Format(T("banishCount", "放逐 {0}"), RunState.Instance.RemainingBanishes));
+        RectTransform lockRect = (RectTransform)_secondary[i].transform;
+        lockRect.anchorMax = new Vector2(canBanish ? .49f : 1f, -.02f);
         _actions[i].interactable = has;
-        _secondary[i].interactable = has && (!upgrades || RunState.Instance.RemainingBanishes > 0);
+        _secondary[i].interactable = has;
     }
 
     /// <summary>持有栏只根据实际实例更新图标；空武器格不可交互，道具超出区域可滚动。</summary>

@@ -186,6 +186,17 @@ public sealed class RunState : MonoBehaviour
         return true;
     }
 
+    /// <summary>原子消耗一次放逐并登记稳定 ID；重复、空 ID 或次数不足时不改变状态。</summary>
+    public bool TryBanishUpgrade(string upgradeId)
+    {
+        if (_remainingBanishes <= 0 || string.IsNullOrWhiteSpace(upgradeId) || !_banishedUpgradeIds.Add(upgradeId))
+            return false;
+        _remainingBanishes--;
+        // 商店事务先移除报价，再统一发布，使观察者看不到已扣次数但仍可购买的中间状态。
+        RunTransactionEvents.Publish(StateChanged);
+        return true;
+    }
+
     /// <summary>把本局统计与放逐状态清零，并按当前属性重新获得全部次数。</summary>
     public void ResetRun()
     {

@@ -125,3 +125,30 @@
 截图包括 combat、upgrades、shop、weapon-details、item-details、secondary-stats。商店截图使用测试构造的六把武器与六个道具，用于展示满槽效果，不代表真实账号库存。
 
 本次 UI 由当前主 Agent 实现与静态自审；前文的独立审查结论针对 9 月 17 日首版。审美、真实鼠标/控制器手感仍待老大确认。实现继续保留在 QA 的 `codex/session-23-round-combat` 分支，未集成 main、未推送。
+
+
+## 2026-09-19：试玩反馈第二轮（升级品质与商店放逐）
+
+老大本轮要求覆盖前文相应旧规则：
+
+- 删除局间页面右下区域的“返回主菜单”按钮。
+- 普通属性升级逐卡独立抽品质，因此同页可以混合品质，也允许随机结果恰好相同。沿用此前 Luck 品质阈值，取消波数解锁限制；Luck=1 时品质 1/2/3/4 概率为 60%/25%/10%/5%。
+- 每逢玩家升级至 10、20、30 等级，整页共用一次品质抽取，最低品质 3；重投仍保持此规则。连续升级以 currentLevel - PendingLevelUps + 1 还原当前待领取等级，避免玩家已经达到 12 级时漏掉队列中的第 10 级奖励。标题显示待领取等级。
+- 每张属性卡保存自己的品质，显示与实际修改值均读取相同结果。属性页移除放逐按钮及对应控制器操作，属性候选不再按本局放逐集合筛除。
+- 商店仅在有剩余放逐次数时，为道具报价并列显示“锁定”和“放逐 N”。武器报价不提供放逐。
+- 放逐一次消耗一个本局次数，并立即移除该道具全部同 ID 报价（包括锁定报价）；不免费补货，之后刷新及跨波商店持续排除该 ID。既有道具、材料、账号封印与宝箱规则不受影响，新局清空排除。
+- RunState.TryBanishUpgrade 原子更新次数与集合；商店复用现有交易事件延迟机制，在报价移除后发布变化，同步回调不能重新购买、放逐或进入下一波。
+
+修改入口：RoundController、RoundUpgradeRollRules（新增纯规则类）、RunShopService、RunState、RoundIntermissionUI。无需场景手工搭建或 Inspector 新引用；新增规则类不需要挂载。更新 RoundCombatTests、RoundCombatPlayModeTests 以及受放逐语义影响的 AccountShopPlayModeTests。
+
+验证对应本节代码版本，后续仅补充此文档并规范新增 meta 的行尾空白：
+
+| 检查 | 结果 | 报告 |
+| --- | --- | --- |
+| Unity 编译与完整 EditMode | 176/176，零失败/跳过 | Logs/Automation/20260919-220952/EditMode.xml |
+| 完整 PlayMode | 74/74，零失败/跳过 | Logs/Automation/20260919-220952/PlayMode.xml |
+| 完整门禁 | passedQualityGate=true | Logs/Automation/20260919-220952/summary.json |
+| 图形模式回合集成 | 11/11，零失败/跳过 | Logs/Session23UI/iteration2.xml |
+| 720p / 1080p 截图 | 已复核普通升级、十级保底、商店放逐；无文本溢出和屏外按钮 | Logs/Session23UI/Iteration2Screenshots/ |
+
+截图目录额外包含 milestone-upgrades 页面；显示的等级、道具、放逐次数由测试构造，不改变真实账号数据。当前主 Agent 完成静态自审，人工视觉及操作手感仍待老大体验。继续保留在 QA 的 codex/session-23-round-combat，不集成 main、不推送、不执行正式三份归档。

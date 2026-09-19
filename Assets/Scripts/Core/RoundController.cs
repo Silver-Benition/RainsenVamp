@@ -22,7 +22,10 @@ public sealed class RoundController : MonoBehaviour
     public RunMaterialWallet Wallet { get; private set; } = new RunMaterialWallet();
     public RunShopService Shop { get; private set; }
     public IReadOnlyList<RoundStatUpgrade> Choices => _choices;
-    public int ChoiceTier { get; private set; } = 1;
+    public IReadOnlyList<int> ChoiceTiers => _choiceTiers;
+    /// <summary>按待领取队列还原本页对应的实际升级等级，避免一次获得多级时跳过十级保底。</summary>
+    public int UpgradeLevel => RoundUpgradeRollRules.PendingLevel(_player.currentLevel, _player.PendingLevelUps);
+    private readonly List<int> _choiceTiers = new List<int>(4);
     public string LastReward { get; private set; } = "";
     public PlayerStats Player => _player;
     public LevelUpManager Loadout => _loadout;
@@ -144,22 +147,20 @@ public sealed class RoundController : MonoBehaviour
         Changed?.Invoke();
     }
 
-    /// <summary>从未放逐的属性池无放回抽四项，品质随进度与 Luck 提升。</summary>
+    /// <summary>属性池无放回抽四项；普通页逐卡抽品质，十级页共用不低于三级的品质。</summary>
     private void BuildChoices()
     {
-        _choices.Clear();
+        _choices.Clear(); _choiceTiers.Clear();
         _candidates.Clear();
-        foreach (RoundStatUpgrade stat in config.shopCatalog.stats)
-            if (!RunState.Instance.IsBanished(stat.id)) _candidates.Add(stat);
-        ChoiceTier = 1;
-        float roll = UnityEngine.Random.value / Mathf.Max(0.1f, _player.Luck);
-        if (RoundNumber >= 8 && roll < .05f) ChoiceTier = 4;
-        else if (RoundNumber >= 4 && roll < .15f) ChoiceTier = 3;
-        else if (RoundNumber >= 2 && roll < .4f) ChoiceTier = 2;
+        _candidates.AddRange(config.shopCatalog.stats);
+        bool milestone = UpgradeLevel % 10 == 0;
+        int sharedTier = milestone ? RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck, 3) : 1;
         while (_choices.Count < 4 && _candidates.Count > 0)
         {
             int index = UnityEngine.Random.Range(0, _candidates.Count);
             _choices.Add(_candidates[index]); _candidates.RemoveAt(index);
+            // 品质随选项一同保存，显示、重投与领取都读取同一份结果。
+            _choiceTiers.Add(milestone ? sharedTier : RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck));
         }
     }
 
@@ -174,7 +175,7 @@ public sealed class RoundController : MonoBehaviour
             RoundStatUpgrade choice = _choices[index];
             PlayerStatModifier mod = choice.modifier;
             _player.SetModifiers("round.level." + (++_choiceSequence),
-                new[] { new PlayerStatModifier(mod.StatType, mod.Mode, mod.Value * ChoiceTier) });
+                new[] { new PlayerStatModifier(mod.StatType, mod.Mode, mod.Value * _choiceTiers[index]) });
             _player.ConsumePendingLevelUp();
             ContinueGrowth();
             return true;
@@ -207,22 +208,6 @@ public sealed class RoundController : MonoBehaviour
         {
             if (!RunState.Instance.TryConsumeSkip()) return false;
             _player.ConsumePendingLevelUp(); ContinueGrowth(); return true;
-        }
-        finally { _busy = false; }
-    }
-
-    /// <summary>消耗放逐并移除所选属性候选，本次升级仍保留。</summary>
-    public bool Banish(int index)
-    {
-        if (_busy || Phase != RoundPhase.Upgrades || index < 0 || index >= _choices.Count) return false;
-        _busy = true;
-        try
-        {
-            if (!RunState.Instance.TryConsumeBanish()) return false;
-            RunState.Instance.BanishUpgrade(_choices[index].id);
-            BuildChoices();
-            if (_choices.Count == 0) ContinueGrowth(); else Changed?.Invoke();
-            return true;
         }
         finally { _busy = false; }
     }

@@ -6,6 +6,25 @@ using UnityEngine;
 /// <summary>回合规则与独立钱包测试；覆盖边界语义而非复制生产判定公式。</summary>
 public sealed class RoundCombatTests
 {
+    /// <summary>连续领取跨越十级与二十级时，用队列头等级判断保底。</summary>
+    [TestCase(12, 4, 9)]
+    [TestCase(12, 3, 10)]
+    [TestCase(22, 3, 20)]
+    [TestCase(22, 2, 21)]
+    public void UpgradeQueue_UsesActualPendingLevel(int current, int pending, int expected)
+    { Assert.AreEqual(expected, RoundUpgradeRollRules.PendingLevel(current, pending)); }
+
+    /// <summary>普通卡牌允许各品质，十级最低品质不受低幸运压低。</summary>
+    [Test]
+    public void UpgradeQuality_AllTiersAvailableAndMilestoneHasFloor()
+    {
+        CollectionAssert.AreEqual(new[] { 4, 3, 2, 1 }, new[] {
+            RoundUpgradeRollRules.RollTier(.01f, 1), RoundUpgradeRollRules.RollTier(.1f, 1),
+            RoundUpgradeRollRules.RollTier(.3f, 1), RoundUpgradeRollRules.RollTier(.9f, 1) });
+        Assert.AreEqual(3, RoundUpgradeRollRules.RollTier(1, .01f, 3));
+        Assert.AreEqual(4, RoundUpgradeRollRules.RollTier(0, 1, 3));
+    }
+
     /// <summary>目标提前完成仍需达到最低存活时间。</summary>
     [Test]
     public void ObjectiveCompletedEarly_WaitsForMinimumTime()
