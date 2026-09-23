@@ -17,8 +17,8 @@ MonoBehaviour:
   luckInfluence: 0
   upgradeNameKey: ability.cooldown_optimization.name
   descriptionKey: ability.cooldown_optimization.description
-  upgradeName: 冷却优化
-  description: 缩短武器攻击间隔。
+  upgradeName: 攻速训练
+  description: 每级增加 5% 攻击速度。
   icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
   customLevelDescs: []
   weaponToGrant: {fileID: 0}

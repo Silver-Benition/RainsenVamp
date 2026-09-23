@@ -72,6 +72,10 @@ public sealed class PlayerDamageFeedback : MonoBehaviour
     /// <summary>收到有效伤害后重新开始一次受击染色。</summary>
     private void HandleDamaged(float appliedDamage)
     {
+        // 使用精灵世界边界确定头顶，避免不同角色高度和朝向影响飘字位置。
+        Vector3 head = spriteRenderer != null ? new Vector3(spriteRenderer.bounds.center.x,
+            spriteRenderer.bounds.max.y + .2f, transform.position.z) : transform.position + Vector3.up;
+        DamagePopupManager.Instance?.ShowPlayerDamage(appliedDamage, head);
         if (spriteRenderer == null)
         {
             return;

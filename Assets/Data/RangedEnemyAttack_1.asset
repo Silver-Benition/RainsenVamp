@@ -15,7 +15,7 @@ MonoBehaviour:
   maxRange: 8
   firstShotDelay: 0.8
   cooldown: 2
-  baseDamage: 12
+  baseDamage: 2
   projectileSpeed: 5.5
   projectileLifetime: 6
   projectilePrefab: {fileID: 2303125396859290572, guid: d4a812c67e0f49bbc5a043e926c81317, type: 3}

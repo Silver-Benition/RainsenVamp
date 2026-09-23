@@ -66,6 +66,13 @@ public class ExpBarUI : MonoBehaviour
             Debug.LogWarning("[ExpBarUI] 未找到 PlayerStats，经验条无法工作。");
         }
 
+        if (playerStats != null && fillBar != null && GetComponent<PlayerHealthHudUI>() == null)
+        {
+            RectTransform frame = fillBar.transform.parent.parent as RectTransform;
+            gameObject.AddComponent<PlayerHealthHudUI>().Initialize(frame, playerStats.GetComponent<PlayerHealth>(),
+                expText != null ? expText.font : TMP_Settings.defaultFontAsset);
+        }
+
         // 使用无 Sprite 的纯色四边形，避免内置 UI Sprite 的透明边缘造成渐变。
         if (fillBar != null)
         {

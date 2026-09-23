@@ -12,6 +12,7 @@ public class WeaponBase : MonoBehaviour
     protected int _currentLevel = 1;
     protected AimController _aimController;
     protected PlayerStats _playerStats;
+    protected PlayerHealth _ownerHealth;
 
     public int CurrentLevel => _currentLevel;
     public int MaxLevel => RoundController.Enabled ? 4 : (weaponData != null ? weaponData.MaxLevel : 1);
@@ -24,6 +25,7 @@ public class WeaponBase : MonoBehaviour
     {
         _aimController = GetComponentInParent<AimController>();
         _playerStats = GetComponentInParent<PlayerStats>();
+        _ownerHealth = GetComponentInParent<PlayerHealth>();
     }
 
     /// <summary>
@@ -95,6 +97,8 @@ public class WeaponBase : MonoBehaviour
         WeaponLevelData levelData = GetCurrentLevelData();
         if (levelData == null) return 0f;
 
+        if (_playerStats != null && _playerStats.UsesBrotatoStats) return BrotatoStatRules.Damage(levelData, _playerStats);
+
         float might = _playerStats != null
             && weaponData != null
             && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Might)
@@ -111,12 +115,17 @@ public class WeaponBase : MonoBehaviour
         WeaponLevelData levelData = GetCurrentLevelData();
         if (levelData == null) return 0.1f;
 
-        return Mathf.Max(0.05f, levelData.cooldown * GetCurrentCooldownMultiplier());
+        float interval = levelData.cooldown * GetCurrentCooldownMultiplier();
+        if (_playerStats != null && _playerStats.UsesBrotatoStats && weaponData.runtimeType == WeaponRuntimeType.Melee)
+            interval *= GetModifiedRange(levelData.meleeRange) / Mathf.Max(.25f, levelData.meleeRange);
+        return Mathf.Max(0.05f, interval);
     }
 
     /// <summary>返回玩家 Cooldown 处理后的攻击间隔倍率。</summary>
     protected float GetCurrentCooldownMultiplier()
     {
+        if (_playerStats != null && _playerStats.UsesBrotatoStats)
+            return BrotatoStatRules.AttackIntervalMultiplier(_playerStats.GetFinalStat(PlayerStatType.AttackSpeed) + (GetCurrentLevelData()?.attackSpeed ?? 0));
         return _playerStats != null
             && weaponData != null
             && !weaponData.IgnoresPlayerStat(IgnoredPlayerWeaponStats.Cooldown)
@@ -167,6 +176,27 @@ public class WeaponBase : MonoBehaviour
             ? _playerStats.Duration
             : 1f;
         return Mathf.Max(0.01f, baseDuration * multiplier);
+    }
+
+    /// <summary>读取武器范围，近战减半；持续光环/环绕使用完整增量作为项目适配。</summary>
+    protected float GetModifiedRange(float baseline)
+    {
+        return _playerStats != null && _playerStats.UsesBrotatoStats
+            ? BrotatoStatRules.WeaponRange(baseline, GetCurrentLevelData()?.rangeBonus ?? 0,
+                _playerStats.GetFinalStat(PlayerStatType.Range), weaponData.runtimeType == WeaponRuntimeType.Melee)
+            : GetModifiedArea(baseline);
+    }
+
+    /// <summary>仅在发射/刷新时构造该武器品质的不可变命中快照。</summary>
+    protected WeaponHitSnapshot CreateHitSnapshot()
+    { return new WeaponHitSnapshot(_playerStats, _ownerHealth, GetCurrentLevelData()); }
+
+    /// <summary>返回直飞攻击的飞行寿命；新模式以射程除速度，旧模式保留 Duration。</summary>
+    protected float GetProjectileLifetime(WeaponLevelData data)
+    {
+        return _playerStats != null && _playerStats.UsesBrotatoStats
+            ? GetModifiedRange(data.attackRange) / Mathf.Max(.01f, GetCurrentProjectileSpeed())
+            : GetModifiedDuration(data.lifeTime);
     }
 
     /// <summary>返回玩家 Area 处理后的范围、半径或尺寸值。</summary>
@@ -225,10 +255,10 @@ public class WeaponBase : MonoBehaviour
                     GetCurrentDamage(),
                     GetCurrentProjectileSpeed(),
                     levelData.pierceCount,
-                    GetModifiedDuration(levelData.lifeTime),
+                    GetProjectileLifetime(levelData),
                     levelData.bounceCount,
                     levelData.bounceMode,
-                    GetCurrentAreaMultiplier());
+                    GetCurrentAreaMultiplier(), CreateHitSnapshot());
             }
         }
     }

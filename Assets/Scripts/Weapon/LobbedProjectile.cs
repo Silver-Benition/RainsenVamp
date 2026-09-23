@@ -49,9 +49,12 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         _hitColliders.Clear();
     }
 
+    private WeaponHitSnapshot _hitSnapshot;
+
     /// <summary>对象池回收时恢复 Prefab 初始尺寸，防止 Area 在多次生命周期中累乘。</summary>
     private void OnDisable()
     {
+        _hitSnapshot = default;
         transform.localScale = _baseLocalScale;
         _hitColliders.Clear();
         _weaponData = null;
@@ -82,7 +85,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         int pierceCount,
         float gravity,
         float spinSpeed,
-        float areaMultiplier = 1f)
+        float areaMultiplier = 1f, WeaponHitSnapshot hitSnapshot = default)
     {
         Initialize(
             null,
@@ -95,7 +98,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
             pierceCount,
             gravity,
             spinSpeed,
-            areaMultiplier);
+            areaMultiplier, hitSnapshot);
     }
 
     /// <summary>注入带稳定武器来源的抛物线投射物生命周期。</summary>
@@ -110,8 +113,9 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         int pierceCount,
         float gravity,
         float spinSpeed,
-        float areaMultiplier = 1f)
+        float areaMultiplier = 1f, WeaponHitSnapshot hitSnapshot = default)
     {
+        _hitSnapshot = hitSnapshot;
         _weaponData = weaponData;
         _startPosition = startPosition;
         Vector3 safeDirection = direction.sqrMagnitude > 0.0001f
@@ -193,7 +197,7 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         }
 
         _hitColliders.Add(other);
-        CombatDamageResolver.Apply(damageable, _damage, _weaponData);
+        _hitSnapshot.Apply(damageable, _damage, _weaponData);
         _remainingPierce--;
         if (_remainingPierce < 0)
         {

@@ -16,35 +16,35 @@ MonoBehaviour:
   abilityNameKey: ability.strength_training.name
   descriptionKey: ability.strength_training.description
   abilityDisplayName: 力量训练
-  displayDescription: 永久提高本局武器伤害倍率。
+  displayDescription: 提高本局伤害，以百分点累加。
   icon: {fileID: 21300000, guid: 30c141d8445b4e458c729da7e03afcdd, type: 3}
   presentationCategory: 0
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:
-  - upgradeDescription: 武器伤害提高 10%。
+  - upgradeDescription: 伤害累计 +10%。
     statModifiers:
-    - statType: 4
-      mode: 1
-      value: 0.1
-  - upgradeDescription: 武器伤害累计提高 20%。
+    - statType: 23
+      mode: 0
+      value: 10
+  - upgradeDescription: 伤害累计 +20%。
     statModifiers:
-    - statType: 4
-      mode: 1
-      value: 0.2
-  - upgradeDescription: 武器伤害累计提高 30%。
+    - statType: 23
+      mode: 0
+      value: 20
+  - upgradeDescription: 伤害累计 +30%。
     statModifiers:
-    - statType: 4
-      mode: 1
-      value: 0.3
-  - upgradeDescription: 武器伤害累计提高 40%。
+    - statType: 23
+      mode: 0
+      value: 30
+  - upgradeDescription: 伤害累计 +40%。
     statModifiers:
-    - statType: 4
-      mode: 1
-      value: 0.4
-  - upgradeDescription: 武器伤害累计提高 50%。
+    - statType: 23
+      mode: 0
+      value: 40
+  - upgradeDescription: 伤害累计 +50%。
     statModifiers:
-    - statType: 4
-      mode: 1
-      value: 0.5
+    - statType: 23
+      mode: 0
+      value: 50
   mechanic: {fileID: 0}

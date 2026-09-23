@@ -78,7 +78,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 Is.EqualTo(0.9f).Within(FloatTolerance));
             Assert.That(
                 RuntimeComponentTestUtility.GetProperty<float>(boss, "CurrentCollisionDamage"),
-                Is.EqualTo(18f).Within(FloatTolerance));
+                Is.EqualTo(4f).Within(FloatTolerance));
             Assert.IsFalse(
                 RuntimeComponentTestUtility.GetProperty<bool>(boss, "IsDefanged"),
                 "Boss 不应从普通敌人 Defang 逻辑继承免疫错误。");
@@ -115,7 +115,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 "第一阶段跨过 3 秒边界后未观察到 8 枚 Boss 弹体。");
 
             List<Component> projectiles = GetActiveProjectiles(fixture.activeSimulation);
-            AssertBossBarrageProjectiles(fixture, projectiles, 8, 10f, 4.5f, "第一阶段");
+            AssertBossBarrageProjectiles(fixture, projectiles, 8, 2f, 4.5f, "第一阶段");
         }
 
         /// <summary>真实 Boss 第二阶段必须在生命降至 50% 后重置 2 秒边界并发射恰好 12 枚正式弹体。</summary>
@@ -153,7 +153,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 "第二阶段跨过 2 秒边界后未观察到 12 枚 Boss 弹体。");
 
             List<Component> projectiles = GetActiveProjectiles(fixture.activeSimulation);
-            AssertBossBarrageProjectiles(fixture, projectiles, 12, 12f, 5.5f, "第二阶段");
+            AssertBossBarrageProjectiles(fixture, projectiles, 12, 2f, 5.5f, "第二阶段");
         }
 
         /// <summary>真实 Boss 致死命中必须先写入有效命中伤害，再只冻结一次胜利结果。</summary>
@@ -606,7 +606,17 @@ namespace RainsenVampSur.Tests.PlayMode
                         break;
                 }
 
+                // 注入非零命中快照，确认五种池化实体都真正清理概率和角色引用。
+                object stats = Object.FindObjectOfType(RuntimeComponentTestUtility.RequireRuntimeType("PlayerStats"));
+                object health = ((Component)stats).GetComponent("PlayerHealth");
+                object config = Activator.CreateInstance(RuntimeComponentTestUtility.RequireRuntimeType("WeaponLevelData"));
+                RuntimeComponentTestUtility.SetField(config, "lifeSteal", 100f);
+                object snapshot = Activator.CreateInstance(RuntimeComponentTestUtility.RequireRuntimeType("WeaponHitSnapshot"), stats, health, config);
+                RuntimeComponentTestUtility.SetField(attack, "_hitSnapshot", snapshot);
                 attackObject.SetActive(false);
+                object cleared = RuntimeComponentTestUtility.GetFieldValue<object>(attack, "_hitSnapshot");
+                Assert.AreEqual(0f, RuntimeComponentTestUtility.GetFieldValue<float>(cleared, "LifeStealChance"));
+                Assert.IsNull(RuntimeComponentTestUtility.GetFieldValue<object>(cleared, "_owner"));
                 Assert.IsNull(
                     RuntimeComponentTestUtility.GetFieldValue<object>(attack, sourceFields[index]),
                     $"{runtimeTypes[index]} 停用时未清除池化武器来源。");

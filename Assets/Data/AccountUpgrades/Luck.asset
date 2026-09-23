@@ -15,24 +15,24 @@ MonoBehaviour:
   stableId: account_luck
   nameKey: account.upgrade.Luck.name
   descriptionKey: account.upgrade.Luck.description
-  fallbackName: "\u5E78\u8FD0"
-  fallbackDescription: "\u6BCF\u5F3A\u5316\u4E00\u7EA7\uFF0C\u63D0\u9AD8\u6389\u843D\u6982\u7387\u53CA\u53D7\u5E78\u8FD0\u5F71\u54CD\u7684\u5347\u7EA7\u5019\u9009\u6743\u91CD\u3002"
+  fallbackName: 幸运
+  fallbackDescription: 提高幸运；新局生效。百分比属性以百分点相加。
   icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
-  statType: 10
+  statType: 33
   maxLevel: 3
   levels:
   - cost: 100
     modifiers:
-    - statType: 10
-      mode: 1
-      value: 0.05
+    - statType: 33
+      mode: 0
+      value: 5
   - cost: 200
     modifiers:
-    - statType: 10
-      mode: 1
-      value: 0.1
+    - statType: 33
+      mode: 0
+      value: 10
   - cost: 300
     modifiers:
-    - statType: 10
-      mode: 1
-      value: 0.15
+    - statType: 33
+      mode: 0
+      value: 15

@@ -15,24 +15,24 @@ MonoBehaviour:
   stableId: account_movespeed
   nameKey: account.upgrade.MoveSpeed.name
   descriptionKey: account.upgrade.MoveSpeed.description
-  fallbackName: "\u79FB\u52A8\u901F\u5EA6"
-  fallbackDescription: "\u6BCF\u5F3A\u5316\u4E00\u7EA7\uFF0C\u63D0\u9AD8\u79FB\u52A8\u901F\u5EA6\u3002"
+  fallbackName: 速度
+  fallbackDescription: 提高速度；新局生效。百分比属性以百分点相加。
   icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
-  statType: 3
+  statType: 32
   maxLevel: 3
   levels:
   - cost: 100
     modifiers:
-    - statType: 3
-      mode: 1
-      value: 0.05
+    - statType: 32
+      mode: 0
+      value: 3
   - cost: 200
     modifiers:
-    - statType: 3
-      mode: 1
-      value: 0.1
+    - statType: 32
+      mode: 0
+      value: 6
   - cost: 300
     modifiers:
-    - statType: 3
-      mode: 1
-      value: 0.15
+    - statType: 32
+      mode: 0
+      value: 9

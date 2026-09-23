@@ -12,6 +12,7 @@ public static class AccountUpgradeResolver
         if (service == null || catalog == null || !catalog.Validate(out _)) return result;
         foreach (AccountUpgradeDataSO upgrade in catalog.upgrades)
         {
+            if (!catalog.IsAvailable(upgrade)) continue;
             // 只过滤新建的账号来源快照；已交给玩家的旧列表和其他来源均不改动。
             if (upgrade.CanToggleEnabled && !service.IsAccountUpgradeEnabled(upgrade.stableId)) continue;
             int effectiveLevel = System.Math.Min(service.GetUpgradeLevel(upgrade.stableId), upgrade.maxLevel);

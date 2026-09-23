@@ -38,84 +38,199 @@ MonoBehaviour:
   stats:
   - id: round.stat.MaxHealth
     nameKey: round.stat.MaxHealth
-    displayName: "\u6700\u5927\u751F\u547D"
+    displayName: 最大生命
     icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
     modifier:
       statType: 0
       mode: 0
       value: 3
-  - id: round.stat.Recovery
-    nameKey: round.stat.Recovery
-    displayName: "\u751F\u547D\u6062\u590D"
+    tierValues:
+    - 3
+    - 6
+    - 9
+    - 12
+  - id: round.stat.HpRegeneration
+    nameKey: round.stat.HpRegeneration
+    displayName: 生命再生
     icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
     modifier:
-      statType: 1
+      statType: 21
       mode: 0
-      value: 0.1
+      value: 2
+    tierValues:
+    - 2
+    - 3
+    - 4
+    - 5
+  - id: round.stat.LifeSteal
+    nameKey: round.stat.LifeSteal
+    displayName: 生命窃取
+    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    modifier:
+      statType: 22
+      mode: 0
+      value: 1
+    tierValues:
+    - 1
+    - 2
+    - 3
+    - 4
+  - id: round.stat.DamagePercent
+    nameKey: round.stat.DamagePercent
+    displayName: 伤害
+    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    modifier:
+      statType: 23
+      mode: 0
+      value: 5
+    tierValues:
+    - 5
+    - 8
+    - 12
+    - 16
+  - id: round.stat.MeleeDamage
+    nameKey: round.stat.MeleeDamage
+    displayName: 近战伤害
+    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
+    modifier:
+      statType: 24
+      mode: 0
+      value: 2
+    tierValues:
+    - 2
+    - 4
+    - 6
+    - 8
+  - id: round.stat.RangedDamage
+    nameKey: round.stat.RangedDamage
+    displayName: 远程伤害
+    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
+    modifier:
+      statType: 25
+      mode: 0
+      value: 1
+    tierValues:
+    - 1
+    - 2
+    - 3
+    - 4
+  - id: round.stat.ElementalDamage
+    nameKey: round.stat.ElementalDamage
+    displayName: 元素伤害
+    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
+    modifier:
+      statType: 26
+      mode: 0
+      value: 1
+    tierValues:
+    - 1
+    - 2
+    - 3
+    - 4
+  - id: round.stat.AttackSpeed
+    nameKey: round.stat.AttackSpeed
+    displayName: 攻击速度
+    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
+    modifier:
+      statType: 27
+      mode: 0
+      value: 5
+    tierValues:
+    - 5
+    - 10
+    - 15
+    - 20
+  - id: round.stat.CritChance
+    nameKey: round.stat.CritChance
+    displayName: 暴击率
+    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
+    modifier:
+      statType: 28
+      mode: 0
+      value: 3
+    tierValues:
+    - 3
+    - 5
+    - 7
+    - 9
+  - id: round.stat.Range
+    nameKey: round.stat.Range
+    displayName: 范围
+    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
+    modifier:
+      statType: 30
+      mode: 0
+      value: 15
+    tierValues:
+    - 15
+    - 30
+    - 45
+    - 60
   - id: round.stat.Armor
     nameKey: round.stat.Armor
-    displayName: "\u62A4\u7532"
-    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    displayName: 护甲
+    icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
     modifier:
       statType: 2
       mode: 0
       value: 1
-  - id: round.stat.MoveSpeed
-    nameKey: round.stat.MoveSpeed
-    displayName: "\u79FB\u52A8\u901F\u5EA6"
+    tierValues:
+    - 1
+    - 2
+    - 3
+    - 4
+  - id: round.stat.Dodge
+    nameKey: round.stat.Dodge
+    displayName: 闪避
+    icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
+    modifier:
+      statType: 31
+      mode: 0
+      value: 3
+    tierValues:
+    - 3
+    - 6
+    - 9
+    - 12
+  - id: round.stat.SpeedPercent
+    nameKey: round.stat.SpeedPercent
+    displayName: 速度
     icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
     modifier:
-      statType: 3
-      mode: 1
-      value: 0.03
-  - id: round.stat.Might
-    nameKey: round.stat.Might
-    displayName: "\u529B\u91CF"
+      statType: 32
+      mode: 0
+      value: 3
+    tierValues:
+    - 3
+    - 6
+    - 9
+    - 12
+  - id: round.stat.LuckPoints
+    nameKey: round.stat.LuckPoints
+    displayName: 幸运
+    icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
+    modifier:
+      statType: 33
+      mode: 0
+      value: 5
+    tierValues:
+    - 5
+    - 10
+    - 15
+    - 20
+  - id: round.stat.Harvesting
+    nameKey: round.stat.Harvesting
+    displayName: 收获
     icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
-      statType: 4
+      statType: 34
       mode: 0
-      value: 0.05
-  - id: round.stat.Cooldown
-    nameKey: round.stat.Cooldown
-    displayName: "\u51B7\u5374"
-    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
-    modifier:
-      statType: 9
-      mode: 0
-      value: -0.03
-  - id: round.stat.Area
-    nameKey: round.stat.Area
-    displayName: "\u653B\u51FB\u8303\u56F4"
-    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
-    modifier:
-      statType: 5
-      mode: 0
-      value: 0.05
-  - id: round.stat.Luck
-    nameKey: round.stat.Luck
-    displayName: "\u5E78\u8FD0"
-    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
-    modifier:
-      statType: 10
-      mode: 0
-      value: 0.05
-  - id: round.stat.Growth
-    nameKey: round.stat.Growth
-    displayName: "\u6210\u957F"
-    icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
-    modifier:
-      statType: 11
-      mode: 0
-      value: 0.05
-  - id: round.stat.Magnet
-    nameKey: round.stat.Magnet
-    displayName: "\u78C1\u5438\u8303\u56F4"
-    icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
-    modifier:
-      statType: 14
-      mode: 1
-      value: 0.05
+      value: 5
+    tierValues:
+    - 5
+    - 8
+    - 10
+    - 12
   initialRerollPrice: 2
   rerollPriceStep: 2
   recycleRatio: 0.25

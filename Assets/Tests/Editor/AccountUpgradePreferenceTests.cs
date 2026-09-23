@@ -148,16 +148,16 @@ namespace RainsenVampSur.Tests
             character.passive.modifiers.Add(new PlayerStatModifier(PlayerStatType.MaxHealth, PlayerStatModifierMode.Flat, 20));
             PlayerStats original = CreatePlayer(character);
             original.SetModifiers("run.extra", new[] { new PlayerStatModifier(PlayerStatType.MaxHealth, PlayerStatModifierMode.Flat, 7) });
-            Assert.That(original.MaxHealth, Is.EqualTo(157));
+            Assert.That(original.MaxHealth, Is.EqualTo(150));
             service.TrySetAccountUpgradeEnabled(_catalog, "account_maxhealth", false);
-            Assert.That(original.MaxHealth, Is.EqualTo(157));
+            Assert.That(original.MaxHealth, Is.EqualTo(150));
             original.SetCharacterData(character);
-            Assert.That(original.MaxHealth, Is.EqualTo(157));
+            Assert.That(original.MaxHealth, Is.EqualTo(150));
             Assert.That(CreatePlayer(character).MaxHealth, Is.EqualTo(140));
             service.TrySetAccountUpgradeEnabled(_catalog, "account_maxhealth", true);
             service.TrySetAccountUpgradeEnabled(_catalog, "account_maxhealth", true);
-            Assert.That(CreatePlayer(character).MaxHealth, Is.EqualTo(150));
-            Assert.That(original.MaxHealth, Is.EqualTo(157));
+            Assert.That(CreatePlayer(character).MaxHealth, Is.EqualTo(143));
+            Assert.That(original.MaxHealth, Is.EqualTo(150));
         }
 
         /// <summary>复活可停用，只去除账号复活次数；四类主动资源的合法购买仍进入快照。</summary>
@@ -197,7 +197,7 @@ namespace RainsenVampSur.Tests
             foreach (AccountUpgradeDataSO definition in _catalog.upgrades)
             {
                 Assert.IsNotEmpty(definition.descriptionKey);
-                Assert.That(definition.GetDescription(), Does.StartWith("每强化一级"));
+                Assert.IsNotEmpty(definition.GetDescription());
                 Assert.That(definition.GetDescription(), Does.Not.Contain("所有角色开局"));
                 Assert.IsTrue(texts.Add(definition.GetDescription()));
             }

@@ -29,15 +29,24 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
     private TextMeshProUGUI _labelsText;
     private TextMeshProUGUI _valuesText;
     private bool _statsSubscribed;
+    private RectTransform _modernRows;
+    private readonly TMP_Text[] _names = new TMP_Text[15], _values = new TMP_Text[15];
+    private readonly RectTransform[] _rows = new RectTransform[15];
+    private Button _primaryTab, _secondaryTab;
+    private StatTooltipView _statTooltip;
+    private bool _secondary;
+    private string _currentModernValues = "";
+    private static readonly PlayerStatType[] OtherStats = { PlayerStatType.ExperienceGain, PlayerStatType.PickupRange,
+        PlayerStatType.Revival, PlayerStatType.Reroll, PlayerStatType.Skip, PlayerStatType.Banish };
 
     /// <summary>运行时生成的右侧长方形看板根节点。</summary>
     public RectTransform BoardRoot => _boardRoot;
 
     /// <summary>当前看板显示的全部最终值文本，供可视化回归测试读取。</summary>
-    public string CurrentValuesText => _valuesText != null ? _valuesText.text : string.Empty;
+    public string CurrentValuesText => _modernRows != null ? _currentModernValues : _valuesText != null ? _valuesText.text : string.Empty;
 
     /// <summary>当前建立的属性行数。</summary>
-    public int DisplayedStatCount => PlayerStatPresentation.StatCount;
+    public int DisplayedStatCount => _modernRows != null ? (_secondary ? OtherStats.Length : 15) : PlayerStatPresentation.StatCount;
 
     /// <summary>预建看板并取得玩家属性；首次打开暂停菜单时不会产生逐帧创建。</summary>
     private void Awake()
@@ -59,6 +68,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
     private void OnDisable()
     {
         UnsubscribePlayerStats();
+        _statTooltip?.Hide();
     }
 
     /// <summary>编辑布局参数时阻止非法尺寸进入场景序列化。</summary>
@@ -206,7 +216,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
         {
             // 两列采用同一字号，避免独立自动缩放后同一属性的名称和值错行。
             float height = Mathf.Max(1, _boardRoot.rect.height * .81f);
-            float size = Mathf.Min(rowFontSize, Mathf.Max(8, (height / PlayerStatPresentation.StatCount - rowSpacing) / 1.35f));
+            float size = Mathf.Min(rowFontSize, Mathf.Max(8, (height / (_playerStats != null && _playerStats.UsesBrotatoStats ? 24 : PlayerStatPresentation.StatCount) - rowSpacing) / 1.35f));
             _labelsText.fontSize = _valuesText.fontSize = size;
         }
     }
@@ -278,6 +288,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
         }
     }
 
+    /// <summary>订阅属性变化以即时刷新当前页面。</summary>
     private void SubscribePlayerStats()
     {
         if (_statsSubscribed || _playerStats == null)
@@ -289,6 +300,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
         _statsSubscribed = true;
     }
 
+    /// <summary>解除属性事件，避免场景重载残留订阅。</summary>
     private void UnsubscribePlayerStats()
     {
         if (!_statsSubscribed || _playerStats == null)
@@ -330,5 +342,98 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
         }
 
         _valuesText.text = valuesBuilder.ToString();
+        if (_playerStats.UsesBrotatoStats) RefreshModern();
+    }
+
+    /// <summary>切换暂停属性分页；不改变角色属性和特殊资源。</summary>
+    public void SelectPage(bool secondary) { _secondary = secondary; _statTooltip?.Hide(); RefreshValues(); }
+
+    /// <summary>按当前页创建/刷新独立属性行，零和负值均保留，特殊资源显示剩余数量。</summary>
+    private void RefreshModern()
+    {
+        if (_modernRows == null)
+        {
+            _labelsText.gameObject.SetActive(false); _valuesText.gameObject.SetActive(false);
+            _modernRows = MakeRect("Rows", _boardRoot, .06f, .035f, .94f, .745f);
+            _primaryTab = MakeTab("Primary", "主要", .06f, .48f, false);
+            _secondaryTab = MakeTab("Secondary", "次要 / 特殊", .52f, .94f, true);
+            _statTooltip = new StatTooltipView((RectTransform)transform, _labelsText.font);
+            for (int i = 0; i < 15; i++)
+            {
+                RectTransform row = MakeRect("Stat" + i, _modernRows, 0, 0, 1, 1); _rows[i] = row;
+                row.gameObject.AddComponent<Image>().color = Color.clear;
+                _names[i] = CreateText(row, "Name", _labelsText.font, rowFontSize, labelColor, TextAlignmentOptions.MidlineLeft);
+                _values[i] = CreateText(row, "Value", _labelsText.font, rowFontSize, valueColor, TextAlignmentOptions.MidlineRight);
+                SetRect(_names[i].rectTransform, 0, 0, .76f, 1); SetRect(_values[i].rectTransform, .76f, 0, 1, 1);
+                _names[i].enableAutoSizing = _values[i].enableAutoSizing = true;
+                _names[i].fontSizeMin = _values[i].fontSizeMin = 12;
+                _names[i].fontSizeMax = _values[i].fontSizeMax = rowFontSize;
+                row.gameObject.AddComponent<RoundHoverTarget>();
+            }
+        }
+        PlayerStatType[] stats = _secondary ? OtherStats : BrotatoStatRules.Primary;
+        _primaryTab.image.color = _secondary ? backgroundColor : new Color32(64, 74, 51, 255);
+        _secondaryTab.image.color = _secondary ? new Color32(64, 74, 51, 255) : backgroundColor;
+        var values = new StringBuilder();
+        for (int i = 0; i < 15; i++)
+        {
+            RectTransform row = _rows[i]; row.gameObject.SetActive(i < stats.Length);
+            if (i >= stats.Length) continue;
+            PlayerStatType stat = stats[i]; float top = 1 - i / 15f;
+            // 次要属性与流程资源之间保留一行空隙，分类不挤占核心栏。
+            if (_secondary && i >= 2) top -= 1f / 15;
+            SetRect(row, 0, top - .06f, 1, top);
+            _names[i].text = PlayerStatPresentation.GetDisplayName(stat);
+            float value = _playerStats.GetFinalStat(stat); RunState state = RunState.Instance;
+            if (state != null)
+            {
+                if (stat == PlayerStatType.Revival) value = state.RemainingRevivals;
+                if (stat == PlayerStatType.Reroll) value = state.RemainingRerolls;
+                if (stat == PlayerStatType.Skip) value = state.RemainingSkips;
+                if (stat == PlayerStatType.Banish) value = state.RemainingBanishes;
+            }
+            _values[i].text = PlayerStatPresentation.FormatFinalValue(stat, value);
+            if (i > 0) values.Append('\n'); values.Append(_values[i].text);
+            row.GetComponent<RoundHoverTarget>().Bind(() => _statTooltip.Show(row, stat), () => _statTooltip.HideFrom(row));
+        }
+        _currentModernValues = values.ToString();
+    }
+    /// <summary>创建分页按钮并保留统一文本本地化入口。</summary>
+    private Button MakeTab(string name, string text, float x0, float x1, bool secondary)
+    {
+        RectTransform rect = MakeRect(name, _boardRoot, x0, .78f, x1, .86f);
+        rect.gameObject.AddComponent<Image>(); Button button = rect.gameObject.AddComponent<Button>();
+        TMP_Text label = CreateText(rect, "Label", _labelsText.font, 22, Color.white, TextAlignmentOptions.Center);
+        label.text = RoundShopPresentation.Text("round.ui." + (secondary ? "secondary" : "primary"), text);
+        label.enableAutoSizing = true; label.fontSizeMin = 12; label.fontSizeMax = 22;
+        SetRect(label.rectTransform, .02f, .03f, .98f, .97f); button.onClick.AddListener(() => SelectPage(secondary)); return button;
+    }
+    /// <summary>创建相对布局矩形。</summary>
+    private static RectTransform MakeRect(string name, Transform parent, float x0, float y0, float x1, float y1)
+    { var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>(); rect.SetParent(parent, false); SetRect(rect, x0, y0, x1, y1); return rect; }
+    /// <summary>设置归一化区域并清除默认像素偏移。</summary>
+    private static void SetRect(RectTransform rect, float x0, float y0, float x1, float y1)
+    { rect.anchorMin = new Vector2(x0, y0); rect.anchorMax = new Vector2(x1, y1); rect.offsetMin = rect.offsetMax = Vector2.zero; }
+    /// <summary>销毁本组件创建的独立说明窗。</summary>
+    private void OnDestroy() { _statTooltip?.Dispose(); }
+
+    /// <summary>按核心、次要、特殊资源分组，保留角色原始负值；次数显示剩余数量。</summary>
+    private void AppendGroup(StringBuilder labels, StringBuilder values, string title, PlayerStatType[] stats)
+    {
+        labels.Append(title).Append('\n'); values.Append('\n');
+        foreach (PlayerStatType stat in stats)
+        {
+            labels.Append(PlayerStatPresentation.GetDisplayName(stat)).Append('\n');
+            float value = _playerStats.GetFinalStat(stat);
+            RunState state = RunState.Instance;
+            if (state != null)
+            {
+                if (stat == PlayerStatType.Revival) value = state.RemainingRevivals;
+                if (stat == PlayerStatType.Reroll) value = state.RemainingRerolls;
+                if (stat == PlayerStatType.Skip) value = state.RemainingSkips;
+                if (stat == PlayerStatType.Banish) value = state.RemainingBanishes;
+            }
+            values.Append(PlayerStatPresentation.FormatFinalValue(stat, value)).Append('\n');
+        }
     }
 }

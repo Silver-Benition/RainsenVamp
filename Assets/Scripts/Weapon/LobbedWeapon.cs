@@ -60,11 +60,11 @@ public sealed class LobbedWeapon : WeaponBase
                     direction,
                     GetCurrentDamage(),
                     GetCurrentProjectileSpeed(),
-                    GetModifiedDuration(levelData.lifeTime),
+                    GetProjectileLifetime(levelData),
                     levelData.pierceCount,
                     levelData.lobGravity,
                     levelData.spinSpeed,
-                    GetCurrentAreaMultiplier());
+                    GetCurrentAreaMultiplier(), CreateHitSnapshot());
             }
             else if (instance != null)
             {

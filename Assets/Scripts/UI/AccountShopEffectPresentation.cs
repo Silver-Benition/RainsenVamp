@@ -23,7 +23,7 @@ public static class AccountShopEffectPresentation
             bool percent = mode != 0 || IsRatio(definition.statType);
             if (text.Length > 0) text.Append("，");
             text.Append((percent ? value * 100f : value).ToString("+0.##;-0.##;0", CultureInfo.InvariantCulture));
-            text.Append(percent ? "%" : Unit(definition.statType));
+            text.Append(percent || PlayerStatPresentation.IsPointPercent(definition.statType) ? "%" : Unit(definition.statType));
         }
         return text.Length == 0 ? "0" : text.ToString();
     }

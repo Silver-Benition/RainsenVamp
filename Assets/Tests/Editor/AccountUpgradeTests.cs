@@ -37,17 +37,20 @@ namespace RainsenVampSur.Tests
             CharacterSelectionSession.Clear();
         }
 
-        /// <summary>逐项逐级购买与退款，验证全 21 项累计配置及上限。</summary>
+        /// <summary>逐项逐级购买与退款，验证21 项可用属性累计配置及停用入口。</summary>
         [Test]
-        public void All21Stats_PurchaseEveryLevel_RefundEveryPayment()
+        public void AvailableStats_PurchaseEveryLevel_RefundEveryPayment()
         {
-            Assert.That(_catalog.upgrades.Count, Is.EqualTo(21));
+            Assert.That(_catalog.upgrades.Count, Is.EqualTo(29));
+            Assert.That(_catalog.upgrades.FindAll(_catalog.IsAvailable).Count, Is.EqualTo(21));
             Assert.IsTrue(_catalog.Validate(out _));
             var storage = new InMemoryAccountProgressStorage();
             var service = new AccountProgressService(storage);
             service.RecordRunResults(100000, 0);
             foreach (AccountUpgradeDataSO definition in _catalog.upgrades)
             {
+                if (!_catalog.IsAvailable(definition))
+                { Assert.IsFalse(service.TryPurchaseUpgrade(_catalog, definition.stableId)); continue; }
                 int start = service.Gold;
                 for (int level = 1; level <= definition.maxLevel; level++)
                 {
@@ -248,7 +251,7 @@ namespace RainsenVampSur.Tests
                 new PlayerStatModifier(PlayerStatType.MaxHealth, PlayerStatModifierMode.Flat, 20) } };
             stats.SetCharacterData(character);
             float first = stats.MaxHealth;
-            Assert.That(first, Is.EqualTo(130));
+            Assert.That(first, Is.EqualTo(123));
             stats.SetModifiers("ability", new[] { new PlayerStatModifier(PlayerStatType.MaxHealth, PlayerStatModifierMode.Flat, 5) });
             Assert.That(stats.MaxHealth, Is.EqualTo(first + 5));
             service.TryPurchaseUpgrade(_catalog, id);
@@ -257,9 +260,9 @@ namespace RainsenVampSur.Tests
         }
 
         /// <summary>倍率和概率统一使用百分号，恢复保留每秒单位。</summary>
-        [TestCase(PlayerStatType.Might, 0.05f, "+5%")]
+        [TestCase(PlayerStatType.DamagePercent, 5f, "+5%")]
         [TestCase(PlayerStatType.Defang, 0.03f, "+3%")]
-        [TestCase(PlayerStatType.Recovery, 0.1f, "+0.1/秒")]
+        [TestCase(PlayerStatType.HpRegeneration, 1f, "+1")]
         public void EffectText_ReflectsStatUnits(PlayerStatType stat, float value, string expected)
         {
             var definition = _catalog.upgrades.Find(item => item.statType == stat);

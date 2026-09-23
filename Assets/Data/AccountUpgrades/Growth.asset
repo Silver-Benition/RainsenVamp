@@ -15,24 +15,24 @@ MonoBehaviour:
   stableId: account_growth
   nameKey: account.upgrade.Growth.name
   descriptionKey: account.upgrade.Growth.description
-  fallbackName: "\u6210\u957F"
-  fallbackDescription: "\u6BCF\u5F3A\u5316\u4E00\u7EA7\uFF0C\u63D0\u9AD8\u83B7\u5F97\u7684\u7ECF\u9A8C\u503C\u3002"
+  fallbackName: 经验获取
+  fallbackDescription: 提高经验获取；新局生效。百分比属性以百分点相加。
   icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
-  statType: 11
+  statType: 35
   maxLevel: 3
   levels:
   - cost: 100
     modifiers:
-    - statType: 11
-      mode: 1
-      value: 0.05
+    - statType: 35
+      mode: 0
+      value: 5
   - cost: 200
     modifiers:
-    - statType: 11
-      mode: 1
-      value: 0.1
+    - statType: 35
+      mode: 0
+      value: 10
   - cost: 300
     modifiers:
-    - statType: 11
-      mode: 1
-      value: 0.15
+    - statType: 35
+      mode: 0
+      value: 15

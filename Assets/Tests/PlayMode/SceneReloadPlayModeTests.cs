@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System;
 using System.Reflection;
 using NUnit.Framework;
@@ -476,12 +476,20 @@ namespace RainsenVampSur.Tests.PlayMode
                                        Mathf.Approximately(loadoutRect.anchorMax.x, .965f) &&
                                        Mathf.Approximately(loadoutRect.anchorMax.y, .17f);
             bool loadoutHiddenInCombat = loadoutObject != null && !loadoutObject.activeInHierarchy;
-            bool runStatsBelowExpBar = runStatsRect != null &&
+            RectTransform healthBar = frameRect != null ? frameRect.Find("PlayerHealthHUD") as RectTransform : null;
+            Vector3[] healthCorners = new Vector3[4];
+            Vector3[] counterCorners = new Vector3[4];
+            if (healthBar != null) healthBar.GetWorldCorners(healthCorners);
+            if (runStatsRect != null) runStatsRect.GetWorldCorners(counterCorners);
+            bool healthAligned = healthBar != null && frameRect != null &&
+                                 Mathf.Abs(healthCorners[0].x - frameWorldCorners[0].x) < 1f &&
+                                 Mathf.Abs(healthBar.rect.width * 6 - frameRect.rect.width) < 1f;
+            bool runStatsBelowExpBar = runStatsRect != null && healthAligned &&
+                                       counterCorners[0].x > healthCorners[2].x &&
                                        Mathf.Approximately(runStatsRect.anchorMin.x, 0f) &&
                                        Mathf.Approximately(runStatsRect.anchorMax.x, 0f) &&
                                        Mathf.Approximately(runStatsRect.anchorMin.y, 1f) &&
                                        Mathf.Approximately(runStatsRect.anchorMax.y, 1f) &&
-                                       Mathf.Abs(runStatsRect.anchoredPosition.x - 64f) < 0.01f &&
                                        runStatsRect.anchoredPosition.y <= -56f;
             bool countersInOrder = runStatsRect != null &&
                                    killCounterRect != null &&
@@ -507,7 +515,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(fillConfigured, "经验填充必须使用无 Sprite 的纯色矩形。");
             Assert.IsTrue(frameHierarchyValid, "经验条外框、轨道和填充层级不正确。");
             Assert.IsTrue(fillAnchoredLeft, "经验填充没有固定从轨道左侧开始。");
-            Assert.That(displayedFillProgress, Is.EqualTo(0.2f).Within(0.001f));
+            Assert.That(displayedFillProgress, Is.EqualTo(0.125f).Within(0.001f));
             Assert.IsTrue(levelTextFound, "MainLevel 缺少 LevelText。");
             Assert.IsTrue(levelTextInsideBar, "等级文本左边缘没有留出安全边距。");
             Assert.IsTrue(expTextFound, "MainLevel 缺少 ExpText。");
@@ -531,7 +539,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(goldCountTextFound, "MainLevel 缺少金币数字文本。");
             Assert.IsTrue(coinIconFound && coinSprite != null, "金币计数器缺少金币 Sprite 图标。");
             Assert.IsTrue(skullIconFound && skullSprite != null, "击杀计数器缺少骷髅 Sprite 图标。");
-            Assert.IsTrue(runStatsBelowExpBar, "计数器没有与经验条左边界对齐或放在经验条下方。");
+            Assert.IsTrue(runStatsBelowExpBar, "生命条应左对齐经验条且宽度为其六分之一；计数器应位于血条右侧、经验条下方。");
             Assert.IsTrue(countersInOrder, "金币计数器没有位于击杀计数器右侧。");
             Assert.That(initialKillText, Is.EqualTo("0"));
             Assert.That(initialGoldText, Is.EqualTo("0"));
@@ -539,8 +547,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(killTextAfterRegistration, Is.EqualTo("1"));
             Assert.IsNotNull(characterData, "MainLevel 的 PlayerStats 没有绑定默认角色资产。");
             Assert.That(characterData != null ? characterData.name : string.Empty, Is.EqualTo("DefaultCharacter"));
-            Assert.That(playerMaxHealth, Is.EqualTo(100f).Within(FloatTolerance));
-            Assert.That(healthMaxHealth, Is.EqualTo(100f).Within(FloatTolerance));
+            Assert.That(playerMaxHealth, Is.EqualTo(10f).Within(FloatTolerance));
+            Assert.That(healthMaxHealth, Is.EqualTo(10f).Within(FloatTolerance));
             Assert.That(playerMoveSpeed, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.That(playerMagnet, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.IsNotNull(abilityManager, "MainLevel 的 Player 缺少 AbilityManager。");

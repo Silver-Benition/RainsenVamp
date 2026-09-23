@@ -18,9 +18,12 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
         _baseLocalScale = transform.localScale;
     }
 
+    private WeaponHitSnapshot _hitSnapshot;
+
     /// <summary>对象禁用时恢复初始尺寸并清理旧归属。</summary>
     private void OnDisable()
     {
+        _hitSnapshot = default;
         transform.localScale = _baseLocalScale;
         _owner = null;
         _weaponData = null;
@@ -44,8 +47,9 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
     }
 
     /// <summary>注入带稳定武器来源的环绕投射物生命周期。</summary>
-    public void Initialize(WeaponDataSO weaponData, Transform owner, float damage, float areaMultiplier = 1f)
+    public void Initialize(WeaponDataSO weaponData, Transform owner, float damage, float areaMultiplier = 1f, WeaponHitSnapshot hitSnapshot = default)
     {
+        _hitSnapshot = hitSnapshot;
         _weaponData = weaponData;
         _owner = owner;
         _damage = Mathf.Max(0f, damage);
@@ -84,7 +88,7 @@ public sealed class OrbitingProjectile : MonoBehaviour, IPoolable
         if (_damage > 0f
             && DamageTargetFilter.TryGetEnemyDamageable(other, out IDamageable damageable))
         {
-            CombatDamageResolver.Apply(damageable, _damage, _weaponData);
+            _hitSnapshot.Apply(damageable, _damage, _weaponData);
         }
     }
 

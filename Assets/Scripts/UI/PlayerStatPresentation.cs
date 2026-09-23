@@ -7,7 +7,10 @@ using UnityEngine;
 /// </summary>
 public static class PlayerStatPresentation
 {
-    /// <summary>当前局内属性总数。</summary>
+    /// <summary>可替换的本地化解析入口；空译文沿用中文回退。</summary>
+    public static System.Func<string, string, string> ResolveText;
+
+    /// <summary>旧属性展示顺序总数；新角色由 BrotatoStatRules 分组提供。</summary>
     public static int StatCount => (int)PlayerStatType.Defang + 1;
 
     /// <summary>按固定展示顺序取得属性类型。</summary>
@@ -18,6 +21,14 @@ public static class PlayerStatPresentation
 
     /// <summary>取得面向玩家的中文属性名称。</summary>
     public static string GetDisplayName(PlayerStatType statType)
+    {
+        string fallback = GetFallbackName(statType);
+        string translated = ResolveText?.Invoke("stat." + statType, fallback);
+        return string.IsNullOrEmpty(translated) ? fallback : translated;
+    }
+
+    /// <summary>统一保留新旧属性的中文名称，不参与逻辑身份判断。</summary>
+    private static string GetFallbackName(PlayerStatType statType)
     {
         switch (statType)
         {
@@ -42,6 +53,22 @@ public static class PlayerStatPresentation
             case PlayerStatType.Banish: return "放逐";
             case PlayerStatType.Charm: return "魅惑";
             case PlayerStatType.Defang: return "削弱";
+            case PlayerStatType.HpRegeneration: return "生命再生";
+            case PlayerStatType.LifeSteal: return "生命窃取";
+            case PlayerStatType.DamagePercent: return "伤害";
+            case PlayerStatType.MeleeDamage: return "近战伤害";
+            case PlayerStatType.RangedDamage: return "远程伤害";
+            case PlayerStatType.ElementalDamage: return "元素伤害";
+            case PlayerStatType.AttackSpeed: return "攻击速度";
+            case PlayerStatType.CritChance: return "暴击率";
+            case PlayerStatType.Engineering: return "工程学";
+            case PlayerStatType.Range: return "范围";
+            case PlayerStatType.Dodge: return "闪避";
+            case PlayerStatType.SpeedPercent: return "速度";
+            case PlayerStatType.LuckPoints: return "幸运";
+            case PlayerStatType.Harvesting: return "收获";
+            case PlayerStatType.ExperienceGain: return "经验获取";
+            case PlayerStatType.PickupRange: return "拾取范围";
             default: return statType.ToString();
         }
     }
@@ -52,6 +79,7 @@ public static class PlayerStatPresentation
     /// </summary>
     public static string FormatFinalValue(PlayerStatType statType, float value)
     {
+        if ((int)statType >= 21) return FormatNumber(value) + (IsPointPercent(statType) ? "%" : "");
         switch (statType)
         {
             case PlayerStatType.Might:
@@ -79,6 +107,12 @@ public static class PlayerStatPresentation
                 return FormatNumber(value);
         }
     }
+
+    /// <summary>新属性百分比采用点数，不重复乘一百。</summary>
+    public static bool IsPointPercent(PlayerStatType stat)
+    { return stat == PlayerStatType.LifeSteal || stat == PlayerStatType.DamagePercent || stat == PlayerStatType.AttackSpeed ||
+        stat == PlayerStatType.CritChance || stat == PlayerStatType.Dodge || stat == PlayerStatType.SpeedPercent ||
+        stat == PlayerStatType.ExperienceGain || stat == PlayerStatType.PickupRange; }
 
     /// <summary>把调试输入值格式化为可再次解析的稳定小数字符串。</summary>
     public static string FormatRawValue(float value)

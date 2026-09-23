@@ -194,7 +194,7 @@ namespace RainsenVampSur.Tests.PlayMode
 
             try
             {
-                return method.Invoke(target, arguments);
+                return method.Invoke(target, CompleteArguments(method, arguments));
             }
             catch (TargetInvocationException exception)
             {
@@ -218,12 +218,25 @@ namespace RainsenVampSur.Tests.PlayMode
 
             try
             {
-                return method.Invoke(null, arguments);
+                return method.Invoke(null, CompleteArguments(method, arguments));
             }
             catch (TargetInvocationException exception)
             {
                 throw exception.InnerException ?? exception;
             }
+        }
+
+        /// <summary>补齐生产 API 的可选参数，旧测试仍执行原有调用语义。</summary>
+        private static object[] CompleteArguments(MethodInfo method, object[] arguments)
+        {
+            ParameterInfo[] parameters = method.GetParameters();
+            if (parameters.Length == arguments.Length) return arguments;
+            var completed = new object[parameters.Length];
+            Array.Copy(arguments, completed, arguments.Length);
+            for (int i = arguments.Length; i < parameters.Length; i++)
+                completed[i] = parameters[i].DefaultValue ?? (parameters[i].ParameterType.IsValueType
+                    ? Activator.CreateInstance(parameters[i].ParameterType) : null);
+            return completed;
         }
 
         /// <summary>沿继承链查找字段，确保私有字段也能得到清晰的缺失错误。</summary>
@@ -263,13 +276,13 @@ namespace RainsenVampSur.Tests.PlayMode
                 }
 
                 ParameterInfo[] parameters = candidate.GetParameters();
-                if (parameters.Length != arguments.Length)
+                if (parameters.Length < arguments.Length)
                 {
                     continue;
                 }
 
                 bool allParametersMatch = true;
-                for (int parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)
+                for (int parameterIndex = 0; parameterIndex < arguments.Length; parameterIndex++)
                 {
                     object argument = arguments[parameterIndex];
                     if (argument != null &&
@@ -280,6 +293,8 @@ namespace RainsenVampSur.Tests.PlayMode
                     }
                 }
 
+                for (int i = arguments.Length; i < parameters.Length; i++)
+                    if (!parameters[i].IsOptional) allParametersMatch = false;
                 if (allParametersMatch)
                 {
                     return candidate;

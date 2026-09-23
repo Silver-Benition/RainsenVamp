@@ -91,11 +91,11 @@ namespace RainsenVampSur.Tests
             Assert.IsNotNull(projectilePrefab);
             Assert.That(enemyData.maxHealth, Is.EqualTo(30f).Within(FloatTolerance));
             Assert.That(enemyData.moveSpeed, Is.EqualTo(1.6f).Within(FloatTolerance));
-            Assert.That(enemyData.collisionDamage, Is.EqualTo(5f).Within(FloatTolerance));
+            Assert.That(enemyData.collisionDamage, Is.EqualTo(1f).Within(FloatTolerance));
             Assert.That(attackData.MaxRange, Is.EqualTo(8f).Within(FloatTolerance));
             Assert.That(attackData.FirstShotDelay, Is.EqualTo(0.8f).Within(FloatTolerance));
             Assert.That(attackData.Cooldown, Is.EqualTo(2f).Within(FloatTolerance));
-            Assert.That(attackData.BaseDamage, Is.EqualTo(12f).Within(FloatTolerance));
+            Assert.That(attackData.BaseDamage, Is.EqualTo(2f).Within(FloatTolerance));
             Assert.That(attackData.ProjectileSpeed, Is.EqualTo(5.5f).Within(FloatTolerance));
             Assert.That(attackData.ProjectileLifetime, Is.EqualTo(6f).Within(FloatTolerance));
 

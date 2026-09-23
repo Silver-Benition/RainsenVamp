@@ -121,6 +121,16 @@ MonoBehaviour:
   ignoredPlayerStats: 40
   roundTierConfigs:
   - damage: 6
+    meleeScaling: 0
+    rangedScaling: 1
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 3
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 5
     cooldown: 0.5
     projectileCount: 1
     projectileSpeed: 0
@@ -140,6 +150,16 @@ MonoBehaviour:
     activeDuration: 0.18
     features:
   - damage: 6
+    meleeScaling: 0
+    rangedScaling: 1
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 3
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 5
     cooldown: 0.5
     projectileCount: 2
     projectileSpeed: 0
@@ -159,6 +179,16 @@ MonoBehaviour:
     activeDuration: 0.18
     features:
   - damage: 9
+    meleeScaling: 0
+    rangedScaling: 1
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 3
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 5
     cooldown: 0.5
     projectileCount: 3
     projectileSpeed: 0
@@ -178,6 +208,16 @@ MonoBehaviour:
     activeDuration: 0.18
     features:
   - damage: 12
+    meleeScaling: 0
+    rangedScaling: 1
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 3
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 5
     cooldown: 0.5
     projectileCount: 3
     projectileSpeed: 0

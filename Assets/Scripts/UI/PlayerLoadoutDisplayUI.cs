@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 仅在手动暂停时于右下角展示已持有武器及等级；能力由局间持有栏展示。
+/// 仅在手动暂停时展示右下武器、左下道具与只读悬停详情。
 /// 本组件只读取装备状态并负责 UI 表现，不参与容量判定、升级结算或暂停规则决策。
 /// </summary>
 [DisallowMultipleComponent]
@@ -48,6 +48,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     private int _displayedWeaponCount;
     private int _displayedAbilityCount;
     private bool _showLevels;
+    private PauseInventoryView _pauseInventory;
 
     /// <summary>当前已构建的武器槽位数量。</summary>
     public int WeaponSlotCount => _weaponSlots.Count;
@@ -71,6 +72,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     private void Awake()
     {
         BuildSlotsIfNeeded();
+        _pauseInventory = new PauseInventoryView((RectTransform)transform, panelRoot);
     }
 
     /// <summary>组件启用时订阅装备与手动暂停状态。</summary>
@@ -90,10 +92,14 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     /// <summary>组件停用时解除全部事件，避免场景重载后旧 UI 被继续回调。</summary>
     private void OnDisable()
     {
+        _pauseInventory?.SetVisible(false);
         UnsubscribeLevelUpManager();
         UnsubscribeAbilityManager();
         UnsubscribeGameFlowManager();
     }
+
+    /// <summary>释放本组件生成的暂停背包与详情根对象。</summary>
+    private void OnDestroy() { _pauseInventory?.Dispose(); }
 
     /// <summary>在 Inspector 修改布局参数时钳制非法尺寸。</summary>
     private void OnValidate()
@@ -188,7 +194,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
 
     /// <summary>窗口尺寸改变时重新适配右下方网格；只改布局，不重建槽位。</summary>
     private void OnRectTransformDimensionsChange()
-    { if (panelRoot != null) ConfigurePanelLayout(); }
+    { if (panelRoot != null) ConfigurePanelLayout(); _pauseInventory?.Layout(); }
 
     /// <summary>返回紧凑图标高度；手动暂停时额外包含等级区域与间距。</summary>
     private float CalculateCellHeight()
@@ -503,6 +509,8 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     /// <summary>切换等级区域并重新计算网格高度，不创建或销毁任何 UI 对象。</summary>
     private void SetLevelVisibility(bool showLevels)
     {
+        _pauseInventory?.Refresh(_levelUpManager, _abilityManager);
+        _pauseInventory?.SetVisible(showLevels);
         if (panelRoot != null) panelRoot.gameObject.SetActive(showLevels);
         if (_showLevels == showLevels)
         {
@@ -525,6 +533,7 @@ public sealed class PlayerLoadoutDisplayUI : MonoBehaviour
     /// </summary>
     private void RefreshLoadoutSlots()
     {
+        _pauseInventory?.Refresh(_levelUpManager, _abilityManager);
         _displayedWeaponCount = 0;
         _displayedAbilityCount = 0;
         for (int index = 0; index < _weaponSlots.Count; index++)

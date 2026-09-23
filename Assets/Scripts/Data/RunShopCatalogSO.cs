@@ -23,6 +23,11 @@ public sealed class RoundStatUpgrade
     public string displayName;
     public Sprite icon;
     public PlayerStatModifier modifier;
+    public float[] tierValues;
+    /// <summary>新体系逐档配置，旧数据无表时保留历史倍率规则。</summary>
+    public PlayerStatModifier AtTier(int tier)
+    { return new PlayerStatModifier(modifier.StatType, modifier.Mode, tierValues != null && tierValues.Length == 4
+        ? tierValues[Mathf.Clamp(tier - 1, 0, 3)] : modifier.Value * Mathf.Clamp(tier, 1, 4)); }
 }
 
 /// <summary>局内商店与属性候选目录；价格、概率和候选均可由策划配置。</summary>
@@ -46,7 +51,9 @@ public sealed class RunShopCatalogSO : ScriptableObject
                 { error = "商品内容、价格或稳定 ID 无效。"; return false; }
         keys.Clear();
         foreach (RoundStatUpgrade stat in stats)
-            if (stat == null || string.IsNullOrWhiteSpace(stat.id) || !keys.Add(stat.id))
+            if (stat == null || string.IsNullOrWhiteSpace(stat.id) || !keys.Add(stat.id) ||
+                (stat.tierValues != null && stat.tierValues.Length != 0 &&
+                (stat.tierValues.Length != 4 || Array.Exists(stat.tierValues, value => float.IsNaN(value) || float.IsInfinity(value)))))
                 { error = "属性候选 ID 无效。"; return false; }
         if (products.Count == 0 || stats.Count < 4)
             { error = "商店需要商品和至少四项属性。"; return false; }

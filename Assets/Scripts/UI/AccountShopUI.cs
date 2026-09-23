@@ -183,15 +183,34 @@ public sealed class AccountShopUI : MonoBehaviour
         State = AccountShopInteractionState.Browsing;
         _selectedIndex = -1;
         _tab = tab;
+        if (catalog != null && catalog.useBrotatoStats)
+        {
+            advancedTab.GetComponentInChildren<TMP_Text>().text = "次要 / 特殊";
+            basicTab.GetComponentInChildren<TMP_Text>().text = "核心属性";
+        }
         _items.Clear();
         foreach (AccountShopEntryUI entry in _entries) entry.gameObject.SetActive(false);
         if (tab == 0 && catalog != null)
         {
             foreach (AccountUpgradeDataSO definition in catalog.upgrades)
-                if (definition != null) _items.Add(new Item { Id = definition.stableId, Name = definition.GetDisplayName(),
+                if (definition != null && (!catalog.useBrotatoStats || (catalog.IsAvailable(definition) && !IsSecondaryOrResource(definition.statType)))) _items.Add(new Item { Id = definition.stableId, Name = definition.GetDisplayName(),
                     Description = definition.GetDescription(), Icon = definition.icon, Definition = definition });
-            _items.Add(new Item { Id = AccountUpgradeCatalogSO.SealSlotId, Name = "封印", IsSlot = true,
+            if (!catalog.useBrotatoStats) _items.Add(new Item { Id = AccountUpgradeCatalogSO.SealSlotId, Name = "封印", IsSlot = true,
                 Description = "每强化一级，增加一个可同时封印升级候选的槽位。", Icon = catalog.sealSlotIcon });
+        }
+        else if (tab == 1 && catalog != null && catalog.useBrotatoStats)
+        {
+            foreach (AccountUpgradeDataSO definition in catalog.upgrades)
+            {
+                if (definition == null) continue;
+                bool active = catalog.IsAvailable(definition);
+                if ((active && IsSecondaryOrResource(definition.statType)) || (!active && _account.GetUpgradeLevel(definition.stableId) > 0))
+                    _items.Add(new Item { Id = definition.stableId, Name = (active ? "" : "已停用 · ") + definition.GetDisplayName(),
+                        Description = active ? definition.GetDescription() : "此属性当前不生效，保留已购记录与原价退款。",
+                        Icon = definition.icon, Definition = definition });
+            }
+            _items.Add(new Item { Id = AccountUpgradeCatalogSO.SealSlotId, Name = "封印", IsSlot = true,
+                Description = "增加可同时封印的道具槽位。", Icon = catalog.sealSlotIcon });
         }
         else if (tab == 1)
         {
@@ -265,7 +284,7 @@ public sealed class AccountShopUI : MonoBehaviour
             Item card = _items[i];
             int level = _account.GetUpgradeLevel(card.Id);
             int max = MaxLevel(card);
-            string price = card.IsPlaceholder ? "尚未开放" : card.IsExclusion ? (_account.IsUpgradeSealed(card.Id) ? "已排除" : "免费") :
+            string price = card.Definition != null && !catalog.IsAvailable(card.Definition) ? "仅可退款" : card.IsPlaceholder ? "尚未开放" : card.IsExclusion ? (_account.IsUpgradeSealed(card.Id) ? "已排除" : "免费") :
                 !validCatalog ? "配置不可用" : level >= max ? "已满级" : Cost(card, level).ToString();
             _entries[i].Refresh(card.Icon, level, max, price, State == AccountShopInteractionState.Locked && i == _selectedIndex);
         }
@@ -326,17 +345,30 @@ public sealed class AccountShopUI : MonoBehaviour
             if (occupied && level > 0) reason += "；请先解除排除，再退还槽位";
             if (level > 0 && (long)_account.Gold + _account.GetLastPaidCost(item.Id) > int.MaxValue) reason += "；金币已达存储上限，无法退款";
         }
+        if (item.Definition != null && !catalog.IsAvailable(item.Definition))
+        {
+            canBuy = false;
+            reason = _account.IsReadOnly ? "账号只读，无法退款"
+                : (long)_account.Gold + _account.GetLastPaidCost(item.Id) > int.MaxValue ? "金币已达存储上限，无法退款"
+                : _account.GetUpgradeLevel(item.Id) == 0 ? "当前已停用，无历史购买可退" : "当前已停用，仅可退还历史购买";
+            detailText.text = item.Description + $"\n已购等级 {_account.GetUpgradeLevel(item.Id)}    退款 {_account.GetLastPaidCost(item.Id)} 金币";
+        }
         buyButton.interactable = canBuy;
         buyButton.gameObject.SetActive(locked);
         refundButton.interactable = canRefund;
         refundButton.gameObject.SetActive(locked && canRefund);
-        enabledToggle.gameObject.SetActive(locked && item.Definition != null && item.Definition.CanToggleEnabled);
+        enabledToggle.gameObject.SetActive(locked && item.Definition != null && item.Definition.CanToggleEnabled && catalog.IsAvailable(item.Definition));
         enabledToggle.SetIsOnWithoutNotify(_account.IsAccountUpgradeEnabled(item.Id));
         enabledToggle.interactable = validCatalog && !_account.IsReadOnly;
         reason = reason.TrimStart('；');
         statusText.text = string.IsNullOrEmpty(_operationError) ? reason : _operationError + (string.IsNullOrEmpty(reason) ? "" : "\n" + reason);
         ConfigureNavigation();
     }
+
+    /// <summary>次要属性与特殊资源不占核心属性页；已停用记录也仅在此管理退款。</summary>
+    private static bool IsSecondaryOrResource(PlayerStatType stat)
+    { return stat == PlayerStatType.ExperienceGain || stat == PlayerStatType.PickupRange ||
+        (stat >= PlayerStatType.Revival && stat <= PlayerStatType.Banish); }
 
     /// <summary>读取展示上限，免费排除与占位不伪造可购买等级。</summary>
     private int MaxLevel(Item item) { return item.IsSlot ? catalog.maxSealSlotLevel : item.Definition != null ? item.Definition.maxLevel : 0; }

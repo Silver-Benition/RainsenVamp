@@ -124,6 +124,7 @@ public sealed class AccountProgressService
         if (_isReadOnly) return RejectTransaction("账号只读，无法更改启用状态");
         if (catalog == null || !catalog.Validate(out _)) return RejectTransaction("升级配置不可用");
         AccountUpgradeDataSO definition = catalog.Find(id);
+        if (definition != null && !catalog.IsAvailable(definition)) return RejectTransaction("此属性当前未开放，已购记录保留，可退款");
         if (AccountProgressRules.IsUpgradeAlwaysEnabled(id) || definition == null || !definition.CanToggleEnabled)
             return RejectTransaction("此项目始终启用，不支持切换");
         if (IsAccountUpgradeEnabled(id) == enabled) { LastTransactionError = string.Empty; return true; }
@@ -149,6 +150,7 @@ public sealed class AccountProgressService
         else
         {
             AccountUpgradeDataSO definition = catalog.Find(id);
+        if (definition != null && !catalog.IsAvailable(definition)) return RejectTransaction("此属性当前未开放，已购记录保留，可退款");
             if (definition == null) return RejectTransaction("升级项目不存在");
             if (level >= definition.maxLevel) return RejectTransaction("已达购买上限");
             cost = definition.levels[level].cost;

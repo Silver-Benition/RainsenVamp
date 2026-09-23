@@ -38,10 +38,10 @@ public sealed class MeleeWeapon : WeaponBase
                     transform,
                     GetHorizontalFacingSign() >= 0f,
                     GetCurrentDamage(),
-                    GetModifiedArea(levelData.meleeRange),
+                    GetModifiedRange(levelData.meleeRange),
                     levelData.meleeArc,
                     GetModifiedDuration(levelData.activeDuration),
-                    startAngleOffset);
+                    startAngleOffset, CreateHitSnapshot());
             }
             else if (instance != null)
             {

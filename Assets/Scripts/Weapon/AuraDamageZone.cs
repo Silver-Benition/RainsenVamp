@@ -55,9 +55,12 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
         targets.Clear();
     }
 
+    private WeaponHitSnapshot _hitSnapshot;
+
     /// <summary>对象池回收时清除目标列表和旧武器来源，避免跨生命周期继续结算旧伤害。</summary>
     private void OnDisable()
     {
+        _hitSnapshot = default;
         targets.Clear();
         weaponData = null;
         currentDamage = 0f;
@@ -92,8 +95,9 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
     /// <summary>
     /// 注入 AuraWeapon 当前等级的完整运行时快照。
     /// </summary>
-    public void Initialize(WeaponDataSO data, Transform target, float overrideTickInterval, float damage, float lifeTimeValue, float radius)
+    public void Initialize(WeaponDataSO data, Transform target, float overrideTickInterval, float damage, float lifeTimeValue, float radius, WeaponHitSnapshot hitSnapshot = default)
     {
+        _hitSnapshot = hitSnapshot;
         weaponData = data;
         followTarget = target;
         tickInterval = Mathf.Max(0.01f, overrideTickInterval);
@@ -158,7 +162,7 @@ public class AuraDamageZone : MonoBehaviour, IPoolable
                 targets.RemoveAt(i);
                 continue;
             }
-            CombatDamageResolver.Apply(t, currentDamage, weaponData);
+            _hitSnapshot.Apply(t, currentDamage, weaponData);
         }
     }
 

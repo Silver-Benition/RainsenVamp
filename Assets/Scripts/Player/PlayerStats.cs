@@ -9,7 +9,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class PlayerStats : MonoBehaviour
 {
-    private const int StatCount = (int)PlayerStatType.Defang + 1;
+    private const int StatCount = BrotatoStatRules.StatCount;
 
     [Header("角色配置")]
     [SerializeField] private CharacterDataSO characterData;
@@ -52,18 +52,20 @@ public class PlayerStats : MonoBehaviour
 
     /// <summary>当前角色静态配置资产。</summary>
     public CharacterDataSO CharacterData => characterData;
+    /// <summary>仅由角色内容选择规则，不提供玩家运行时切回旧属性的入口。</summary>
+    public bool UsesBrotatoStats => characterData != null && characterData.useBrotatoStats;
 
     /// <summary>最终最大生命。</summary>
-    public float MaxHealth => GetFinalStat(PlayerStatType.MaxHealth);
+    public float MaxHealth => Mathf.Max(1, GetFinalStat(PlayerStatType.MaxHealth));
 
     /// <summary>最终每秒恢复生命。</summary>
     public float Recovery => GetFinalStat(PlayerStatType.Recovery);
 
-    /// <summary>最终平减护甲。</summary>
+    /// <summary>有符号护甲点数；具体减伤规则由当前角色模式决定。</summary>
     public float Armor => GetFinalStat(PlayerStatType.Armor);
 
     /// <summary>最终世界单位移动速度。</summary>
-    public float FinalMoveSpeed => GetFinalStat(PlayerStatType.MoveSpeed);
+    public float FinalMoveSpeed => GetFinalStat(PlayerStatType.MoveSpeed) * (UsesBrotatoStats ? Mathf.Max(0, (100 + GetFinalStat(PlayerStatType.SpeedPercent)) * .01f) : 1);
 
     /// <summary>最终武器伤害倍率。</summary>
     public float Might => GetFinalStat(PlayerStatType.Might);
@@ -84,13 +86,13 @@ public class PlayerStats : MonoBehaviour
     public float Cooldown => GetFinalStat(PlayerStatType.Cooldown);
 
     /// <summary>最终经验获得倍率。</summary>
-    public float Growth => GetFinalStat(PlayerStatType.Growth);
+    public float Growth => UsesBrotatoStats ? Mathf.Max(0, (100 + GetFinalStat(PlayerStatType.ExperienceGain)) * .01f) : GetFinalStat(PlayerStatType.Growth);
 
     /// <summary>最终拾取触发半径，单位为 Unity 世界单位。</summary>
-    public float Magnet => GetFinalStat(PlayerStatType.Magnet);
+    public float Magnet => GetFinalStat(PlayerStatType.Magnet) * (UsesBrotatoStats ? Mathf.Max(0, (100 + GetFinalStat(PlayerStatType.PickupRange)) * .01f) : 1);
 
     /// <summary>最终幸运倍率；1 表示基础候选权重与基础掉率。</summary>
-    public float Luck => GetFinalStat(PlayerStatType.Luck);
+    public float Luck => UsesBrotatoStats ? Mathf.Max(0, (100 + GetFinalStat(PlayerStatType.LuckPoints)) * .01f) : GetFinalStat(PlayerStatType.Luck);
 
     /// <summary>最终金币收益倍率；1 表示拾取物基础价值。</summary>
     public float Greed => GetFinalStat(PlayerStatType.Greed);
@@ -134,6 +136,7 @@ public class PlayerStats : MonoBehaviour
         // 在重建缓存时又被仍然存活的静态选择覆盖。
         _sessionCharacterResolved = true;
         characterData = newCharacterData;
+        expToNextLevel = GetExperienceRequiredForLevel(currentLevel);
         SynchronizeCharacterPassiveSource();
         _statsInitialized = false;
         EnsureStatsInitialized();
@@ -194,6 +197,7 @@ public class PlayerStats : MonoBehaviour
     public float GetExperienceRequiredForLevel(int level)
     {
         int normalizedLevel = Mathf.Max(1, level);
+        if (UsesBrotatoStats) return (normalizedLevel + 3f) * (normalizedLevel + 3f);
         int listIndex = normalizedLevel - 1;
 
         if (experienceRequirements != null
@@ -237,6 +241,8 @@ public class PlayerStats : MonoBehaviour
         {
             currentExp -= expToNextLevel;
             currentLevel++;
+            if (UsesBrotatoStats)
+                SetModifiers("round.level.health", new[] { new PlayerStatModifier(PlayerStatType.MaxHealth, PlayerStatModifierMode.Flat, currentLevel - 1) });
             expToNextLevel = GetExperienceRequiredForLevel(currentLevel);
             _levelUpQueue++;
             RunTransactionEvents.Publish(LevelGained, currentLevel);
@@ -355,29 +361,10 @@ public class PlayerStats : MonoBehaviour
             _multiplicativeTotals[index] = 1f;
         }
 
+        if (UsesBrotatoStats && characterData.startingStats != null)
+            foreach (PlayerStatModifier initial in characterData.startingStats) AccumulateModifier(initial);
         foreach (KeyValuePair<string, List<PlayerStatModifier>> source in _modifierSources)
-        {
-            List<PlayerStatModifier> modifiers = source.Value;
-            for (int modifierIndex = 0; modifierIndex < modifiers.Count; modifierIndex++)
-            {
-                PlayerStatModifier modifier = modifiers[modifierIndex];
-                int statIndex = (int)modifier.StatType;
-                if (statIndex < 0 || statIndex >= StatCount) continue;
-
-                switch (modifier.Mode)
-                {
-                    case PlayerStatModifierMode.Flat:
-                        _flatTotals[statIndex] += modifier.Value;
-                        break;
-                    case PlayerStatModifierMode.AdditivePercent:
-                        _additivePercentTotals[statIndex] += modifier.Value;
-                        break;
-                    case PlayerStatModifierMode.Multiplicative:
-                        _multiplicativeTotals[statIndex] *= modifier.Value;
-                        break;
-                }
-            }
-        }
+            foreach (PlayerStatModifier modifier in source.Value) AccumulateModifier(modifier);
 
         CharacterBaseStats fallback = fallbackBaseStats ?? new CharacterBaseStats();
         for (int index = 0; index < StatCount; index++)
@@ -389,7 +376,24 @@ public class PlayerStats : MonoBehaviour
             float rawValue = (baseValue + _flatTotals[index])
                 * (1f + _additivePercentTotals[index])
                 * _multiplicativeTotals[index];
-            _finalValues[index] = NormalizeFinalValue(statType, rawValue);
+            _finalValues[index] = UsesBrotatoStats
+                ? (BrotatoStatRules.IsAvailable(statType)
+                    ? (float.IsNaN(rawValue) || float.IsInfinity(rawValue) ? 0 : rawValue)
+                    : BrotatoStatRules.LegacyNeutral(statType, baseValue))
+                : NormalizeFinalValue(statType, rawValue);
+        }
+    }
+
+    /// <summary>聚合一个合法来源；角色初始属性与其他来源采用相同模式并过滤停用类型。</summary>
+    private void AccumulateModifier(PlayerStatModifier modifier)
+    {
+        int index = (int)modifier.StatType;
+        if (index < 0 || index >= StatCount || (UsesBrotatoStats && !BrotatoStatRules.IsAvailable(modifier.StatType))) return;
+        switch (modifier.Mode)
+        {
+            case PlayerStatModifierMode.Flat: _flatTotals[index] += modifier.Value; break;
+            case PlayerStatModifierMode.AdditivePercent: _additivePercentTotals[index] += modifier.Value; break;
+            case PlayerStatModifierMode.Multiplicative: _multiplicativeTotals[index] *= modifier.Value; break;
         }
     }
 
@@ -410,6 +414,10 @@ public class PlayerStats : MonoBehaviour
             default: return Mathf.Max(0f, value);
         }
     }
+
+    /// <summary>收获负收益只扣本级已有经验，不撤销等级或奖励队列。</summary>
+    public void LoseExperience(float amount)
+    { currentExp = Mathf.Max(0, currentExp - Mathf.Max(0, amount)); }
 
     /// <summary>回合间尚未处理的属性选择次数。</summary>
     public int PendingLevelUps => _levelUpQueue;

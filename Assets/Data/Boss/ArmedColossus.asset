@@ -18,19 +18,19 @@ MonoBehaviour:
   icon: {fileID: -1400000001, guid: 8496a11ca03a5054e83fdef2980cbebe, type: 3}
   maxHealth: 800
   moveSpeed: 0.9
-  contactDamage: 18
+  contactDamage: 4
   canBeDefanged: 0
   phaseTwoHealthRatio: 0.5
   phaseOne:
     projectileCount: 8
     interval: 3
-    projectileDamage: 10
+    projectileDamage: 2
     projectileSpeed: 4.5
     projectileLifetime: 6
   phaseTwo:
     projectileCount: 12
     interval: 2
-    projectileDamage: 12
+    projectileDamage: 2
     projectileSpeed: 5.5
     projectileLifetime: 6
   projectilePrefab: {fileID: 2303125396859290572, guid: d4a812c67e0f49bbc5a043e926c81317, type: 3}

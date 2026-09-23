@@ -13,13 +13,10 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private static readonly Color Surface = new Color32(18, 20, 19, 255);
     private static readonly Color Border = new Color32(88, 88, 74, 255);
     private static readonly Color Accent = new Color32(170, 221, 111, 255);
-    private static readonly PlayerStatType[] PrimaryStats = {
-        PlayerStatType.MaxHealth, PlayerStatType.Recovery, PlayerStatType.Armor, PlayerStatType.MoveSpeed,
-        PlayerStatType.Might, PlayerStatType.Cooldown, PlayerStatType.Area, PlayerStatType.Amount,
-        PlayerStatType.ProjectileSpeed, PlayerStatType.Duration, PlayerStatType.Luck, PlayerStatType.Magnet };
+    private static readonly PlayerStatType[] PrimaryStats = BrotatoStatRules.Primary;
     private static readonly PlayerStatType[] SecondaryStats = {
-        PlayerStatType.Growth, PlayerStatType.Greed, PlayerStatType.Curse, PlayerStatType.Revival,
-        PlayerStatType.Reroll, PlayerStatType.Skip, PlayerStatType.Banish, PlayerStatType.Charm, PlayerStatType.Defang };
+        PlayerStatType.ExperienceGain, PlayerStatType.PickupRange,
+        PlayerStatType.Revival, PlayerStatType.Reroll, PlayerStatType.Skip, PlayerStatType.Banish };
 
     private GameObject _panel;
     private RectTransform _passOverlay, _progressHud, _levelIcons, _crateIcons, _crateCard;
@@ -36,14 +33,15 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private readonly Button[] _actions = new Button[4], _secondary = new Button[4], _banish = new Button[4];
     private readonly List<InventoryCell> _itemCells = new List<InventoryCell>();
     private readonly InventoryCell[] _weaponCells = new InventoryCell[6];
-    private readonly TMP_Text[] _statNames = new TMP_Text[12], _statValues = new TMP_Text[12];
-    private readonly Image[] _statIcons = new Image[12];
-    private readonly GameObject[] _statRows = new GameObject[12];
+    private readonly TMP_Text[] _statNames = new TMP_Text[15], _statValues = new TMP_Text[15];
+    private readonly Image[] _statIcons = new Image[15];
+    private readonly GameObject[] _statRows = new GameObject[15];
     private ScrollRect _itemScroll;
     private GridLayoutGroup _itemGrid;
     private RectTransform _weaponGrid;
     private Button _refresh, _skip, _next, _mainTab, _otherTab;
     private bool _secondaryStats, _layoutDirty = true;
+    private StatTooltipView _statTooltip;
 
     private RectTransform _tooltip, _tooltipOwner;
     private TMP_Text _tooltipName, _tooltipKind, _tooltipBody;
@@ -196,15 +194,17 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     {
         RectTransform board = Box("StatsBoard", parent, .775f, .285f, .965f, .963f, Surface);
         Outline(board);
+        _statTooltip = new StatTooltipView(parent, font);
         Text("Heading", board, T("stats", "属性"), .08f, .905f, .92f, .984f, 33).alignment = TextAlignmentOptions.Center;
         _mainTab = Button("Primary", board, T("primary", "主要"), .06f, .815f, .48f, .89f, () => SelectStats(false));
-        _otherTab = Button("Secondary", board, T("secondary", "次要"), .52f, .815f, .94f, .89f, () => SelectStats(true));
+        _otherTab = Button("Secondary", board, T("secondary", "次要 / 特殊"), .52f, .815f, .94f, .89f, () => SelectStats(true));
         _level = Text("Level", board, "", .09f, .75f, .93f, .805f, 22);
         for (int i = 0; i < _statRows.Length; i++)
         {
-            float top = .73f - i * .056f;
-            RectTransform row = Box("Stat" + i, board, .07f, top - .049f, .94f, top, Color.clear);
-            row.GetComponent<Image>().raycastTarget = false; _statRows[i] = row.gameObject;
+            float top = .73f - i * .045f;
+            RectTransform row = Box("Stat" + i, board, .07f, top - .040f, .94f, top, Color.clear);
+            row.GetComponent<Image>().raycastTarget = true; _statRows[i] = row.gameObject;
+            row.gameObject.AddComponent<RoundHoverTarget>();
             _statIcons[i] = Icon("Icon", row, 0, .06f, .10f, .94f);
             _statNames[i] = Text("Name", row, "", .135f, 0, .72f, 1, 21);
             _statValues[i] = Text("Value", row, "", .72f, 0, 1, 1, 21);
@@ -286,9 +286,13 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         Refresh();
     }
 
+    /// <summary>组件停用时收起属性说明。</summary>
+    private void OnDisable() { _statTooltip?.Hide(); }
+
     /// <summary>解除事件，场景重开后不留下旧视图引用。</summary>
     private void OnDestroy()
     {
+        _statTooltip?.Dispose();
         if (_rounds == null) return;
         _rounds.Changed -= Refresh; _rounds.Wallet.Changed -= Refresh;
     }
@@ -364,11 +368,12 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     }
 
     /// <summary>切换属性分组，不触发购买或角色属性变化。</summary>
-    private void SelectStats(bool secondary) { _secondaryStats = secondary; RefreshStats(); }
+    private void SelectStats(bool secondary) { _statTooltip?.Hide(); _secondaryStats = secondary; RefreshStats(); }
 
     /// <summary>将权威状态绑定到现有控件，保持已获得道具只显示图标与叠加角标。</summary>
     public void Refresh()
     {
+        _statTooltip?.Hide();
         if (_rounds == null || _rounds.Shop == null) return;
         bool upgrades = _rounds.Phase == RoundPhase.Upgrades, shop = _rounds.Phase == RoundPhase.Shop;
         bool crates = _rounds.Phase == RoundPhase.Crates, settling = _rounds.Phase == RoundPhase.Settling;
@@ -467,18 +472,17 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _cardTypes[i].color = RoundShopPresentation.TierColor(upgrades ? tier : offer?.Tier ?? 1);
         if (stat != null)
         {
-            PlayerStatModifier mod = stat.modifier;
-            bool percent = mod.Mode != PlayerStatModifierMode.Flat || mod.StatType == PlayerStatType.Defang
-                || mod.StatType == PlayerStatType.Might || mod.StatType == PlayerStatType.Cooldown
-                || mod.StatType == PlayerStatType.Luck || mod.StatType == PlayerStatType.Growth
-                || mod.StatType == PlayerStatType.Area || mod.StatType == PlayerStatType.Greed;
-            float value = mod.Value * tier * (percent ? 100 : 1);
+            PlayerStatModifier mod = stat.AtTier(tier);
+            bool points = (int)mod.StatType >= 21;
+            bool percent = points ? PlayerStatPresentation.IsPointPercent(mod.StatType) :
+                mod.Mode != PlayerStatModifierMode.Flat || mod.StatType == PlayerStatType.Might || mod.StatType == PlayerStatType.Cooldown;
+            float value = mod.Value * (!points && percent ? 100 : 1);
             _cardTexts[i].text = $"<color=#B5E780>{value:+0.##;-0.##;0}" + (percent ? "%" : "") + "</color>\n\n"
                 + T("current", "当前：") + PlayerStatPresentation.FormatFinalValue(mod.StatType, _rounds.Player.GetFinalStat(mod.StatType));
         }
         else if (offer != null)
         {
-            if (offer.Product.IsWeapon) _cardTexts[i].text = RoundShopPresentation.WeaponDetails(offer.Product.content.weaponToGrant, offer.Tier);
+            if (offer.Product.IsWeapon) _cardTexts[i].text = RoundShopPresentation.WeaponDetails(offer.Product.content.weaponToGrant, offer.Tier, _rounds.Player, true);
             else
             {
                 AbilityDataSO data = offer.Product.content.abilityToGrant;
@@ -528,7 +532,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             cell.Icon.sprite = item.Data.icon; cell.Icon.enabled = cell.Icon.sprite != null;
             cell.Icon.rectTransform.localScale = Vector3.one * item.Data.loadoutIconScale;
             cell.Icon.rectTransform.anchoredPosition = item.Data.loadoutIconOffset;
-            cell.Badge.text = item.CurrentLevel > 1 ? "×" + item.CurrentLevel : ""; cell.Badge.alignment = TextAlignmentOptions.BottomRight;
+            cell.Badge.text = item.CurrentLevel > 1 ? "x" + item.CurrentLevel : ""; cell.Badge.alignment = TextAlignmentOptions.BottomRight;
             cell.Hover.Bind(() => ShowItem(cell.Root, item), () => ScheduleHide(cell.Root));
             cell.Button.onClick.RemoveAllListeners(); cell.Button.onClick.AddListener(() => ShowItem(cell.Root, item, true));
         }
@@ -542,11 +546,13 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _otherTab.image.color = _secondaryStats ? new Color32(64, 74, 51, 255) : Surface;
         _level.text = string.Format(T("level", "当前等级  {0}"), _rounds.Player.currentLevel);
         PlayerStatType[] stats = _secondaryStats ? SecondaryStats : PrimaryStats;
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < _statRows.Length; i++)
         {
             _statRows[i].SetActive(i < stats.Length);
             if (i >= stats.Length) continue;
             PlayerStatType stat = stats[i];
+            RectTransform row = (RectTransform)_statRows[i].transform;
+            row.GetComponent<RoundHoverTarget>().Bind(() => _statTooltip.Show(row, stat), () => _statTooltip.HideFrom(row));
             _statNames[i].text = PlayerStatPresentation.GetDisplayName(stat);
             float value = _rounds.Player.GetFinalStat(stat);
             if (stat == PlayerStatType.Revival) value = RunState.Instance.RemainingRevivals;
@@ -568,7 +574,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         // 点击锁定后，悬停及导航经过其他图标均不得覆盖操作实例；再次点击才切换。
         _inspectedWeapon = weapon; _pinned = pin; ShowTooltip(owner, weapon.weaponData.icon,
             weapon.weaponData.GetDisplayName(), RoundShopPresentation.Tier(weapon.CurrentLevel),
-            RoundShopPresentation.WeaponDetails(weapon.weaponData, weapon.CurrentLevel));
+            RoundShopPresentation.WeaponDetails(weapon.weaponData, weapon.CurrentLevel, _rounds.Player, true));
         _tooltipCombine.gameObject.SetActive(true); _tooltipRecycle.gameObject.SetActive(true);
         bool shop = _rounds.Phase == RoundPhase.Shop;
         bool pair = false;
@@ -585,7 +591,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _pinned = false; _inspectedWeapon = null;
         RevealItem(owner);
         ShowTooltip(owner, item.Data.icon, item.Data.GetDisplayName(),
-            string.Format(T("stacks", "已获得 ×{0}"), item.CurrentLevel),
+            string.Format(T("stacks", "已获得 x{0}"), item.CurrentLevel),
             RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel));
         _tooltipCombine.gameObject.SetActive(false); _tooltipRecycle.gameObject.SetActive(false);
     }
@@ -693,6 +699,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private TMP_Text Text(string name, Transform parent, string text, float x0, float y0, float x1, float y1, int size)
     {
         var label = Rect(name, parent, x0, y0, x1, y1).gameObject.AddComponent<TextMeshProUGUI>();
+        StatIconPresentation.Bind(label);
         label.font = font; label.text = text; label.fontSize = size; label.enableAutoSizing = true;
         label.fontSizeMin = size * .78f; label.fontSizeMax = size; label.color = Color.white;
         label.raycastTarget = false; label.alignment = TextAlignmentOptions.MidlineLeft; return label;

@@ -324,10 +324,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         }
 
         float luck = _playerStats != null ? _playerStats.Luck : 1f;
-        if (dropTable.coinPrefab != null && DropChanceResolver.ShouldDrop(
-                dropTable.baseCoinChance,
-                luck,
-                Random.value))
+        if (dropTable.coinPrefab != null && RollAdditionalDrop(dropTable.baseCoinChance, luck, false, true))
         {
             GameObject coinObject = SpawnPooledDrop(dropTable.coinPrefab);
             if (coinObject != null && coinObject.TryGetComponent(out CoinPickup coin))
@@ -336,24 +333,29 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
             }
         }
 
-        if (dropTable.chestPrefab != null && DropChanceResolver.ShouldDrop(
-                dropTable.baseChestChance,
-                luck,
-                Random.value))
+        if (dropTable.chestPrefab != null && RollAdditionalDrop(dropTable.baseChestChance, luck, true))
         {
-            SpawnPooledDrop(dropTable.chestPrefab);
+            if (SpawnPooledDrop(dropTable.chestPrefab) != null && _playerStats != null && _playerStats.UsesBrotatoStats)
+                RoundController.Instance?.RegisterCrateDrop();
         }
 
-        if (DropChanceResolver.ShouldDrop(
-                dropTable.baseMapInstantEffectChance,
-                luck,
-                Random.value))
+        if (RollAdditionalDrop(dropTable.baseMapInstantEffectChance, luck, false))
         {
             GameObject mapPickupPrefab = MapInstantEffectDropResolver.Select(
                 dropTable.mapInstantEffectDrops,
                 Random.value);
             SpawnPooledDrop(mapPickupPrefab);
         }
+    }
+
+    /// <summary>新规则幸运线性修正恢复物与宝箱，金币保留基础掉率；旧角色保留原概率曲线。</summary>
+    private bool RollAdditionalDrop(float chance, float legacyLuck, bool crate, bool coin = false)
+    {
+        if (_playerStats == null || !_playerStats.UsesBrotatoStats)
+            return DropChanceResolver.ShouldDrop(chance, legacyLuck, Random.value);
+        float luck = coin ? 0 : _playerStats.GetFinalStat(PlayerStatType.LuckPoints);
+        int dropped = crate && RoundController.Instance != null ? RoundController.Instance.DroppedCrates : 0;
+        return Random.value < BrotatoStatRules.DropChance(chance, luck, dropped);
     }
 
     /// <summary>

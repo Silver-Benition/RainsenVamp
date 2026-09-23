@@ -20,7 +20,11 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
     private float _currentHealth;
     private float _nextDamageAllowedTime;
     private bool _isDead;
+    private float _regenerationElapsed;
+    private float _nextLifeStealTime;
     private PlayerStats _playerStats;
+    private float? _nextRoundHealth;
+    private bool _preparingRound;
 
     /// <summary>当前生命值，只允许由生命组件内部修改。</summary>
     public float CurrentHealth => _currentHealth;
@@ -60,6 +64,8 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         maxHealth = Mathf.Max(1f, maxHealth);
         _currentHealth = maxHealth;
         _nextDamageAllowedTime = 0f;
+        _regenerationElapsed = 0f;
+        _nextLifeStealTime = 0f;
         _isDead = false;
     }
 
@@ -71,6 +77,8 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         {
             _playerStats.StatsChanged -= HandleStatsChanged;
             _playerStats.StatsChanged += HandleStatsChanged;
+            _playerStats.LevelGained -= HandleLevelGained;
+            _playerStats.LevelGained += HandleLevelGained;
             ApplyMaxHealth(_playerStats.MaxHealth);
         }
     }
@@ -81,10 +89,11 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         if (_playerStats != null)
         {
             _playerStats.StatsChanged -= HandleStatsChanged;
+            _playerStats.LevelGained -= HandleLevelGained;
         }
     }
 
-    /// <summary>按最终 Recovery 每秒恢复生命；暂停时 Time.deltaTime 为零，因此自然停止。</summary>
+    /// <summary>新角色按再生间隔逐点回血，旧角色保留连续恢复；暂停和局间不推进新规则计时。</summary>
     private void Update()
     {
         if (_isDead || _playerStats == null || _currentHealth >= maxHealth)
@@ -92,6 +101,16 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
             return;
         }
 
+        if (_playerStats.UsesBrotatoStats)
+        {
+            if (!RoundController.AllowsCombat) return;
+            float interval = BrotatoStatRules.RegenerationInterval(_playerStats.GetFinalStat(PlayerStatType.HpRegeneration));
+            if (float.IsPositiveInfinity(interval)) { _regenerationElapsed = 0; return; }
+            _regenerationElapsed += Time.deltaTime;
+            int ticks = Mathf.FloorToInt(_regenerationElapsed / interval);
+            if (ticks > 0) { _regenerationElapsed -= ticks * interval; Heal(ticks); }
+            return;
+        }
         float recoveryPerSecond = _playerStats.Recovery;
         if (recoveryPerSecond > 0f)
         {
@@ -119,6 +138,13 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         // 《吸血鬼幸存者》式护甲采用固定平减，但任何一次有效攻击至少造成 1 点伤害。
         float armor = _playerStats != null ? _playerStats.Armor : 0f;
         float damageAfterArmor = Mathf.Max(1f, damage - armor);
+        if (_playerStats != null && _playerStats.UsesBrotatoStats)
+        {
+            if (!RoundController.AllowsCombat) return;
+            float dodge = Mathf.Clamp(_playerStats.GetFinalStat(PlayerStatType.Dodge), 0, 60) * .01f;
+            if (UnityEngine.Random.value < dodge) return;
+            damageAfterArmor = Mathf.Max(1, Mathf.Floor(Mathf.Floor(damage + .5f) * BrotatoStatRules.ArmorMultiplier(armor) + .5f));
+        }
         if (!RoundController.AllowsCombat) return;
         float previousHealth = _currentHealth;
         _currentHealth = Mathf.Max(0f, _currentHealth - damageAfterArmor);
@@ -138,6 +164,15 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
             _isDead = true;
             Died?.Invoke();
         }
+    }
+
+    /// <summary>所有武器共享窃取节流；只在命中被接受后调用，成功治疗前先关闭重入窗口。</summary>
+    public bool TryLifeSteal(float chance, float sample)
+    {
+        if (_isDead || !RoundController.AllowsCombat || Time.timeScale <= 0 || _currentHealth >= maxHealth ||
+            Time.time + .00001f < _nextLifeStealTime || sample >= chance || chance <= 0) return false;
+        _nextLifeStealTime = Time.time + .1f;
+        return RestoreHealth(1) > 0;
     }
 
     /// <summary>恢复指定生命；保留旧调用入口，实际结果由 RestoreHealth 统一计算。</summary>
@@ -224,13 +259,40 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         HealthChanged?.Invoke(_currentHealth, maxHealth);
     }
 
-    /// <summary>仅用于活着通过上一回合后的准备；恢复生命与受伤计时，不能代替死亡复活。</summary>
-    public void PrepareRound()
+    /// <summary>仅升级奖励补充一点当前生命；普通属性重算不治疗，事务延迟通知也逐级生效。</summary>
+    private void HandleLevelGained(int level)
     {
-        if (_isDead) return;
-        ApplyMaxHealth(_playerStats != null ? _playerStats.MaxHealth : maxHealth);
-        RestoreHealth(maxHealth);
-        _nextDamageAllowedTime = Time.time;
+        if (_isDead || _playerStats == null || !_playerStats.UsesBrotatoStats) return;
+        ApplyMaxHealth(_playerStats.MaxHealth);
+        RestoreHealth(1);
     }
 
+    /// <summary>指定下一回合的绝对起始生命；后写覆盖前写，仅成功准备时消费一次，非法值拒绝。</summary>
+    public bool SetNextRoundHealth(float health)
+    {
+        if (float.IsNaN(health) || float.IsInfinity(health) || health <= 0) return false;
+        _nextRoundHealth = health; return true;
+    }
+
+    /// <summary>移除道具或条件尚未消费的开局生命覆盖，恢复默认满血规则。</summary>
+    public void ClearNextRoundHealth() { _nextRoundHealth = null; }
+
+    /// <summary>仅为存活玩家准备下一回合；默认满血，一次性覆盖在通知前消费，避免重入及瞬间满血。</summary>
+    public void PrepareRound()
+    {
+        if (_isDead || _preparingRound) return;
+        _preparingRound = true;
+        try
+        {
+            float? specified = _nextRoundHealth;
+            _nextRoundHealth = null;
+            maxHealth = Mathf.Max(1, _playerStats != null ? _playerStats.MaxHealth : maxHealth);
+            _currentHealth = specified.HasValue ? Mathf.Clamp(specified.Value, 1, maxHealth) : maxHealth;
+            _nextDamageAllowedTime = Time.time;
+            _regenerationElapsed = 0;
+            _nextLifeStealTime = Time.time;
+            HealthChanged?.Invoke(_currentHealth, maxHealth);
+        }
+        finally { _preparingRound = false; }
+    }
 }

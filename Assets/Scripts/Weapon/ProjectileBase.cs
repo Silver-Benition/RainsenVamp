@@ -30,9 +30,12 @@ public class ProjectileBase : MonoBehaviour, IPoolable
         baseLocalScale = transform.localScale;
     }
 
+    private WeaponHitSnapshot _hitSnapshot;
+
     /// <summary>对象池回收时恢复初始尺寸并清理命中集合。</summary>
     private void OnDisable()
     {
+        _hitSnapshot = default;
         transform.localScale = baseLocalScale;
         hitColliders.Clear();
         weaponData = null;
@@ -76,8 +79,9 @@ public class ProjectileBase : MonoBehaviour, IPoolable
     public virtual void Initialize(WeaponDataSO data, Vector3 direction,
         float damage, float speed, int pierce, float lifeTimeValue,
         int bounce = 0, BounceMode bounceMode = BounceMode.Directional,
-        float areaMultiplier = 1f)
+        float areaMultiplier = 1f, WeaponHitSnapshot hitSnapshot = default)
     {
+        _hitSnapshot = hitSnapshot;
         weaponData = data;
         moveDirection = direction.normalized;
         currentDamage = damage;
@@ -123,7 +127,7 @@ public class ProjectileBase : MonoBehaviour, IPoolable
         // 先按 Enemy Layer 过滤，防止玩家实现 IDamageable 后被己方投射物误伤。
         if (!DamageTargetFilter.TryGetEnemyDamageable(collision, out IDamageable damageableEntity)) return;
 
-        CombatDamageResolver.Apply(damageableEntity, currentDamage, weaponData);
+        _hitSnapshot.Apply(damageableEntity, currentDamage, weaponData);
 
         // 记录本次命中（用于弹射排除）
         hitColliders.Add(collision);

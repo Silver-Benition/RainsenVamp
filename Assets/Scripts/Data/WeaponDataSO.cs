@@ -58,6 +58,18 @@ public enum IgnoredPlayerWeaponStats
 [System.Serializable]
 public sealed class WeaponLevelData
 {
+    [Header("回合属性：百分比使用点数，例如 50 表示 50%")]
+    public float meleeScaling;
+    public float rangedScaling;
+    public float elementalScaling;
+    public float damagePercent;
+    public float critChance;
+    [Min(1)] public float critMultiplier = 2f;
+    public float lifeSteal;
+    public float attackSpeed;
+    public float rangeBonus;
+    [Min(.25f)] public float attackRange = 5f;
+
     [Header("通用数值")]
     [Min(0f)] public float damage = 10f;
     [Min(0.05f)] public float cooldown = 1f;

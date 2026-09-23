@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7fbd311e79e3c043b97a34739e01c27, type: 3}
   m_Name: AccountUpgradeCatalog
   m_EditorClassIdentifier:
+  useBrotatoStats: 1
   upgrades:
   - {fileID: 11400000, guid: 32d25c90e237c9743991bfe101d946c9, type: 2}
   - {fileID: 11400000, guid: 7715bde3a5136284183cd01e9dcc06f4, type: 2}
@@ -34,6 +35,14 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 9b06b6c4b4e4ec043b9af7b902af246a, type: 2}
   - {fileID: 11400000, guid: 3dee65785c8c5c94da52746d07956ed5, type: 2}
   - {fileID: 11400000, guid: a650c9847b237634fbba2601c6108eeb, type: 2}
+  - {fileID: 11400000, guid: 94f7fcf75b4a45b5b21028f86eb0f88d, type: 2}
+  - {fileID: 11400000, guid: 07ae348d115941b1a774fb58c7842bad, type: 2}
+  - {fileID: 11400000, guid: 3c75c5739ccb4dbaa2d47e5fe748faf4, type: 2}
+  - {fileID: 11400000, guid: dbdf0b8869e04f9e999e97179e3ce3e8, type: 2}
+  - {fileID: 11400000, guid: f954fb80905c468a83e19278b102281b, type: 2}
+  - {fileID: 11400000, guid: deb7e7e1eee44d7ba5ea7e51c90a6a90, type: 2}
+  - {fileID: 11400000, guid: dae2fb604f5c4bf789b8a25cb6ed0ded, type: 2}
+  - {fileID: 11400000, guid: 9bf656c5570c4f628cae9701faf5e853, type: 2}
   sealSlotIcon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
   goldIcon: {fileID: 21300000, guid: 238bc5b7fb12c0349895fbf6a12f1983, type: 3}
   advancedIcons:

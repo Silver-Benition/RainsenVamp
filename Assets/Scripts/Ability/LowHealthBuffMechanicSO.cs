@@ -133,13 +133,13 @@ public sealed class LowHealthBuffMechanicSO : AbilityMechanicSO
             LowHealthBuffLevelConfig config = _configSource.GetConfig(_level);
             _activeModifiers.Clear();
             _activeModifiers.Add(new PlayerStatModifier(
-                PlayerStatType.Might,
-                PlayerStatModifierMode.AdditivePercent,
-                config.mightAdditivePercent));
+                _context.PlayerStats.UsesBrotatoStats ? PlayerStatType.DamagePercent : PlayerStatType.Might,
+                _context.PlayerStats.UsesBrotatoStats ? PlayerStatModifierMode.Flat : PlayerStatModifierMode.AdditivePercent,
+                config.mightAdditivePercent * (_context.PlayerStats.UsesBrotatoStats ? 100 : 1)));
             _activeModifiers.Add(new PlayerStatModifier(
-                PlayerStatType.MoveSpeed,
-                PlayerStatModifierMode.AdditivePercent,
-                config.moveSpeedAdditivePercent));
+                _context.PlayerStats.UsesBrotatoStats ? PlayerStatType.SpeedPercent : PlayerStatType.MoveSpeed,
+                _context.PlayerStats.UsesBrotatoStats ? PlayerStatModifierMode.Flat : PlayerStatModifierMode.AdditivePercent,
+                config.moveSpeedAdditivePercent * (_context.PlayerStats.UsesBrotatoStats ? 100 : 1)));
             _context.PlayerStats.SetModifiers(_sourceId, _activeModifiers);
         }
     }

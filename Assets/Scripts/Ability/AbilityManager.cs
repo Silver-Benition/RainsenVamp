@@ -67,6 +67,7 @@ public sealed class AbilityManager : MonoBehaviour
             return null;
         }
 
+        if (_playerStats.UsesBrotatoStats && !abilityData.IsAvailableInBrotato()) return null;
         string abilityId = abilityData.GetStableId();
         if (string.IsNullOrWhiteSpace(abilityId))
         {

@@ -27,6 +27,7 @@ public class DamagePopupManager : MonoBehaviour
     [Tooltip("飘字生成时在目标位置上方的 Y 偏移（避免和怪物贴图重叠）。")]
     public float spawnOffsetY = 0.5f;
 
+    /// <summary>注册场景内唯一飘字管理器。</summary>
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -45,6 +46,7 @@ public class DamagePopupManager : MonoBehaviour
     /// <param name="isCritical">是否暴击</param>
     public void Show(float damage, Vector3 worldPosition, bool isCritical = false)
     {
+        if (PoolManager.Instance == null) return;
         if (popupPrefab == null)
         {
             Debug.LogWarning("[DamagePopupManager] popupPrefab 未赋值，无法生成飘字。");
@@ -62,4 +64,18 @@ public class DamagePopupManager : MonoBehaviour
             popup.Initialize(damage, isCritical, normalColor, criticalColor);
         }
     }
+
+    /// <summary>复用伤害对象池显示玩家实际扣血，红色与负号由本次初始化指定。</summary>
+    public void ShowPlayerDamage(float damage, Vector3 headPosition)
+    {
+        if (damage <= 0 || popupPrefab == null || PoolManager.Instance == null) return;
+        GameObject instance = PoolManager.Instance.Spawn(popupPrefab, headPosition, Quaternion.identity);
+        if (instance == null) return;
+        if (instance.TryGetComponent<DamagePopup>(out var popup))
+            popup.InitializePlayerDamage(damage);
+        else PoolManager.Instance.Release(popupPrefab, instance);
+    }
+
+    /// <summary>场景卸载后清空单例，避免下局指向已销毁管理器。</summary>
+    private void OnDestroy() { if (Instance == this) Instance = null; }
 }

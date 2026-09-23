@@ -21,7 +21,7 @@ MonoBehaviour:
   - {fileID: -1311292811, guid: bbe32c98e41a46c44aa6e724aaba40b5, type: 3}
   - {fileID: 1607492120, guid: bbe32c98e41a46c44aa6e724aaba40b5, type: 3}
   baseStats:
-    maxHealth: 100
+    maxHealth: 10
     recovery: 0
     armor: 0
     moveSpeed: 3
@@ -58,3 +58,5 @@ MonoBehaviour:
     requiredAmount: 0
     descriptionKey: character.default.unlock
     description: "\u9ED8\u8BA4\u89E3\u9501"
+  useBrotatoStats: 1
+  startingStats: []

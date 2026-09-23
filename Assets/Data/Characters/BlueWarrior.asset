@@ -20,11 +20,11 @@ MonoBehaviour:
   previewFrames:
   - {fileID: 21300000, guid: a1f0e4c7d2b34513a4c98fcd12000116, type: 3}
   baseStats:
-    maxHealth: 140
-    recovery: 0.25
+    maxHealth: 14
+    recovery: 0
     armor: 2
-    moveSpeed: 2.6
-    might: 1.25
+    moveSpeed: 3
+    might: 1
     area: 1
     projectileSpeed: 1
     duration: 1
@@ -57,3 +57,14 @@ MonoBehaviour:
     requiredAmount: 100
     descriptionKey: character.blue_warrior.unlock
     description: "\u8D26\u53F7\u7D2F\u8BA1\u51FB\u6740 100 \u4E2A\u654C\u4EBA"
+  useBrotatoStats: 1
+  startingStats:
+  - statType: 21
+    mode: 0
+    value: 2
+  - statType: 32
+    mode: 0
+    value: -13.333333
+  - statType: 23
+    mode: 0
+    value: 25

@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a668e217f1843f88bfc327439ce5923, type: 3}
   m_Name: CaptainHealEffect
   m_EditorClassIdentifier:
-  healAmount: 45
+  healAmount: 3

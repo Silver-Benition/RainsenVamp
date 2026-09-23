@@ -55,6 +55,8 @@ public sealed class RunShopService
     /// <summary>按下一回合可出现档位和 Luck 抽取品质，早期保留基础装备。</summary>
     private int RollTier()
     {
+        if (_stats != null && _stats.UsesBrotatoStats)
+            return BrotatoStatRules.RollTier(_wave, _stats.GetFinalStat(PlayerStatType.LuckPoints), UnityEngine.Random.value);
         float luck = Mathf.Max(0.1f, _stats != null ? _stats.Luck : 1);
         float roll = UnityEngine.Random.value;
         if (_wave >= 8 && roll < Mathf.Min(0.15f, 0.02f * luck)) return 4;
@@ -68,10 +70,13 @@ public sealed class RunShopService
         _eligible.Clear();
         // 宝箱阶段也能禁用道具；进入商店时连同上波锁定报价一起清除。
         for (int i = 0; i < _offers.Length; i++)
-            if (_offers[i] != null && !_offers[i].Product.IsWeapon && RunState.GetOrCreate(_stats).IsBanished(_offers[i].Product.Id))
+            if (_offers[i] != null && !_offers[i].Product.IsWeapon && (RunState.GetOrCreate(_stats).IsBanished(_offers[i].Product.Id) ||
+                (_stats != null && _stats.UsesBrotatoStats && !_offers[i].Product.content.abilityToGrant.IsAvailableInBrotato())))
                 _offers[i] = null;
         foreach (RunShopProduct product in _catalog.products)
         {
+            if (_stats != null && _stats.UsesBrotatoStats && !product.IsWeapon &&
+                !product.content.abilityToGrant.IsAvailableInBrotato()) continue;
             if (AccountProgressService.Current.IsUpgradeSealed(product.Id)) continue;
             if (!product.IsWeapon && RunState.GetOrCreate(_stats).IsBanished(product.Id)) continue;
             bool locked = false;
@@ -101,6 +106,7 @@ public sealed class RunShopService
     private bool CanGrantItem(RunShopProduct product)
     {
         if (_items == null || product.content.abilityToGrant == null) return false;
+        if (_stats != null && _stats.UsesBrotatoStats && !product.content.abilityToGrant.IsAvailableInBrotato()) return false;
         OwnedAbilityState state = _items.GetOwnedAbility(product.content.abilityToGrant);
         return state == null || state.CurrentLevel < state.Data.MaxLevel;
     }

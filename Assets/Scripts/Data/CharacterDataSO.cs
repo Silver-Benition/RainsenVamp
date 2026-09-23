@@ -171,6 +171,9 @@ public sealed class CharacterDataSO : ScriptableObject
 
     [Header("基础属性")]
     public CharacterBaseStats baseStats = new CharacterBaseStats();
+    [Tooltip("正式回合模式使用新属性体系；旧资产和独立测试继续保留旧计算路径。")]
+    public bool useBrotatoStats;
+    public List<PlayerStatModifier> startingStats = new List<PlayerStatModifier>();
 
     [Header("角色内容")]
     [Tooltip("开局以 Lv.1 授予且计入六格武器容量的起始武器。")]

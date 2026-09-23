@@ -118,6 +118,10 @@ public sealed class RetaliationPulseMechanicSO : AbilityMechanicSO
             RetaliationPulseLevelConfig config = _configSource.GetConfig(_level);
             _nextAllowedTime = Time.time + Mathf.Max(0.01f, config.cooldown);
             float finalDamage = Mathf.Max(0f, config.baseDamage) * _context.PlayerStats.Might;
+            if (_context.PlayerStats.UsesBrotatoStats)
+                finalDamage = Mathf.Max(1, Mathf.Floor(Mathf.Max(0, config.baseDamage +
+                    _context.PlayerStats.GetFinalStat(PlayerStatType.MeleeDamage) * .5f) *
+                    Mathf.Max(0, 1 + _context.PlayerStats.GetFinalStat(PlayerStatType.DamagePercent) * .01f)));
             ApplyPulseDamage(config.radius, finalDamage);
             SpawnPulseVfx(config.radius);
         }

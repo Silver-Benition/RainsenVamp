@@ -131,15 +131,15 @@ namespace RainsenVampSur.Tests.PlayMode
                     Assert.AreEqual(level, Get<int>(_rounds, "UpgradeLevel"));
                     IList tiers = Get<IList>(_rounds, "ChoiceTiers");
                     Assert.AreEqual(4, tiers.Count);
-                    if (level % 10 == 0)
+                    if (level % 5 == 0)
                     {
                         for (int reroll = 0; reroll < 4; reroll++)
                         {
-                            foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.GreaterOrEqual(tier, 3); }
+                            foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.AreEqual(level == 5 ? 2 : 3, tier); }
                             Assert.IsTrue((bool)Call(_rounds, "RerollUpgrade"));
                             Assert.AreEqual(level, Get<int>(_rounds, "UpgradeLevel"));
                         }
-                        foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.GreaterOrEqual(tier, 3); }
+                        foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.AreEqual(level == 5 ? 2 : 3, tier); }
                     }
                     else foreach (int tier in tiers) mixed |= tier != (int)tiers[0];
                     for (int i = 0; i < 4; i++)
@@ -149,7 +149,7 @@ namespace RainsenVampSur.Tests.PlayMode
                     }
                     object choice = Get<IList>(_rounds, "Choices")[3];
                     object modifier = choice.GetType().GetField("modifier").GetValue(choice);
-                    float expected = Get<float>(modifier, "Value") * (int)tiers[3];
+                    float expected = Get<float>(Call(choice, "AtTier", (int)tiers[3]), "Value");
                     Assert.IsTrue((bool)Call(_rounds, "Choose", 3));
                     IDictionary sources = (IDictionary)player.GetType().GetField("_modifierSources", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(player);
                     Assert.AreEqual(expected, Get<float>(((IList)sources["round.level." + (level - 1)])[0], "Value"));
@@ -224,6 +224,100 @@ namespace RainsenVampSur.Tests.PlayMode
             finally { UnityEngine.Object.Destroy(clone); }
         }
 
+        /// <summary>真实玩家共享吸血节流；再生逐点恢复，暂停、局间和负值均不能额外回血。</summary>
+        [UnityTest]
+        public IEnumerator Brotato_LifeStealRegenerationAndIntermissionGates()
+        {
+            object player = Get<object>(_rounds, "Player");
+            Component health = ((Component)player).GetComponent("PlayerHealth");
+            RuntimeComponentTestUtility.SetField(health, "_currentHealth", 2f);
+            Assert.IsTrue((bool)Call(health, "TryLifeSteal", .3f, .29f));
+            Assert.AreEqual(3f, Get<float>(health, "CurrentHealth"));
+            Assert.IsFalse((bool)Call(health, "TryLifeSteal", 1f, 0f), "同帧另一把武器不能突破全局节流。");
+            yield return new WaitForSeconds(.11f);
+            Assert.IsFalse((bool)Call(health, "TryLifeSteal", .3f, .3f));
+            Assert.IsTrue((bool)Call(health, "TryLifeSteal", 1f, 0f));
+            SetCountStat(player, "HpRegeneration", 10);
+            yield return new WaitForSeconds(1.05f);
+            Assert.AreEqual(5f, Get<float>(health, "CurrentHealth"));
+            Time.timeScale = 0; yield return new WaitForSecondsRealtime(.2f);
+            Assert.IsFalse((bool)Call(health, "TryLifeSteal", 1f, 0f));
+            Assert.AreEqual(5f, Get<float>(health, "CurrentHealth"));
+            Time.timeScale = 1; SetCountStat(player, "HpRegeneration", -10);
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            Assert.IsFalse((bool)Call(health, "TryLifeSteal", 1f, 0f));
+            Assert.AreEqual(5f, Get<float>(health, "CurrentHealth"));
+        }
+
+        /// <summary>真实敌人接受暴击才回血；回池目标拒绝命中，另一把无自带吸血的武器不能借用医疗效果。</summary>
+        [UnityTest]
+        public IEnumerator Brotato_WeaponSnapshotAcceptsSignedStatsAndRejectsPooledTarget()
+        {
+            object player = Get<object>(_rounds, "Player");
+            Component health = ((Component)player).GetComponent("PlayerHealth");
+            RuntimeComponentTestUtility.SetField(health, "_currentHealth", 2f);
+            SetCountStat(player, "LifeSteal", -20); SetCountStat(player, "CritChance", -20);
+            object config = Activator.CreateInstance(TypeOf("WeaponLevelData"));
+            RuntimeComponentTestUtility.SetField(config, "lifeSteal", 120f);
+            RuntimeComponentTestUtility.SetField(config, "critChance", 120f);
+            RuntimeComponentTestUtility.SetField(config, "critMultiplier", 2f);
+            object hit = Activator.CreateInstance(TypeOf("WeaponHitSnapshot"), player, health, config);
+            GameObject target = SpawnFixture("Assets/Prefab/Enemy/EnemyWeak_1.prefab", new Vector3(100, 100));
+            object result = Call(hit, "Apply", target.GetComponent("EnemyBase"), 7f, null);
+            Assert.AreEqual(14f, Get<float>(result, "AppliedDamage"));
+            Assert.AreEqual(3f, Get<float>(health, "CurrentHealth"));
+            target.SetActive(false); yield return new WaitForSeconds(.11f);
+            result = Call(hit, "Apply", target.GetComponent("EnemyBase"), 7f, null);
+            Assert.IsFalse(Get<bool>(result, "Accepted")); Assert.AreEqual(3f, Get<float>(health, "CurrentHealth"));
+            RuntimeComponentTestUtility.SetField(config, "lifeSteal", 0f);
+            object ordinary = Activator.CreateInstance(TypeOf("WeaponHitSnapshot"), player, health, config);
+            Assert.AreEqual(0f, RuntimeComponentTestUtility.GetFieldValue<float>(ordinary, "LifeStealChance"));
+            Assert.AreEqual(1f, RuntimeComponentTestUtility.GetFieldValue<float>(hit, "LifeStealChance"));
+        }
+
+        /// <summary>收获成功波只结算一次，正值递增；下一波负值只扣已有材料和本级经验，不降级。</summary>
+        [UnityTest]
+        public IEnumerator Brotato_HarvestOnceNegativeAndRestartIsolation()
+        {
+            object player = Get<object>(_rounds, "Player"), wallet = Get<object>(_rounds, "Wallet");
+            SetCountStat(player, "Harvesting", 20);
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            Assert.AreEqual(20, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(2, RuntimeComponentTestUtility.GetFieldValue<int>(player, "currentLevel"));
+            Assert.AreEqual(4f, RuntimeComponentTestUtility.GetFieldValue<float>(player, "currentExp"));
+            Assert.AreEqual(21f, (float)Call(player, "GetFinalStat", Enum.Parse(TypeOf("PlayerStatType"), "Harvesting")));
+            RuntimeComponentTestUtility.Invoke(_rounds, "SettleHarvesting");
+            Assert.AreEqual(20, Get<int>(wallet, "Balance"));
+            while (Get<object>(_rounds, "Phase").ToString() == "Upgrades") { Call(_rounds, "Choose", 0); yield return null; }
+            SetCountStat(player, "Harvesting", -101);
+            Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            Assert.AreEqual(0, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(2, RuntimeComponentTestUtility.GetFieldValue<int>(player, "currentLevel"));
+            Assert.AreEqual(0f, RuntimeComponentTestUtility.GetFieldValue<float>(player, "currentExp"));
+            yield return SceneManager.LoadSceneAsync("MainLevel"); yield return null; yield return null;
+            _rounds = UnityEngine.Object.FindObjectOfType(TypeOf("RoundController"));
+            Assert.AreEqual(0, Get<int>(Get<object>(_rounds, "Wallet"), "Balance"));
+            Assert.AreEqual(0f, (float)Call(Get<object>(_rounds, "Player"), "GetFinalStat", Enum.Parse(TypeOf("PlayerStatType"), "Harvesting")));
+        }
+
+        /// <summary>死亡/失败过渡不发放收获；有符号护甲在真实受伤路径产生减伤与增伤。</summary>
+        [UnityTest]
+        public IEnumerator Brotato_ArmorAndFailedHarvest()
+        {
+            object player = Get<object>(_rounds, "Player");
+            Component health = ((Component)player).GetComponent("PlayerHealth");
+            RuntimeComponentTestUtility.SetField(health, "invulnerabilityDuration", 0f);
+            SetCountStat(player, "Armor", 15); Call(health, "TakeDamage", 4f);
+            Assert.AreEqual(8f, Get<float>(health, "CurrentHealth"));
+            SetCountStat(player, "Armor", -15); Call(health, "TakeDamage", 4f);
+            Assert.AreEqual(2f, Get<float>(health, "CurrentHealth"));
+            SetCountStat(player, "Harvesting", 20); Call(_rounds, "Tick", 100f);
+            Call(UnityEngine.Object.FindObjectOfType(TypeOf("RunDirector")), "EndRunAsDefeat");
+            yield return new WaitForSecondsRealtime(1.7f);
+            Assert.AreEqual(0, Get<int>(Get<object>(_rounds, "Wallet"), "Balance"));
+        }
+
         /// <summary>经属性重算增加测试次数，验证 RunState 的实际容量同步而非直接篡改剩余值。</summary>
         private static void SetCountStat(object player, string stat, int amount)
         {
@@ -240,7 +334,7 @@ namespace RainsenVampSur.Tests.PlayMode
         {
             object player = Get<object>(_rounds, "Player");
             Component health = ((Component)player).GetComponent("PlayerHealth");
-            RuntimeComponentTestUtility.SetField(health, "_currentHealth", 20f);
+            RuntimeComponentTestUtility.SetField(health, "_currentHealth", 2f);
             GameObject enemy = SpawnFixture("Assets/Prefab/Enemy/EnemyWeak_1.prefab", new Vector3(10, 6));
             GameObject heal = SpawnFixture("Assets/Prefab/Pickup/CaptainPickup.prefab", new Vector3(8, 5));
             GameObject crystal = SpawnFixture("Assets/Prefab/Pickup/CrystalBallPickup.prefab", new Vector3(9, 5));
@@ -264,7 +358,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.AreEqual(0, Get<int>(player, "PendingLevelUps")); Assert.AreEqual(2, Get<int>(_rounds, "PendingCrates"));
             Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
             yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
-            Assert.AreEqual(65f, Get<float>(health, "CurrentHealth")); Assert.IsFalse(heal.activeSelf);
+            Assert.AreEqual(5f, Get<float>(health, "CurrentHealth")); Assert.IsFalse(heal.activeSelf);
             Assert.IsFalse((bool)Call(heal.GetComponent("MapInstantEffectPickup"), "CollectForSettlement", player));
             Assert.IsFalse((bool)Call(chest.GetComponent("TreasureChestPickup"), "CollectForSettlement"));
             Assert.AreEqual(0f, Get<float>(UnityEngine.Object.FindObjectOfType(TypeOf("WorldFreezeController")), "RemainingDuration"));
@@ -289,7 +383,7 @@ namespace RainsenVampSur.Tests.PlayMode
             try
             {
                 for (int i = 0; i < 4; i++) Assert.IsTrue((bool)Call(_rounds, "QueueCrate"));
-                Call(player, "AddExp", 10f);
+                Call(player, "AddExp", 16f);
                 Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
                 Assert.AreEqual("Upgrades", Get<object>(_rounds, "Phase").ToString());
                 Assert.IsNull(Get<object>(_rounds, "CurrentCrate"));
@@ -355,13 +449,13 @@ namespace RainsenVampSur.Tests.PlayMode
         public IEnumerator Settlement_FailureCancelsDelayedRewards()
         {
             object player = Get<object>(_rounds, "Player");
-            Component health = ((Component)player).GetComponent("PlayerHealth"); RuntimeComponentTestUtility.SetField(health, "_currentHealth", 20f);
+            Component health = ((Component)player).GetComponent("PlayerHealth"); RuntimeComponentTestUtility.SetField(health, "_currentHealth", 2f);
             SpawnFixture("Assets/Prefab/Pickup/CaptainPickup.prefab", new Vector3(8,5));
             Call(_rounds, "QueueCrate"); Call(_rounds, "Tick", 100f); yield return null;
             object director = UnityEngine.Object.FindObjectOfType(TypeOf("RunDirector")); Call(director, "EndRunAsDefeat");
             yield return new WaitForSecondsRealtime(1.7f);
             Assert.AreEqual("Finished", Get<object>(_rounds, "Phase").ToString());
-            Assert.AreEqual(20f, Get<float>(health, "CurrentHealth"));
+            Assert.AreEqual(2f, Get<float>(health, "CurrentHealth"));
             Assert.AreEqual(0, Get<IList>(Get<object>(_rounds, "Items"), "OwnedAbilities").Count);
             Assert.IsFalse((bool)Call(_rounds, "BeginNextRound"));
         }
@@ -505,7 +599,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsFalse(tooltip.activeSelf);
             ExecuteEvents.Execute(panel.transform.Find("StatsBoard/Secondary").gameObject,
                 new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
-            Assert.AreEqual("成长", Get<string>(panel.transform.Find("StatsBoard/Stat0/Name").GetComponent("TextMeshProUGUI"), "text"));
+            Assert.AreEqual("经验获取", Get<string>(panel.transform.Find("StatsBoard/Stat0/Name").GetComponent("TextMeshProUGUI"), "text"));
         }
 
         /// <summary>持有大量道具时滚动区保持图标尺寸，导航到底部会自动露出目标图标。</summary>
@@ -546,6 +640,124 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.GreaterOrEqual(bounds.min.y, scroll.viewport.rect.yMin - 1);
                 Assert.LessOrEqual(bounds.max.y, scroll.viewport.rect.yMax + 1);
                 Assert.IsTrue(Get<GameObject>(ui, "Tooltip").activeSelf);
+            }
+            finally { foreach (ScriptableObject copy in copies) UnityEngine.Object.Destroy(copy); }
+        }
+
+        /// <summary>生命 HUD、红色扣血、升级治疗、分页说明和回合生命覆盖走正式场景链路。</summary>
+        [UnityTest]
+        public IEnumerator HealthFeedbackAndStatHelp_UseAuthoritativeValues()
+        {
+            Component player = (Component)Get<object>(_rounds, "Player");
+            Component health = player.GetComponent(TypeOf("PlayerHealth"));
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            Component hud = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerHealthHudUI"));
+            Assert.IsNotNull(hud);
+            RectTransform bar = Get<RectTransform>(hud, "BarRoot"); var frame = (RectTransform)bar.parent;
+            Canvas.ForceUpdateCanvases(); Assert.That(bar.rect.width, Is.EqualTo(frame.rect.width / 6).Within(.1f));
+            float before = Get<float>(health, "CurrentHealth"); Call(health, "TakeDamage", 5f);
+            Assert.AreEqual(before - 5, Get<float>(health, "CurrentHealth"));
+            StringAssert.StartsWith((before - 5).ToString("0.##") + " / ", Get<string>(hud, "CurrentText"));
+            Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+            bool redPopup = false;
+            foreach (Component popup in UnityEngine.Object.FindObjectsOfType(TypeOf("DamagePopup")))
+            {
+                Component label = popup.GetComponent(textType);
+                if (Get<string>(label, "text") != "-5") continue;
+                Color color = Get<Color>(label, "color"); Assert.Greater(color.r, .9f); Assert.Less(color.g, .3f); redPopup = true;
+                // 同一个池对象切回敌人数字时不能保留负号或红色。
+                Call(popup, "Initialize", 7f, false, Color.white, Color.yellow);
+                Assert.AreEqual("7", Get<string>(label, "text")); Assert.AreEqual(Color.white, Get<Color>(label, "color"));
+            }
+            Assert.IsTrue(redPopup); Call(health, "TakeDamage", 5f); Assert.AreEqual(before - 5, Get<float>(health, "CurrentHealth"));
+            Call(player, "AddExp", 16f); Assert.AreEqual(before - 4, Get<float>(health, "CurrentHealth"));
+            object flow = UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")); Call(flow, "PauseGame"); yield return null;
+            Component board = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerStatBoardUI"));
+            Assert.AreEqual(15, Get<int>(board, "DisplayedStatCount"));
+            Transform boardRoot = Get<RectTransform>(board, "BoardRoot"); var pointer = new PointerEventData(EventSystem.current);
+            ExecuteEvents.Execute(boardRoot.Find("Rows/Stat2").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+            Transform tooltip = board.transform.Find("StatTooltip"); Assert.IsTrue(tooltip.gameObject.activeSelf);
+            StringAssert.Contains("0.1", Get<string>(tooltip.Find("Description").GetComponent(textType), "text"));
+            ExecuteEvents.Execute(boardRoot.Find("Secondary").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+            Assert.AreEqual(6, Get<int>(board, "DisplayedStatCount")); Assert.IsFalse(tooltip.gameObject.activeSelf);
+            ExecuteEvents.Execute(boardRoot.Find("Rows/Stat0").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+            Assert.IsTrue(tooltip.gameObject.activeSelf); Call(flow, "ResumeGame"); Assert.IsFalse(tooltip.gameObject.activeSelf);
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
+            Transform panel = Get<GameObject>(ui, "Panel").transform;
+            ExecuteEvents.Execute(panel.Find("StatsBoard/Stat2").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+            Transform shopTip = panel.Find("StatTooltip"); Assert.IsTrue(shopTip.gameObject.activeSelf);
+            StringAssert.Contains("0.1", Get<string>(shopTip.Find("Description").GetComponent(textType), "text"));
+            Assert.IsTrue((bool)Call(health, "SetNextRoundHealth", 3f)); Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+            Assert.AreEqual(3, Get<float>(health, "CurrentHealth")); Assert.IsFalse(shopTip.gameObject.activeSelf);
+            Assert.IsFalse((bool)Call(_rounds, "BeginNextRound")); Assert.AreEqual(3, Get<float>(health, "CurrentHealth"));
+        }
+
+        /// <summary>暂停图标须能被真实射线命中，详情只读；超过六种道具可滚动，恢复立即关闭。</summary>
+        [UnityTest]
+        public IEnumerator PauseInventory_HoverScrollAndResume_UseCurrentLoadout()
+        {
+            GrantCatalogItems();
+            object items = Get<object>(_rounds, "Items"); IList owned = Get<IList>(items, "OwnedAbilities");
+            var seed = (ScriptableObject)Get<object>(owned[0], "Data");
+            var copies = new System.Collections.Generic.List<ScriptableObject>();
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            object flow = UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager"));
+            try
+            {
+                for (int i = 0; i < 25; i++)
+                {
+                    ScriptableObject copy = UnityEngine.Object.Instantiate(seed); copies.Add(copy);
+                    copy.GetType().GetField("abilityID").SetValue(copy, "pause_test_" + i);
+                    Assert.IsNotNull(Call(items, "GrantOrUpgrade", copy));
+                }
+                Call(flow, "PauseGame"); yield return null; Canvas.ForceUpdateCanvases(); yield return null;
+                Transform inventory = ui.transform.Find("PauseItems");
+                Assert.IsTrue(inventory.gameObject.activeInHierarchy);
+                ScrollRect scroll = inventory.GetComponentInChildren<ScrollRect>();
+                Assert.AreEqual(owned.Count, scroll.content.childCount);
+                Assert.Greater(scroll.content.rect.height, scroll.viewport.rect.height);
+                var weapon = (RectTransform)ui.transform.Find("PlayerLoadoutDisplay/WeaponSlot_1");
+                var pointer = new PointerEventData(EventSystem.current);
+                pointer.position = RectTransformUtility.WorldToScreenPoint(null, weapon.TransformPoint(weapon.rect.center));
+                var hits = new System.Collections.Generic.List<RaycastResult>(); EventSystem.current.RaycastAll(pointer, hits);
+                Assert.IsTrue(hits.Exists(hit => hit.gameObject.transform == weapon || hit.gameObject.transform.IsChildOf(weapon)), "武器槽必须能被真实鼠标射线命中");
+                ExecuteEvents.Execute(weapon.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Transform tooltip = ui.transform.Find("PauseInventoryTooltip");
+                Assert.IsTrue(tooltip.gameObject.activeSelf); Assert.IsEmpty(tooltip.GetComponentsInChildren<Button>());
+                Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+                Component body = tooltip.Find("Description").GetComponent(textType);
+                StringAssert.Contains("<sprite index=2>", Get<string>(body, "text"));
+                Call(body, "ForceMeshUpdate", false, false);
+                object info = Get<object>(body, "textInfo");
+                // TMP 3.0.7 在 GenerateTextMesh 末尾把 spriteCount 覆盖为未维护的字段；逐字检查真实可见网格。
+                Array characters = (Array)info.GetType().GetField("characterInfo").GetValue(info);
+                int characterCount = (int)info.GetType().GetField("characterCount").GetValue(info);
+                bool visibleSprite = false;
+                for (int i = 0; i < characterCount; i++)
+                {
+                    object character = characters.GetValue(i);
+                    if (character.GetType().GetField("elementType").GetValue(character).ToString() == "Sprite"
+                        && (bool)character.GetType().GetField("isVisible").GetValue(character)) visibleSprite = true;
+                }
+                Assert.IsTrue(visibleSprite, "缩放公式必须包含实际可见的图片网格");
+                Assert.IsFalse(Get<bool>(body, "isTextOverflowing"));
+                ExecuteEvents.Execute(weapon.gameObject, pointer, ExecuteEvents.pointerExitHandler);
+                Assert.IsFalse(tooltip.gameObject.activeSelf);
+                scroll.verticalNormalizedPosition = 0; yield return null;
+                Transform last = scroll.content.GetChild(owned.Count - 1);
+                Bounds lastBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport, last);
+                Assert.GreaterOrEqual(lastBounds.min.y, scroll.viewport.rect.yMin - 1);
+                Assert.LessOrEqual(lastBounds.max.y, scroll.viewport.rect.yMax + 1);
+                ExecuteEvents.Execute(last.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.IsTrue(tooltip.gameObject.activeSelf);
+                Call(flow, "ResumeGame");
+                Assert.IsFalse(inventory.gameObject.activeSelf); Assert.IsFalse(tooltip.gameObject.activeSelf);
+                ExecuteEvents.Execute(last.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.IsFalse(tooltip.gameObject.activeSelf, "恢复后旧事件不得重新打开详情");
+                Call(flow, "PauseGame"); yield return null;
+                Assert.AreEqual(owned.Count, scroll.content.childCount, "反复暂停不得重复创建槽位");
+                Call(flow, "ResumeGame");
             }
             finally { foreach (ScriptableObject copy in copies) UnityEngine.Object.Destroy(copy); }
         }
@@ -594,16 +806,35 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.enabled = true;
             try
             {
-                foreach (string page in new[] { "combat", "pause", "passed", "upgrades", "milestone-upgrades", "crate-reward", "crate-hold", "shop", "weapon-details", "item-details", "secondary-stats" })
+                foreach (string page in new[] { "combat", "hurt", "pause", "pause-weapon-details", "pause-item-details", "pause-stat-help", "pause-secondary", "passed", "upgrades", "milestone-upgrades", "crate-reward", "crate-hold", "shop", "weapon-details", "item-details", "secondary-stats", "shop-stat-help" })
                 {
+                    if (page == "hurt")
+                    {
+                        Call(((Component)Get<object>(_rounds, "Player")).GetComponent(TypeOf("PlayerHealth")), "TakeDamage", 5f);
+                    }
+                    if (page == "pause-stat-help" || page == "pause-secondary")
+                    {
+                        Transform inventoryTip = ui.transform.Find("PauseInventoryTooltip"); inventoryTip.gameObject.SetActive(false);
+                        Component board = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerStatBoardUI"));
+                        if (page == "pause-secondary") Call(board, "SelectPage", true);
+                        Transform row = Get<RectTransform>(board, "BoardRoot").Find(page == "pause-stat-help" ? "Rows/Stat2" : "Rows/Stat0");
+                        ExecuteEvents.Execute(row.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+                    }
                     if (page == "pause")
                     {
                         object loadout = Get<object>(_rounds, "Loadout");
                         IList weapons = Get<IList>(loadout, "OwnedWeapons");
                         object data = weapons[0].GetType().GetField("weaponData").GetValue(weapons[0]);
                         while (weapons.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
+                        GrantCatalogItems();
                         Call(UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")), "PauseGame");
                     }
+                    if (page == "pause-weapon-details")
+                        ExecuteEvents.Execute(ui.transform.Find("PlayerLoadoutDisplay/WeaponSlot_1").gameObject,
+                            new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+                    if (page == "pause-item-details")
+                        ExecuteEvents.Execute(ui.transform.Find("PauseItems/Viewport/Content/ItemSlot0").gameObject,
+                            new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
                     if (page == "passed")
                     {
                         Call(UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")), "ResumeGame");
@@ -665,6 +896,9 @@ namespace RainsenVampSur.Tests.PlayMode
                         ExecuteEvents.Execute(layoutPanel.transform.Find("StatsBoard/Secondary").gameObject,
                             new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
                     }
+                    if (page == "shop-stat-help")
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("StatsBoard/Stat0").gameObject,
+                            new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
                     Canvas.ForceUpdateCanvases();
                     for (int frame = 0; frame < 4; frame++) yield return null;
                     Assert.AreEqual(width, camera.pixelWidth); Assert.AreEqual(height, camera.pixelHeight);
@@ -687,8 +921,8 @@ namespace RainsenVampSur.Tests.PlayMode
                         Assert.AreEqual(Get<int>(_rounds, "PendingUpgrades"), visible);
                     }
                     Transform loadoutPanel = ui.transform.Find("PlayerLoadoutDisplay");
-                    Assert.AreEqual(page == "pause", loadoutPanel.gameObject.activeInHierarchy, "装备仅在手动暂停中显示");
-                    if (page == "pause")
+                    Assert.AreEqual(page.StartsWith("pause"), loadoutPanel.gameObject.activeInHierarchy, "装备仅在手动暂停中显示");
+                    if (page.StartsWith("pause"))
                     {
                         Component attributes = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerStatBoardUI"));
                         RectTransform board = Get<RectTransform>(attributes, "BoardRoot");
@@ -699,6 +933,13 @@ namespace RainsenVampSur.Tests.PlayMode
                         foreach (Transform slot in loadoutPanel)
                             if (slot.name.StartsWith("Ability")) Assert.IsFalse(slot.gameObject.activeSelf);
                         Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+                        foreach (string region in new[] { "PauseItems", "PauseInventoryTooltip" })
+                        {
+                            Transform root = ui.transform.Find(region);
+                            foreach (Component label in root.GetComponentsInChildren(textType))
+                                Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), page + "/" + region + "/" + label.name);
+                        }
+                        if (page.EndsWith("details")) Assert.IsTrue(ui.transform.Find("PauseInventoryTooltip").gameObject.activeSelf);
                         foreach (Component label in board.GetComponentsInChildren(textType))
                             Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), "暂停属性溢出:" + label.name);
                     }
@@ -710,7 +951,7 @@ namespace RainsenVampSur.Tests.PlayMode
                         Assert.AreEqual(Get<int>(_rounds, "PendingCrates"), count);
                         Assert.IsNull(ui.transform.Find("RoundProgress/CrateCount"));
                     }
-                    if (page != "combat" && page != "passed" && page != "pause")
+                    if (page != "combat" && page != "hurt" && page != "passed" && !page.StartsWith("pause"))
                     {
                         GameObject panel = Get<GameObject>(ui, "Panel");
                         Assert.IsTrue(panel.activeInHierarchy);

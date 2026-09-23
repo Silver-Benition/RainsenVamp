@@ -15,8 +15,8 @@ MonoBehaviour:
   stableId: account_maxhealth
   nameKey: account.upgrade.MaxHealth.name
   descriptionKey: account.upgrade.MaxHealth.description
-  fallbackName: "\u6700\u5927\u751F\u547D"
-  fallbackDescription: "\u6BCF\u5F3A\u5316\u4E00\u7EA7\uFF0C\u63D0\u9AD8\u6700\u5927\u751F\u547D\u503C\u3002"
+  fallbackName: 最大生命
+  fallbackDescription: 提高最大生命；新局生效。百分比属性以百分点相加。
   icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
   statType: 0
   maxLevel: 3
@@ -25,14 +25,14 @@ MonoBehaviour:
     modifiers:
     - statType: 0
       mode: 0
-      value: 10
+      value: 3
   - cost: 200
     modifiers:
     - statType: 0
       mode: 0
-      value: 20
+      value: 6
   - cost: 300
     modifiers:
     - statType: 0
       mode: 0
-      value: 30
+      value: 9

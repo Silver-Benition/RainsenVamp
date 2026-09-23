@@ -62,9 +62,12 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         _hitColliders.Clear();
     }
 
+    private WeaponHitSnapshot _hitSnapshot;
+
     /// <summary>对象池回收时清除旧武器来源、玩家跟随和本次命中集合。</summary>
     private void OnDisable()
     {
+        _hitSnapshot = default;
         _owner = null;
         _weaponData = null;
         _damage = 0f;
@@ -89,7 +92,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         float range,
         float arc,
         float duration,
-        float startAngleOffset = 0f)
+        float startAngleOffset = 0f, WeaponHitSnapshot hitSnapshot = default)
     {
         Initialize(
             null,
@@ -99,7 +102,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
             range,
             arc,
             duration,
-            startAngleOffset);
+            startAngleOffset, hitSnapshot);
     }
 
     /// <summary>注入带稳定武器来源的近战挥击生命周期。</summary>
@@ -111,8 +114,9 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         float range,
         float arc,
         float duration,
-        float startAngleOffset = 0f)
+        float startAngleOffset = 0f, WeaponHitSnapshot hitSnapshot = default)
     {
+        _hitSnapshot = hitSnapshot;
         _weaponData = weaponData;
         _owner = owner;
         _damage = Mathf.Max(0f, damage);
@@ -209,7 +213,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         }
 
         _hitColliders.Add(other);
-        CombatDamageResolver.Apply(damageable, _damage, _weaponData);
+        _hitSnapshot.Apply(damageable, _damage, _weaponData);
     }
 
     /// <summary>

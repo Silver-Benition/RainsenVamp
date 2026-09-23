@@ -15,24 +15,24 @@ MonoBehaviour:
   stableId: account_magnet
   nameKey: account.upgrade.Magnet.name
   descriptionKey: account.upgrade.Magnet.description
-  fallbackName: "\u78C1\u5438\u8303\u56F4"
-  fallbackDescription: "\u6BCF\u5F3A\u5316\u4E00\u7EA7\uFF0C\u6269\u5927\u53EF\u78C1\u5438\u62FE\u53D6\u7269\u7684\u5438\u5F15\u8303\u56F4\u3002"
+  fallbackName: 拾取范围
+  fallbackDescription: 提高拾取范围；新局生效。百分比属性以百分点相加。
   icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
-  statType: 14
+  statType: 36
   maxLevel: 3
   levels:
   - cost: 100
     modifiers:
-    - statType: 14
-      mode: 1
-      value: 0.05
+    - statType: 36
+      mode: 0
+      value: 10
   - cost: 200
     modifiers:
-    - statType: 14
-      mode: 1
-      value: 0.1
+    - statType: 36
+      mode: 0
+      value: 20
   - cost: 300
     modifiers:
-    - statType: 14
-      mode: 1
-      value: 0.15
+    - statType: 36
+      mode: 0
+      value: 30

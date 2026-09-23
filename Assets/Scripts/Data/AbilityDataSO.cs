@@ -112,4 +112,20 @@ public sealed class AbilityDataSO : ScriptableObject
             ? config.upgradeDescription
             : GetDisplayDescription();
     }
+    /// <summary>正式新模式禁止含停用属性的道具进入奖励；机制型内容由其运行时适配新体系。</summary>
+    public bool IsAvailableInBrotato()
+    {
+        if (levelConfigs == null || levelConfigs.Count == 0) return false;
+        bool hasEffect = mechanic != null;
+        foreach (AbilityLevelData level in levelConfigs)
+        {
+            if (level == null || level.statModifiers == null) return false;
+            foreach (PlayerStatModifier modifier in level.statModifiers)
+            {
+                if (!BrotatoStatRules.IsAvailable(modifier.StatType)) return false;
+                hasEffect |= modifier.Value != 0;
+            }
+        }
+        return hasEffect;
+    }
 }

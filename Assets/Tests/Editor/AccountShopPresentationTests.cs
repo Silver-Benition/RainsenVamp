@@ -12,13 +12,13 @@ namespace RainsenVampSur.Tests
         /// <summary>当前累计与本次增量分别显示，概率、冷却与绝对单位不混淆。</summary>
         [TestCase("account_might", 0, "0%", "+5%")]
         [TestCase("account_might", 1, "+5%", "+5%")]
-        [TestCase("account_cooldown", 1, "-5%", "-5%")]
+        [TestCase("account_cooldown", 1, "+5%", "+5%")]
         [TestCase("account_defang", 0, "0%", "+1%")]
         [TestCase("account_defang", 1, "+1%", "+1%")]
-        [TestCase("account_recovery", 1, "+0.1/秒", "+0.1/秒")]
-        [TestCase("account_maxhealth", 1, "+10", "+10")]
-        [TestCase("account_movespeed", 2, "+10%", "+5%")]
-        [TestCase("account_magnet", 3, "+15%", "已满级")]
+        [TestCase("account_recovery", 1, "+1", "+1")]
+        [TestCase("account_maxhealth", 1, "+3", "+3")]
+        [TestCase("account_movespeed", 2, "+6%", "+3%")]
+        [TestCase("account_magnet", 3, "+30%", "已满级")]
         public void CumulativeAndIncrement_UseActualModifierUnits(string id, int level, string current, string increment)
         {
             var catalog = AssetDatabase.LoadAssetAtPath<AccountUpgradeCatalogSO>(AccountUpgradeSetup.CatalogPath);
@@ -27,8 +27,8 @@ namespace RainsenVampSur.Tests
         }
 
         /// <summary>移速和磁吸真实属性按百分比生效，旧实付记录仍按原价退款。</summary>
-        [TestCase("account_movespeed", PlayerStatType.MoveSpeed)]
-        [TestCase("account_magnet", PlayerStatType.Magnet)]
+        [TestCase("account_movespeed", PlayerStatType.SpeedPercent)]
+        [TestCase("account_magnet", PlayerStatType.PickupRange)]
         [TestCase("account_defang", PlayerStatType.Defang)]
         public void ExistingPurchase_NewStaticConfig_ChangesActualStatsAndPreservesRefund(string id, PlayerStatType stat)
         {
@@ -43,7 +43,7 @@ namespace RainsenVampSur.Tests
                 var serialized = new SerializedObject(stats);
                 serialized.FindProperty("accountUpgradeCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<AccountUpgradeCatalogSO>(AccountUpgradeSetup.CatalogPath);
                 serialized.ApplyModifiedPropertiesWithoutUndo();
-                Assert.That(stats.GetFinalStat(stat), Is.EqualTo(stat == PlayerStatType.Defang ? 0.01f : 3.15f).Within(0.0001f));
+                Assert.That(stats.GetFinalStat(stat), Is.EqualTo(stat == PlayerStatType.Defang ? 0 : stat == PlayerStatType.SpeedPercent ? 3 : 10).Within(0.0001f));
                 Assert.IsTrue(AccountProgressService.Current.TryRefundUpgrade(id));
                 Assert.That(AccountProgressService.Current.Gold, Is.EqualTo(73));
             }
@@ -58,6 +58,7 @@ namespace RainsenVampSur.Tests
             var definition = Object.Instantiate(catalog.Find("account_movespeed"));
             try
             {
+                definition.statType = PlayerStatType.MoveSpeed;
                 definition.maxLevel = 2;
                 for (int i = 0; i < 3; i++)
                 {

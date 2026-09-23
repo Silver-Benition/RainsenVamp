@@ -45,7 +45,7 @@ public sealed class AuraWeapon : WeaponBase
         float modifiedLifeTime = GetModifiedDuration(levelData.lifeTime);
         float lifeTime = persistent ? Mathf.Max(modifiedLifeTime, 99999f) : modifiedLifeTime;
         float damage = GetCurrentDamage();
-        float radius = GetModifiedArea(levelData.auraRadius);
+        float radius = GetModifiedRange(levelData.auraRadius);
         float tickInterval = Mathf.Max(
             0.01f,
             levelData.tickInterval * GetCurrentCooldownMultiplier());
@@ -60,7 +60,7 @@ public sealed class AuraWeapon : WeaponBase
                     tickInterval,
                     damage,
                     lifeTime,
-                    radius);
+                    radius, CreateHitSnapshot());
             }
             return;
         }
@@ -78,7 +78,7 @@ public sealed class AuraWeapon : WeaponBase
                 tickInterval,
                 damage,
                 lifeTime,
-                radius);
+                radius, CreateHitSnapshot());
         }
         else if (_auraInstance != null)
         {

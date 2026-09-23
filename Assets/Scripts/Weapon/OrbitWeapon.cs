@@ -25,7 +25,7 @@ public sealed class OrbitWeapon : WeaponBase
         _orbitPhase = Mathf.Repeat(
             _orbitPhase
                 + levelData.orbitAngularSpeed
-                * GetCurrentProjectileSpeedMultiplier()
+                * GetCurrentProjectileSpeedMultiplier() / (_playerStats != null && _playerStats.UsesBrotatoStats ? GetCurrentCooldownMultiplier() : 1f)
                 * Time.deltaTime,
             360f);
 
@@ -38,7 +38,7 @@ public sealed class OrbitWeapon : WeaponBase
             {
                 orbiter.SetOrbitPosition(
                     _orbitPhase + slotAngle * index,
-                    levelData.orbitRadius);
+                    GetModifiedRange(levelData.orbitRadius));
             }
         }
     }
@@ -126,7 +126,7 @@ public sealed class OrbitWeapon : WeaponBase
                     weaponData,
                     transform,
                     GetCurrentDamage(),
-                    GetCurrentAreaMultiplier());
+                    GetCurrentAreaMultiplier(), CreateHitSnapshot());
             }
         }
     }

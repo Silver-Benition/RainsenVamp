@@ -15,36 +15,36 @@ MonoBehaviour:
   abilityID: ability_cooldown_optimization
   abilityNameKey: ability.cooldown_optimization.name
   descriptionKey: ability.cooldown_optimization.description
-  abilityDisplayName: 冷却优化
-  displayDescription: 缩短所有未忽略全局冷却属性的武器攻击间隔。
+  abilityDisplayName: 攻速训练
+  displayDescription: 提高本局攻击速度，以百分点累加。
   icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
   presentationCategory: 0
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}
   levelConfigs:
-  - upgradeDescription: 武器冷却倍率降至 0.95。
+  - upgradeDescription: 攻击速度累计 +5%。
     statModifiers:
-    - statType: 9
-      mode: 2
-      value: 0.95
-  - upgradeDescription: 武器冷却倍率降至 0.90。
+    - statType: 27
+      mode: 0
+      value: 5
+  - upgradeDescription: 攻击速度累计 +10%。
     statModifiers:
-    - statType: 9
-      mode: 2
-      value: 0.9
-  - upgradeDescription: 武器冷却倍率降至 0.85。
+    - statType: 27
+      mode: 0
+      value: 10
+  - upgradeDescription: 攻击速度累计 +15%。
     statModifiers:
-    - statType: 9
-      mode: 2
-      value: 0.85
-  - upgradeDescription: 武器冷却倍率降至 0.80。
+    - statType: 27
+      mode: 0
+      value: 15
+  - upgradeDescription: 攻击速度累计 +20%。
     statModifiers:
-    - statType: 9
-      mode: 2
-      value: 0.8
-  - upgradeDescription: 武器冷却倍率降至 0.75。
+    - statType: 27
+      mode: 0
+      value: 20
+  - upgradeDescription: 攻击速度累计 +25%。
     statModifiers:
-    - statType: 9
-      mode: 2
-      value: 0.75
+    - statType: 27
+      mode: 0
+      value: 25
   mechanic: {fileID: 0}

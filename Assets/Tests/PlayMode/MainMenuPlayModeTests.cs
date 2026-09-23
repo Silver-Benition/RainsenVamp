@@ -114,9 +114,9 @@ namespace RainsenVampSur.Tests.PlayMode
                         "StatsText");
                     Image leftPortrait = GameObject.Find("LeftCharacterPortrait")?.GetComponent<Image>();
                     warriorHoverSelected = hoveredCharacterId == "character_blue_warrior" &&
-                                           hoveredStats.Contains("生命  140") &&
-                                           hoveredStats.Contains("力量  125%") &&
-                                           hoveredStats.Contains("移动速度  2.6") &&
+                                           hoveredStats.Contains("生命  14") &&
+                                           hoveredStats.Contains("伤害  +25%") &&
+                                           hoveredStats.Contains("速度  -13.3%") &&
                                            leftPortrait != null &&
                                            leftPortrait.sprite != null;
                 }
@@ -186,10 +186,10 @@ namespace RainsenVampSur.Tests.PlayMode
                             playerStats,
                             "FinalMoveSpeed");
                         selectedFinalStatsApplied =
-                            Mathf.Approximately(maxHealth, 140f) &&
-                            Mathf.Approximately(recovery, 0.25f) &&
+                            Mathf.Approximately(maxHealth, 14f) &&
+                            Mathf.Approximately(recovery, 0f) &&
                             Mathf.Approximately(armor, 2f) &&
-                            Mathf.Approximately(might, 1.25f) &&
+                            Mathf.Approximately(might, 1f) &&
                             Mathf.Approximately(moveSpeed, 2.6f);
 
                         Type playerHealthType = RuntimeComponentTestUtility.RequireRuntimeType(
@@ -205,8 +205,8 @@ namespace RainsenVampSur.Tests.PlayMode
                                 playerHealth,
                                 "MaxHealth");
                             selectedHealthInitialized =
-                                Mathf.Approximately(currentHealth, 140f) &&
-                                Mathf.Approximately(runtimeMaxHealth, 140f);
+                                Mathf.Approximately(currentHealth, 14f) &&
+                                Mathf.Approximately(runtimeMaxHealth, 14f);
                         }
 
                         Type levelUpManagerType = RuntimeComponentTestUtility.RequireRuntimeType(
@@ -282,7 +282,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsTrue(reachedGameplayScene, "开始按钮未能在等待上限内进入 MainLevel。");
             Assert.IsTrue(selectedCharacterApplied, "MainLevel 的 PlayerStats 未采用菜单确认的角色。");
             Assert.IsTrue(selectedFinalStatsApplied, "蓝衣战士角色引用已应用，但最终属性缓存仍是默认值。");
-            Assert.IsTrue(selectedHealthInitialized, "蓝衣战士进入 MainLevel 后没有以 140/140 满血开局。");
+            Assert.IsTrue(selectedHealthInitialized, "蓝衣战士进入 MainLevel 后没有以 14/14 满血开局。");
             Assert.IsTrue(selectedStartingWeaponApplied, "蓝衣战士没有以飞斧作为唯一 Lv.1 起始武器。");
             Assert.IsTrue(selectedPassiveApplied, "蓝衣战士的“不屈”被动没有提供 1 次 Revival。");
         }

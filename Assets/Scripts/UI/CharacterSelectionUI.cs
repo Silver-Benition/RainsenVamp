@@ -653,8 +653,19 @@ public sealed class CharacterSelectionUI : MonoBehaviour
         }
     }
 
+    /// <summary>预览角色基础属性，使用角色规则对应的点数单位，不包含账号购买。</summary>
     private static string BuildStatsText(CharacterDataSO character)
     {
+        if (character.useBrotatoStats)
+        {
+            float damage = 0, speed = 0;
+            foreach (PlayerStatModifier entry in character.startingStats)
+            {
+                if (entry.StatType == PlayerStatType.DamagePercent) damage += entry.Value;
+                if (entry.StatType == PlayerStatType.SpeedPercent) speed += entry.Value;
+            }
+            return $"生命  {character.GetBaseValue(PlayerStatType.MaxHealth):0.#}\n伤害  {damage:+0.#;-0.#;0}%\n速度  {speed:+0.#;-0.#;0}%";
+        }
         float maxHealth = character.GetBaseValue(PlayerStatType.MaxHealth);
         float might = character.GetBaseValue(PlayerStatType.Might) * 100f;
         float moveSpeed = character.GetBaseValue(PlayerStatType.MoveSpeed);

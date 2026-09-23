@@ -132,7 +132,7 @@ namespace RainsenVampSur.Tests
             Assert.That(captain.Effect, Is.TypeOf<HealingMapInstantEffectSO>());
             Assert.That(
                 ((HealingMapInstantEffectSO)captain.Effect).HealAmount,
-                Is.EqualTo(45f).Within(FloatTolerance));
+                Is.EqualTo(3f).Within(FloatTolerance));
 
             Assert.That(crystal.GetStableId(), Is.EqualTo("map_pickup_crystal_ball"));
             Assert.That(crystal.nameKey, Is.EqualTo("pickup.map.crystal_ball.name"));
@@ -146,7 +146,7 @@ namespace RainsenVampSur.Tests
 
         /// <summary>舰长治疗必须返回真实恢复量，并在满血时拒绝伪报成功。</summary>
         [Test]
-        public void CaptainEffect_恢复45点并在满血时返回失败()
+        public void CaptainEffect_恢复3点并在满血时返回失败()
         {
             GameObject player = CreateTrackedGameObject("EditModeTest_CaptainPlayer");
             PlayerHealth health = player.AddComponent<PlayerHealth>();
@@ -160,8 +160,8 @@ namespace RainsenVampSur.Tests
             bool firstApplied = effect.TryApply(new MapInstantEffectContext(null, health));
 
             Assert.IsTrue(firstApplied);
-            Assert.That(health.CurrentHealth, Is.EqualTo(85f).Within(FloatTolerance));
-            Assert.That(health.RestoreHealth(45f), Is.EqualTo(15f).Within(FloatTolerance));
+            Assert.That(health.CurrentHealth, Is.EqualTo(43f).Within(FloatTolerance));
+            Assert.That(health.RestoreHealth(100f), Is.EqualTo(57f).Within(FloatTolerance));
             Assert.That(health.CurrentHealth, Is.EqualTo(100f).Within(FloatTolerance));
             Assert.IsFalse(effect.TryApply(new MapInstantEffectContext(null, health)));
         }

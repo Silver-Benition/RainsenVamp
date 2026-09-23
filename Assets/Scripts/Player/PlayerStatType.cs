@@ -24,5 +24,22 @@ public enum PlayerStatType
     Skip = 17,
     Banish = 18,
     Charm = 19,
-    Defang = 20
+    Defang = 20,
+    // 旧编号必须保持稳定；新体系使用点数，百分比 20 表示 20%。
+    HpRegeneration = 21,
+    LifeSteal = 22,
+    DamagePercent = 23,
+    MeleeDamage = 24,
+    RangedDamage = 25,
+    ElementalDamage = 26,
+    AttackSpeed = 27,
+    CritChance = 28,
+    Engineering = 29,
+    Range = 30,
+    Dodge = 31,
+    SpeedPercent = 32,
+    LuckPoints = 33,
+    Harvesting = 34,
+    ExperienceGain = 35,
+    PickupRange = 36
 }

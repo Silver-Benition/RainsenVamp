@@ -15,24 +15,24 @@ MonoBehaviour:
   stableId: account_might
   nameKey: account.upgrade.Might.name
   descriptionKey: account.upgrade.Might.description
-  fallbackName: "\u529B\u91CF"
-  fallbackDescription: "\u6BCF\u5F3A\u5316\u4E00\u7EA7\uFF0C\u9020\u6210\u7684\u6B66\u5668\u4F24\u5BB3\u63D0\u5347\u3002"
+  fallbackName: 伤害
+  fallbackDescription: 提高伤害；新局生效。百分比属性以百分点相加。
   icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
-  statType: 4
+  statType: 23
   maxLevel: 3
   levels:
   - cost: 100
     modifiers:
-    - statType: 4
-      mode: 1
-      value: 0.05
+    - statType: 23
+      mode: 0
+      value: 5
   - cost: 200
     modifiers:
-    - statType: 4
-      mode: 1
-      value: 0.1
+    - statType: 23
+      mode: 0
+      value: 10
   - cost: 300
     modifiers:
-    - statType: 4
-      mode: 1
-      value: 0.15
+    - statType: 23
+      mode: 0
+      value: 15

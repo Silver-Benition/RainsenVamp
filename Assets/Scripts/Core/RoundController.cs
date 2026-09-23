@@ -48,6 +48,12 @@ public sealed class RoundController : MonoBehaviour
     private readonly List<Vector3> _healingOrigins = new List<Vector3>();
     private readonly List<RunShopProduct> _crateCandidates = new List<RunShopProduct>();
     private int _choiceSequence;
+    /// <summary>本波真正生成的普通宝箱数，用于幸运掉率递减；拾取不再重复计数。</summary>
+    public int DroppedCrates { get; private set; }
+    /// <summary>敌人实际生成宝箱后登记一次；只在战斗阶段接受。</summary>
+    public void RegisterCrateDrop() { if (Phase == RoundPhase.Combat) DroppedCrates++; }
+    private int _harvestedRound;
+    private float _harvestGrowth;
     private int _upgradeRerolls;
     private bool _busy;
     private int _lastChoiceFrame = -1;
@@ -172,7 +178,32 @@ public sealed class RoundController : MonoBehaviour
         }
         if (_settlingElapsed < Mathf.Max(.45f, config.settlementSeconds)) return;
         _healingPickups.Clear(); _healingOrigins.Clear();
-        ContinueGrowth();
+        SettleHarvesting();
+        if (Phase == RoundPhase.Settling) ContinueGrowth();
+    }
+
+    /// <summary>每个成功回合只结算一次收获；先标记防止事件重入，经验可增加待选队列。</summary>
+    private void SettleHarvesting()
+    {
+        if (_player == null || !_player.UsesBrotatoStats || _harvestedRound >= RoundNumber || _health.IsDead || Phase != RoundPhase.Settling) return;
+        int harvest = (int)Math.Max(int.MinValue + 1d, Math.Min(int.MaxValue,
+            Math.Round((double)_player.GetFinalStat(PlayerStatType.Harvesting), MidpointRounding.AwayFromZero)));
+        int cost = harvest < 0 ? Math.Min(Wallet.Balance, -harvest) : 0;
+        // 复用钱包通知延迟：观察者只看到材料、经验与增长全部完成后的状态。
+        // 不创建账号记录；提前标记当波，防止通知回调重复领奖。
+        Wallet.Transact(cost, Math.Max(0, harvest), () =>
+        {
+            _harvestedRound = RoundNumber;
+            if (harvest > 0)
+            {
+                _player.AddExp(harvest);
+                _harvestGrowth += Mathf.Ceil(harvest * .05f);
+                _player.SetModifiers("round.harvest.growth", new[] {
+                    new PlayerStatModifier(PlayerStatType.Harvesting, PlayerStatModifierMode.Flat, _harvestGrowth) });
+            }
+            else if (harvest < 0) _player.LoseExperience(-(float)harvest);
+            return true;
+        });
     }
 
     /// <summary>升级队列消耗完毕才开放商店；空属性池自动消费剩余次数，避免死锁。</summary>
@@ -199,6 +230,7 @@ public sealed class RoundController : MonoBehaviour
             foreach (RunShopProduct product in config.shopCatalog.products)
             {
                 if (product.IsWeapon || RunState.Instance.IsBanished(product.Id)) continue;
+                if (_player.UsesBrotatoStats && !product.content.abilityToGrant.IsAvailableInBrotato()) continue;
                 OwnedAbilityState owned = _items.GetOwnedAbility(product.content.abilityToGrant);
                 if (owned == null || owned.CurrentLevel < owned.Data.MaxLevel) _crateCandidates.Add(product);
             }
@@ -254,15 +286,19 @@ public sealed class RoundController : MonoBehaviour
     {
         _choices.Clear(); _choiceTiers.Clear();
         _candidates.Clear();
-        _candidates.AddRange(config.shopCatalog.stats);
+        foreach (RoundStatUpgrade entry in config.shopCatalog.stats)
+            if (!_player.UsesBrotatoStats || BrotatoStatRules.IsAvailable(entry.modifier.StatType)) _candidates.Add(entry);
         bool milestone = UpgradeLevel % 10 == 0;
+        int guaranteed = _player.UsesBrotatoStats ? BrotatoStatRules.GuaranteedUpgradeTier(UpgradeLevel) : 0;
         int sharedTier = milestone ? RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck, 3) : 1;
         while (_choices.Count < 4 && _candidates.Count > 0)
         {
             int index = UnityEngine.Random.Range(0, _candidates.Count);
             _choices.Add(_candidates[index]); _candidates.RemoveAt(index);
             // 品质随选项一同保存，显示、重投与领取都读取同一份结果。
-            _choiceTiers.Add(milestone ? sharedTier : RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck));
+            _choiceTiers.Add(_player.UsesBrotatoStats ? (guaranteed > 0 ? guaranteed :
+                BrotatoStatRules.RollTier(UpgradeLevel, _player.GetFinalStat(PlayerStatType.LuckPoints), UnityEngine.Random.value))
+                : milestone ? sharedTier : RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck));
         }
     }
 
@@ -277,7 +313,7 @@ public sealed class RoundController : MonoBehaviour
             RoundStatUpgrade choice = _choices[index];
             PlayerStatModifier mod = choice.modifier;
             _player.SetModifiers("round.level." + (++_choiceSequence),
-                new[] { new PlayerStatModifier(mod.StatType, mod.Mode, mod.Value * _choiceTiers[index]) });
+                new[] { _choices[index].AtTier(_choiceTiers[index]) });
             _player.ConsumePendingLevelUp();
             ContinueGrowth();
             return true;
@@ -321,6 +357,7 @@ public sealed class RoundController : MonoBehaviour
             || Shop.IsBusy || RoundNumber >= config.rounds.Count) return false;
         Phase = RoundPhase.Preparing;
         RoundNumber++;
+        DroppedCrates = 0;
         Current = new RoundRuntime(config.rounds[RoundNumber - 1], RoundNumber);
         _health.PrepareRound();
         // 后续波已经在进入商店时准备位置；首次进入整局尚未经过商店，单独初始化一次。

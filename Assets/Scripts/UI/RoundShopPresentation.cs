@@ -28,34 +28,92 @@ public static class RoundShopPresentation
         }
     }
 
-    /// <summary>商品和已持有武器共用基础品质快照，明确标注基础值，避免冒充玩家加成后的伤害。</summary>
-    public static string WeaponDetails(WeaponDataSO data, int tier)
+    /// <summary>商店与暂停页共享详情；每个有效属性独占一行，图标只在已绑定图集的 TMP 文本中启用。</summary>
+    public static string WeaponDetails(WeaponDataSO data, int tier, PlayerStats player = null, bool richText = false)
     {
         if (data == null) return "";
         WeaponLevelData level = data.GetRoundTierConfig(tier);
         if (level == null) return data.GetDisplayDescription();
-        var text = new StringBuilder();
-        text.Append(Text("round.baseStats", "基础属性")).Append("\n");
-        text.Append(Text("round.damage", "伤害")).Append("  ").Append(level.damage.ToString("0.##")).Append("\n");
+        bool modern = player != null && player.UsesBrotatoStats;
         bool aura = data.runtimeType == WeaponRuntimeType.Aura;
-        text.Append(Text(aura ? "round.tick" : "round.cooldown", aura ? "伤害间隔" : "冷却"))
-            .Append("  ").Append((aura ? level.tickInterval : level.cooldown).ToString("0.##")).Append("s\n");
-        if (aura || data.runtimeType == WeaponRuntimeType.Orbiting || data.runtimeType == WeaponRuntimeType.Melee)
+        bool orbit = data.runtimeType == WeaponRuntimeType.Orbiting;
+        bool melee = data.runtimeType == WeaponRuntimeType.Melee;
+        bool projectile = data.runtimeType == WeaponRuntimeType.Projectile || data.runtimeType == WeaponRuntimeType.Lobbed;
+        var text = new StringBuilder();
+        float damage = modern ? BrotatoStatRules.Damage(level, player) : level.damage;
+        text.Append(Text("round.damage", "伤害")).Append("：").Append(damage.ToString("0.##"));
+        if (modern)
         {
-            float range = aura ? level.auraRadius : data.runtimeType == WeaponRuntimeType.Orbiting ? level.orbitRadius : level.meleeRange;
-            text.Append(Text("round.range", "范围")).Append("  ").Append(range.ToString("0.##")).Append("\n");
+            text.Append("（").Append(level.damage.ToString("0.##"));
+            AppendScaling(text, level.meleeScaling, PlayerStatType.MeleeDamage, richText);
+            AppendScaling(text, level.rangedScaling, PlayerStatType.RangedDamage, richText);
+            AppendScaling(text, level.elementalScaling, PlayerStatType.ElementalDamage, richText);
+            text.Append("）");
+            // 基础暴击为零仍可从角色获得概率；乘数是武器的能力，零概率也值得展示。
+            if (level.critMultiplier > 1)
+                Row(text, "critical", "暴击", "x" + level.critMultiplier.ToString("0.##") + "（" +
+                    (BrotatoStatRules.Probability(level.critChance, player.GetFinalStat(PlayerStatType.CritChance)) * 100).ToString("0.#") + "%" + Text("round.chance", "概率") + "）");
+            float steal = BrotatoStatRules.Probability(level.lifeSteal, player.GetFinalStat(PlayerStatType.LifeSteal)) * 100;
+            // 武器自带吸血被负属性完全抵消时保留零值，明确反馈这把武器的效果已失效。
+            if (steal > 0 || level.lifeSteal != 0) Row(text, "lifeSteal", "生命窃取", steal.ToString("0.#") + "%");
         }
-        if (!aura) text.Append(Text("round.amount", "数量")).Append("  ").Append(level.projectileCount).Append("\n");
-        if (data.runtimeType == WeaponRuntimeType.Projectile || data.runtimeType == WeaponRuntimeType.Lobbed)
-            text.Append(Text("round.pierce", "穿透")).Append("  ").Append(level.pierceCount).Append("\n");
-        string description = data.GetDisplayDescription();
-        if (!string.IsNullOrWhiteSpace(description)) text.Append("\n").Append(description);
-        return text.ToString().TrimEnd();
+        float baseRange = melee ? level.meleeRange : aura ? level.auraRadius : orbit ? level.orbitRadius : level.attackRange;
+        float range = modern ? BrotatoStatRules.WeaponRange(baseRange, level.rangeBonus, player.GetFinalStat(PlayerStatType.Range), melee) : baseRange;
+        float speed = modern ? BrotatoStatRules.AttackIntervalMultiplier(level.attackSpeed + player.GetFinalStat(PlayerStatType.AttackSpeed)) : 1;
+        float interval = (aura ? level.tickInterval : level.cooldown) * speed;
+        if (modern && melee) interval *= range / Mathf.Max(.25f, baseRange);
+        if (orbit) Row(text, "rotation", "转速", (level.orbitAngularSpeed / speed).ToString("0.#") + "度/秒");
+        else Row(text, aura ? "tick" : "cooldown", aura ? "伤害间隔" : "冷却", Mathf.Max(aura ? .01f : .05f, interval).ToString("0.##") + Text("round.seconds", "秒"));
+        if (range > 0)
+        {
+            string type = Text(melee ? "round.melee" : aura ? "round.aura" : orbit ? "round.orbit" : "round.ranged",
+                melee ? "近战" : aura ? "光环" : orbit ? "环绕" : "远程");
+            // 新体系用范围点展示，100 点对应 1 世界单位；不改武器实际射程。
+            Row(text, "range", "范围", (modern ? range / BrotatoStatRules.RangeUnits : range).ToString("0.#") + "（" + type + "）");
+        }
+        if (!aura && level.projectileCount > 1) Row(text, "amount", "数量", level.projectileCount.ToString());
+        if (projectile && level.pierceCount > 0) Row(text, "pierce", "穿透", level.pierceCount.ToString());
+        if (data.runtimeType == WeaponRuntimeType.Projectile && level.bounceCount > 0) Row(text, "bounce", "弹射", level.bounceCount.ToString());
+        return text.ToString();
     }
 
-    /// <summary>道具详情使用当前等级说明；商店使用购买后目标等级的明确说明。</summary>
+    /// <summary>只列出非零缩放系数；角色属性为零不会抹去武器成长信息。</summary>
+    private static void AppendScaling(StringBuilder text, float coefficient, PlayerStatType stat, bool richText)
+    {
+        if (coefficient == 0) return;
+        text.Append(coefficient > 0 ? " + " : " - ").Append((Mathf.Abs(coefficient) * 100).ToString("0.#"))
+            .Append("%").Append(StatIconPresentation.Token(stat, richText));
+    }
+
+    /// <summary>追加独立属性行，名称通过统一翻译入口解析。</summary>
+    private static void Row(StringBuilder text, string key, string fallback, string value)
+    { text.Append("\n").Append(Text("round." + key, fallback)).Append("：").Append(value); }
+
+    /// <summary>道具按当前等级配置列出属性，保留负面收益；机制型道具另附其说明。</summary>
     public static string ItemDetails(AbilityDataSO data, int level)
     {
-        return data == null ? "" : data.GetLevelDescription(level);
+        if (data == null) return "";
+        var text = new StringBuilder();
+        var config = data.GetLevelConfig(level);
+        if (config != null && config.statModifiers != null)
+            foreach (PlayerStatModifier modifier in config.statModifiers)
+            {
+                float value = modifier.Value;
+                if (modifier.Mode == PlayerStatModifierMode.Multiplicative) value -= 1;
+                if (value == 0) continue;
+                bool percent = modifier.Mode != PlayerStatModifierMode.Flat;
+                if (text.Length > 0) text.Append("\n");
+                text.Append(PlayerStatPresentation.GetDisplayName(modifier.StatType)).Append("：")
+                    .Append((percent ? value * 100 : value).ToString("+0.##;-0.##;0"))
+                    .Append(percent || PlayerStatPresentation.IsPointPercent(modifier.StatType) ? "%" : "");
+                if (modifier.Mode == PlayerStatModifierMode.Multiplicative) text.Append(Text("round.multiplier", "（乘算）"));
+            }
+        if (data.mechanic != null || text.Length == 0)
+        {
+            string description = data.GetLevelDescription(level);
+            if (!string.IsNullOrWhiteSpace(description))
+            { if (text.Length > 0) text.Append("\n"); text.Append(description); }
+        }
+        return text.ToString();
     }
 }

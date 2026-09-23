@@ -42,7 +42,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 Activator.CreateInstance(RuntimeComponentTestUtility.RequireRuntimeType("InMemoryAccountProgressStorage")));
         }
 
-        /// <summary>基础22卡含槽位、三列滚动、买退与免费排除均走新两阶段事件链。</summary>
+        /// <summary>核心15卡与次要资源7卡、三列滚动、买退与免费排除均走新两阶段事件链。</summary>
         [UnityTest]
         public IEnumerator RealMenu_TabsScrollPurchaseRefundAndReturnFocus()
         {
@@ -50,15 +50,18 @@ namespace RainsenVampSur.Tests.PlayMode
             Submit(GameObject.Find("ShopButton"));
             Component shop = Find("AccountShopUI");
             ScrollRect scroll = Field<ScrollRect>(shop, "scroll");
-            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(22));
+            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(15));
             Assert.That(scroll.content.GetComponent<GridLayoutGroup>().constraintCount, Is.EqualTo(3));
             Assert.IsNotNull(scroll.verticalScrollbar);
             Assert.IsFalse(Field<Button>(shop, "buyButton").gameObject.activeSelf);
             MoveFocus(EventSystem.current, MoveDirection.Right);
-            for (int i = 0; i < 7; i++) MoveFocus(EventSystem.current, MoveDirection.Down);
-            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_21"));
-            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_seal_slots"));
-            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(0.05f));
+            for (int i = 0; i < 4; i++) MoveFocus(EventSystem.current, MoveDirection.Down);
+            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_12"));
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_range"));
+            AssertFocusedCardInside(scroll);
+            Submit(GameObject.Find("ShopAdvancedTab"));
+            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(7));
+            EventSystem.current.SetSelectedGameObject(scroll.content.GetChild(6).gameObject);
             Submit(); yield return null;
             Assert.That(State(shop), Is.EqualTo("Locked"));
             Assert.That(Get<int>(_account, "SealCapacity"), Is.EqualTo(1));
@@ -69,11 +72,11 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(State(shop), Is.EqualTo("Locked"));
             Cancel(); yield return null;
             Submit(GameObject.Find("ShopAdvancedTab"));
-            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(4));
+            Assert.That(Get<int>(shop, "ActiveEntryCount"), Is.EqualTo(7));
             Assert.IsFalse(Field<Button>(shop, "buyButton").gameObject.activeSelf);
             Submit(scroll.content.GetChild(0).gameObject); yield return null;
-            Assert.IsFalse(Field<Button>(shop, "buyButton").interactable);
-            Assert.That(Text(shop, "statusText"), Does.Contain("尚未开放"));
+            Assert.IsTrue(Field<Button>(shop, "buyButton").interactable);
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_growth"));
             Cancel(); yield return null;
             object content = Field<object>(shop, "contentCatalog");
             IList upgrades = (IList)Get<object>(content, "Upgrades");
@@ -127,12 +130,12 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(9900));
             Assert.That(State(shop), Is.EqualTo("Locked"));
             MoveFocus(EventSystem.current, MoveDirection.Up);
-            for (int i = 0; i < 7; i++) MoveFocus(EventSystem.current, MoveDirection.Down);
-            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_21"));
+            for (int i = 0; i < 4; i++) MoveFocus(EventSystem.current, MoveDirection.Down);
+            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_13"));
             Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_recovery"));
-            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(0.05f));
+            AssertFocusedCardInside(scroll);
             Submit(); yield return null;
-            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_seal_slots"));
+            Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_dodge"));
             Cancel(); Cancel(); // 同帧去重：第二个 Cancel 不能关闭页面。
             Assert.That(State(shop), Is.EqualTo("Browsing"));
             Assert.IsTrue(Get<bool>(shop, "IsVisible"));
@@ -241,7 +244,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Component health = stats.GetComponent(RuntimeComponentTestUtility.RequireRuntimeType("PlayerHealth"));
             object state = Find("RunState");
             float max = Get<float>(stats, "MaxHealth");
-            Assert.That(max, Is.EqualTo(110));
+            Assert.That(max, Is.EqualTo(13));
             Assert.That(Get<float>(health, "CurrentHealth"), Is.EqualTo(max));
             string[] names = { "Revivals", "Rerolls", "Skips", "Banishes" };
             int[] before = new int[4];
@@ -267,7 +270,7 @@ namespace RainsenVampSur.Tests.PlayMode
             while (SceneManager.GetActiveScene().name != "MainLevel" && Time.realtimeSinceStartup < deadline) yield return null;
             yield return null;
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainLevel"));
-            Assert.That(Get<float>(Find("PlayerStats"), "MaxHealth"), Is.EqualTo(150));
+            Assert.That(Get<float>(Find("PlayerStats"), "MaxHealth"), Is.EqualTo(17));
 
         }
 
@@ -328,7 +331,8 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.IsTrue((bool)Call(_account, "TrySetUpgradeSealed", id, true));
             }
             Submit(GameObject.Find("ShopButton"));
-            Submit(Field<ScrollRect>(shop, "scroll").content.GetChild(21).gameObject); yield return null;
+            Submit(GameObject.Find("ShopAdvancedTab"));
+            Submit(Field<ScrollRect>(shop, "scroll").content.GetChild(6).gameObject); yield return null;
             Assert.IsFalse(Field<Button>(shop, "refundButton").interactable);
             Assert.That(Text(shop, "statusText"), Does.Contain("先解除排除"));
             int gold = Get<int>(_account, "Gold");
@@ -398,13 +402,14 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsFalse(toggle.isOn);
             Cancel(); yield return null;
             Assert.IsFalse(toggle.gameObject.activeSelf);
-            foreach (int index in new[] { 16, 17, 18, 21 })
+            Submit(GameObject.Find("ShopAdvancedTab"));
+            foreach (int index in new[] { 3, 4, 5, 6 })
             {
                 Submit(scroll.content.GetChild(index).gameObject); yield return null;
                 Assert.IsFalse(toggle.gameObject.activeSelf);
-                if (index == 21) Assert.That(Text(shop, "detailName"), Is.EqualTo("封印"));
+                if (index == 6) Assert.That(Text(shop, "detailName"), Is.EqualTo("封印"));
             }
-            Submit(scroll.content.GetChild(15).gameObject); yield return null;
+            Submit(scroll.content.GetChild(2).gameObject); yield return null;
             Assert.IsTrue(toggle.gameObject.activeSelf, "复活应可停用");
             Submit(toggle.gameObject); yield return null;
             Assert.IsFalse(toggle.isOn);
@@ -497,7 +502,7 @@ namespace RainsenVampSur.Tests.PlayMode
                         AssertFocusedCardInside(scroll);
                         for (int direction = 0; direction < 2; direction++)
                         {
-                            for (int step = 0; step < 7; step++)
+                            for (int step = 0; step < 4; step++)
                             {
                                 MoveFocus(EventSystem.current, direction == 0 ? MoveDirection.Down : MoveDirection.Up);
                                 yield return null;
@@ -508,13 +513,13 @@ namespace RainsenVampSur.Tests.PlayMode
                                     Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo(lockedId));
                                 }
                             }
-                            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo(direction == 0 ? "ShopCard_21" : "ShopCard_0"));
+                            Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo(direction == 0 ? "ShopCard_12" : "ShopCard_0"));
                         }
                     }
                     Assert.That(Get<int>(_account, "Gold"), Is.EqualTo(10000));
                     // 补图停在从底部返回的第9张卡，直接呈现原来被裁切半张卡的位置。
-                    for (int step = 0; step < 7; step++) MoveFocus(EventSystem.current, MoveDirection.Down);
-                    for (int step = 0; step < 4; step++) MoveFocus(EventSystem.current, MoveDirection.Up);
+                    for (int step = 0; step < 4; step++) MoveFocus(EventSystem.current, MoveDirection.Down);
+                    for (int step = 0; step < 1; step++) MoveFocus(EventSystem.current, MoveDirection.Up);
                     AssertFocusedCardInside(scroll);
                     Assert.That(EventSystem.current.currentSelectedGameObject.name, Is.EqualTo("ShopCard_9"));
                     Assert.That(Get<string>(shop, "SelectedId"), Is.EqualTo("account_maxhealth"));
@@ -543,7 +548,8 @@ namespace RainsenVampSur.Tests.PlayMode
                     Submit(GameObject.Find("ShopExclusionTab"));
                     Submit(scroll.content.GetChild(0).gameObject);
                 }
-                if (page == "slots") Submit(scroll.content.GetChild(21).gameObject);
+                if (page == "slots")
+                { Submit(GameObject.Find("ShopAdvancedTab")); Submit(scroll.content.GetChild(6).gameObject); }
                 Canvas.ForceUpdateCanvases();
                 for (int i = 0; i < 4; i++) yield return null;
                 try

@@ -121,6 +121,14 @@ public class DamagePopup : MonoBehaviour, IPoolable
         isActive = true; // 初始化完成，开始动画
     }
 
+    /// <summary>初始化玩家受击飘字；完整重置颜色、缩放和计时，数值保留实际小数扣血。</summary>
+    public void InitializePlayerDamage(float appliedDamage)
+    {
+        Color red = new Color(1f, .18f, .16f, 1f);
+        Initialize(appliedDamage, false, red, red);
+        textMesh.text = "-" + appliedDamage.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     // =====================================================================
     // 每帧更新动画
     // =====================================================================
