@@ -89,6 +89,15 @@ public static class RoundShopPresentation
     private static void Row(StringBuilder text, string key, string fallback, string value)
     { text.Append("\n").Append(Text("round." + key, fallback)).Append("：").Append(value); }
 
+    /// <summary>购买或宝箱展示单件收益与持有上限，避免把累计收益误读为本次增量。</summary>
+    public static string ItemOfferDetails(AbilityDataSO data, int owned)
+    {
+        if (data == null) return "";
+        string detail = ItemDetails(data, data.stackPerCopy ? 1 : (owned < data.MaxLevel ? owned + 1 : owned));
+        return data.stackPerCopy ? Text("item.perCopy", "每件：") + "\n" + detail + "\n"
+            + string.Format(Text("item.ownedLimit", "持有 {0}/{1}"), owned, data.CopyLimitText) : detail;
+    }
+
     /// <summary>道具按当前等级配置列出属性，保留负面收益；机制型道具另附其说明。</summary>
     public static string ItemDetails(AbilityDataSO data, int level)
     {

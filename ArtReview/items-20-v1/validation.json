@@ -1,0 +1,433 @@
+{
+  "checkedAt": "2026-09-23T13:49:39.4130075+08:00",
+  "expected": 20,
+  "delivered": 20,
+  "allPresent": true,
+  "allCopiesVerified": true,
+  "allTransparent": true,
+  "unityImported": false,
+  "unityRuntimeTested": false,
+  "native48PixelGridVerified": false,
+  "images": [
+    {
+      "number": "01",
+      "name": "苔芽绷带",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/01_moss_bandage.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1031422,
+      "partialAlphaPixels": 539497,
+      "opaquePixels": 1597,
+      "nontransparentBorderPixels": 11,
+      "contentBounds": [
+        140,
+        186,
+        1109,
+        1087
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "64949F5D5093E52B6DD0A45FF3CC69FE232FD1DE460B4ED8C11F599114D0E963",
+      "copySha256": "64949F5D5093E52B6DD0A45FF3CC69FE232FD1DE460B4ED8C11F599114D0E963",
+      "copyVerified": true
+    },
+    {
+      "number": "02",
+      "name": "铁壳便当",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/02_iron_bento.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 940780,
+      "partialAlphaPixels": 629978,
+      "opaquePixels": 1758,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        189,
+        222,
+        1100,
+        1095
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "A505D31F3CB3C38722F9CCF94DDBD71E7E9636ECB7D37069AC747C42F01918C8",
+      "copySha256": "A505D31F3CB3C38722F9CCF94DDBD71E7E9636ECB7D37069AC747C42F01918C8",
+      "copyVerified": true
+    },
+    {
+      "number": "03",
+      "name": "血晶小瓶",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/03_bloodglass_vial.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1045561,
+      "partialAlphaPixels": 525075,
+      "opaquePixels": 1880,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        256,
+        128,
+        996,
+        1124
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "342A4148CA4905D58ABBA1107A12461917A58E29147A97F15889DB9622B57D86",
+      "copySha256": "342A4148CA4905D58ABBA1107A12461917A58E29147A97F15889DB9622B57D86",
+      "copyVerified": true
+    },
+    {
+      "number": "04",
+      "name": "龟甲胸针",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/04_turtle_brooch.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 953210,
+      "partialAlphaPixels": 617938,
+      "opaquePixels": 1368,
+      "nontransparentBorderPixels": 6,
+      "contentBounds": [
+        156,
+        99,
+        1154,
+        1149
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "BF5F5C7BC90C66605B25ED2A5D5221BC12470588273A67374E33E27E76CD7D83",
+      "copySha256": "BF5F5C7BC90C66605B25ED2A5D5221BC12470588273A67374E33E27E76CD7D83",
+      "copyVerified": true
+    },
+    {
+      "number": "05",
+      "name": "纸鹤护符",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/05_paper_crane.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1144424,
+      "partialAlphaPixels": 425799,
+      "opaquePixels": 2293,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        117,
+        154,
+        1158,
+        1119
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "B367697D1A7C0D26871D59A17A74C67F31A077CE0961397ECB38439618A29E5C",
+      "copySha256": "B367697D1A7C0D26871D59A17A74C67F31A077CE0961397ECB38439618A29E5C",
+      "copyVerified": true
+    },
+    {
+      "number": "06",
+      "name": "荆棘护腕",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/06_thorn_wristguard.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 898949,
+      "partialAlphaPixels": 671561,
+      "opaquePixels": 2006,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        105,
+        109,
+        1152,
+        1145
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "5574B301438E897F720FCCED21354A1B5B48EEAC17E28BB5311B90A0015BCA66",
+      "copySha256": "5574B301438E897F720FCCED21354A1B5B48EEAC17E28BB5311B90A0015BCA66",
+      "copyVerified": true
+    },
+    {
+      "number": "07",
+      "name": "黄铜瞄镜",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/07_brass_scope.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1073982,
+      "partialAlphaPixels": 496607,
+      "opaquePixels": 1927,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        49,
+        256,
+        1205,
+        1033
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "EAE5B74C95C9E120BEC29594702746214BC0A14ADE8780C8741903A7EA985B38",
+      "copySha256": "EAE5B74C95C9E120BEC29594702746214BC0A14ADE8780C8741903A7EA985B38",
+      "copyVerified": true
+    },
+    {
+      "number": "08",
+      "name": "雷鸣电容",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/08_storm_capacitor.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 938642,
+      "partialAlphaPixels": 631775,
+      "opaquePixels": 2099,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        233,
+        166,
+        1020,
+        1148
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "830902F615F572672738A33AFB63A36A02FC2B1358BE07E93F5EDB24938122D6",
+      "copySha256": "830902F615F572672738A33AFB63A36A02FC2B1358BE07E93F5EDB24938122D6",
+      "copyVerified": true
+    },
+    {
+      "number": "09",
+      "name": "赤铜齿轮",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/09_red_gear.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1043626,
+      "partialAlphaPixels": 526322,
+      "opaquePixels": 2568,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        174,
+        180,
+        1096,
+        1055
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "8D12C1C21D56E77E2AF799A9EFB5DDD65954093A1B1D127AE8C3D6A079DC20A1",
+      "copySha256": "8D12C1C21D56E77E2AF799A9EFB5DDD65954093A1B1D127AE8C3D6A079DC20A1",
+      "copyVerified": true
+    },
+    {
+      "number": "10",
+      "name": "裂纹单镜",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/10_cracked_lens.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1009868,
+      "partialAlphaPixels": 560632,
+      "opaquePixels": 2016,
+      "nontransparentBorderPixels": 1,
+      "contentBounds": [
+        177,
+        156,
+        1098,
+        1105
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "83719E933C057D8ACE0483CC1C29D39E61FD2D4E8B03324B56F78EDBD8E7F643",
+      "copySha256": "83719E933C057D8ACE0483CC1C29D39E61FD2D4E8B03324B56F78EDBD8E7F643",
+      "copyVerified": true
+    },
+    {
+      "number": "11",
+      "name": "猎风哨",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/11_hunter_whistle.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1107389,
+      "partialAlphaPixels": 463520,
+      "opaquePixels": 1607,
+      "nontransparentBorderPixels": 9,
+      "contentBounds": [
+        105,
+        223,
+        1150,
+        1125
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "9D55642572281135A08E80301C46702E3CDEAA90887FC5D1ED8E194B23C3BA84",
+      "copySha256": "9D55642572281135A08E80301C46702E3CDEAA90887FC5D1ED8E194B23C3BA84",
+      "copyVerified": true
+    },
+    {
+      "number": "12",
+      "name": "狂战獠牙",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/12_berserker_fang.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1233863,
+      "partialAlphaPixels": 335867,
+      "opaquePixels": 2786,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        207,
+        65,
+        1087,
+        1194
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "1E007416588C71F9B46F7729495CF675DF5B8A79ED06234576F6BE4E00E6D5E6",
+      "copySha256": "1E007416588C71F9B46F7729495CF675DF5B8A79ED06234576F6BE4E00E6D5E6",
+      "copyVerified": true
+    },
+    {
+      "number": "13",
+      "name": "轻羽跑鞋",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/13_wind_shoes.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 908941,
+      "partialAlphaPixels": 661768,
+      "opaquePixels": 1807,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        39,
+        240,
+        1242,
+        1095
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "BF6CA639241A63862FE5A11A43F0FEE2C40D01CE4DE510020F5FC569A57745E7",
+      "copySha256": "BF6CA639241A63862FE5A11A43F0FEE2C40D01CE4DE510020F5FC569A57745E7",
+      "copyVerified": true
+    },
+    {
+      "number": "14",
+      "name": "铅底短靴",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/14_lead_boots.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 889276,
+      "partialAlphaPixels": 681035,
+      "opaquePixels": 2205,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        116,
+        157,
+        1146,
+        1146
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "1CC441A4127423B8945EF9813A501F512A74190B8864479C90DFEBD971A010F5",
+      "copySha256": "1CC441A4127423B8945EF9813A501F512A74190B8864479C90DFEBD971A010F5",
+      "copyVerified": true
+    },
+    {
+      "number": "15",
+      "name": "四叶铜钱",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/15_clover_coin.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1010456,
+      "partialAlphaPixels": 560356,
+      "opaquePixels": 1704,
+      "nontransparentBorderPixels": 9,
+      "contentBounds": [
+        151,
+        168,
+        1058,
+        1101
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "8A9644E23BA4868BCD8833BC5042101D15E912A11C052DB76C6285037B4575B5",
+      "copySha256": "8A9644E23BA4868BCD8833BC5042101D15E912A11C052DB76C6285037B4575B5",
+      "copyVerified": true
+    },
+    {
+      "number": "16",
+      "name": "丰穗种袋",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/16_seed_pouch.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 871718,
+      "partialAlphaPixels": 699068,
+      "opaquePixels": 1730,
+      "nontransparentBorderPixels": 49,
+      "contentBounds": [
+        182,
+        67,
+        1167,
+        1190
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "381B1C50E13EEFCA927E9B2104A3DC7C4F21B4CE97043DDD45647D35C5FD2052",
+      "copySha256": "381B1C50E13EEFCA927E9B2104A3DC7C4F21B4CE97043DDD45647D35C5FD2052",
+      "copyVerified": true
+    },
+    {
+      "number": "17",
+      "name": "学徒书签",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/17_scholar_bookmark.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1141284,
+      "partialAlphaPixels": 428570,
+      "opaquePixels": 2662,
+      "nontransparentBorderPixels": 27,
+      "contentBounds": [
+        117,
+        112,
+        1196,
+        1201
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "CD99FB06C2AAEDE8CE38C59832AB453872CA786EAAF1C4EEC1964F0E4E5A5314",
+      "copySha256": "CD99FB06C2AAEDE8CE38C59832AB453872CA786EAAF1C4EEC1964F0E4E5A5314",
+      "copyVerified": true
+    },
+    {
+      "number": "18",
+      "name": "引财铜铃",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/18_copper_bell.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 934507,
+      "partialAlphaPixels": 635595,
+      "opaquePixels": 2414,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        133,
+        108,
+        1154,
+        1103
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "9B26EB06D52CF4E155D9E1945A2BB19EE75553E5A2ED2E1E80195226F5FEBF87",
+      "copySha256": "9B26EB06D52CF4E155D9E1945A2BB19EE75553E5A2ED2E1E80195226F5FEBF87",
+      "copyVerified": true
+    },
+    {
+      "number": "19",
+      "name": "应急糖块",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/19_emergency_candy.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1049894,
+      "partialAlphaPixels": 520127,
+      "opaquePixels": 2495,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        110,
+        207,
+        1160,
+        1072
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "8E97F8E3E57EF18F1213FDCBB8414FFE1371D50716E2949D7B77EEFFD97008BC",
+      "copySha256": "8E97F8E3E57EF18F1213FDCBB8414FFE1371D50716E2949D7B77EEFFD97008BC",
+      "copyVerified": true
+    },
+    {
+      "number": "20",
+      "name": "余烬沙漏",
+      "file": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/20_hourglass_pendant.png",
+      "width": 1254,
+      "height": 1254,
+      "transparentPixels": 1194531,
+      "partialAlphaPixels": 374888,
+      "opaquePixels": 3097,
+      "nontransparentBorderPixels": 0,
+      "contentBounds": [
+        399,
+        128,
+        1054,
+        1104
+      ],
+      "hasRealTransparency": true,
+      "sourceSha256": "BB81C2BA4A9A762ADE4340D078F3A0D7B4F6E75E6751FB644C29D9DA7BF21181",
+      "copySha256": "BB81C2BA4A9A762ADE4340D078F3A0D7B4F6E75E6751FB644C29D9DA7BF21181",
+      "copyVerified": true
+    }
+  ]
+}

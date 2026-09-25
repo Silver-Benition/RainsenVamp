@@ -1,0 +1,92 @@
+[
+  {
+    "file": "01_copper_rapier.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "e43050b9b1d1279bb467dda508647fd4be324d8922cea20da7243a8a301f2786"
+  },
+  {
+    "file": "02_saw_cleaver.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "2b6f1af05489597643900c33d7cdd229c58fdd3a7406b603cf62ee85cee4efd9"
+  },
+  {
+    "file": "03_tide_spear.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "8643d870540e6c441e689896d50fa38db96762474e52de34abbeb7432ad063b3"
+  },
+  {
+    "file": "04_briar_bolt.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "f4067ae633e5afa1a779e1d5ac52ea8d519911d671836448f2e8933121c6c271"
+  },
+  {
+    "file": "05_rivet_spike.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "2ddc52b3c39b17e2c0fc0dbb54756b1cc7e181102b071b06775d77dd0d61288f"
+  },
+  {
+    "file": "06_prism_shard.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "4e0753b3e65a6452a53d95c1cbc1d1192567e57d5bb508c96e8f3a2e37b76eb0"
+  },
+  {
+    "file": "07_medical_lancet.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "dc46dc6fd0e1f5170874e96e983ebf539898a9a5605872da384c55b2aca403da"
+  },
+  {
+    "file": "08_ember_censer.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "96d43707efd4e98cb0bef30fb5eff547279f5e97793cc262024f8b940a45d2f1"
+  },
+  {
+    "file": "09_moon_disc.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "8274e4388e4f8088452266da324afe36e245f52c1bfb783f6250c95ddd45a90f"
+  },
+  {
+    "file": "10_meteor_hammer.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": true,
+    "sha256": "33659cd71863207f4a306b070e342cf2ab34d9e9808ba87f926f59f47d912215"
+  }
+]

@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: thorn_wristguard
+  m_EditorClassIdentifier:
+  abilityID: thorn_wristguard
+  abilityNameKey: item.thorn_wristguard.name
+  descriptionKey: item.thorn_wristguard.description
+  abilityDisplayName: "\u8346\u68D8\u62A4\u8155"
+  displayDescription: "\u8FD1\u6218\u4F24\u5BB3 +2\uFF0C\u6700\u5927\u751F\u547D\u503C
+    -2\u3002"
+  icon: {fileID: 21300000, guid: 825b5320c423a6e459ccd7dc6e9b7bb4, type: 3}
+  presentationCategory: 0
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  quality: 1
+  stackPerCopy: 1
+  maxCopies: 0
+  levelConfigs:
+  - upgradeDescription: "\u8FD1\u6218\u4F24\u5BB3 +2\uFF0C\u6700\u5927\u751F\u547D\u503C
+      -2\u3002"
+    statModifiers:
+    - statType: 24
+      mode: 0
+      value: 2
+    - statType: 0
+      mode: 0
+      value: -2
+  mechanic: {fileID: 0}

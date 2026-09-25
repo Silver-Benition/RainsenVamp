@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: iron_bento
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.iron_bento
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.iron_bento.name
+  descriptionKey: upgrade.iron_bento.description
+  upgradeName: "\u94C1\u58F3\u4FBF\u5F53"
+  description: "\u6700\u5927\u751F\u547D +3\uFF0C\u8FD1\u6218\u4F24\u5BB3+1\uFF0C\u901F\u5EA6
+    -3%\u3002"
+  icon: {fileID: 21300000, guid: cb6d372378dd27a46afba54141a28948, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: 91292beda27f09c45b7befc3ab6a5f71, type: 2}

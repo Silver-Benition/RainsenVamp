@@ -1,0 +1,182 @@
+[
+  {
+    "number": "01",
+    "id": "moss_bandage",
+    "name": "苔芽绷带",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-9250bb5a-931a-47a6-891a-910a35ab8d4c.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/01_moss_bandage.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "02",
+    "id": "iron_bento",
+    "name": "铁壳便当",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-b0de75f8-3fb2-4c93-8a5d-5dc9f5182bd5.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/02_iron_bento.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "03",
+    "id": "bloodglass_vial",
+    "name": "血晶小瓶",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-1a1da6a7-8958-484e-a1de-3a7eeccfc07b.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/03_bloodglass_vial.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "04",
+    "id": "turtle_brooch",
+    "name": "龟甲胸针",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-98f0ae6c-dc4e-457d-a401-140fbef384f4.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/04_turtle_brooch.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "05",
+    "id": "paper_crane",
+    "name": "纸鹤护符",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-b3620fcc-a371-4943-aa9b-14fcaafdd1dc.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/05_paper_crane.png",
+    "generator": "built-in imagegen",
+    "attempts": 2
+  },
+  {
+    "number": "06",
+    "id": "thorn_wristguard",
+    "name": "荆棘护腕",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-0d9ef2f9-18fb-4f08-836e-7d54a74e8fc0.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/06_thorn_wristguard.png",
+    "generator": "built-in imagegen",
+    "attempts": 2
+  },
+  {
+    "number": "07",
+    "id": "brass_scope",
+    "name": "黄铜瞄镜",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-d7eae1f4-97c3-44e8-8041-33e02b2c4916.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/07_brass_scope.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "08",
+    "id": "storm_capacitor",
+    "name": "雷鸣电容",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-39f200ab-4b9e-4855-a34d-4a2b66204295.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/08_storm_capacitor.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "09",
+    "id": "red_gear",
+    "name": "赤铜齿轮",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-5d4aa7e4-a8d8-4797-a67e-d38fef02493e.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/09_red_gear.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "10",
+    "id": "cracked_lens",
+    "name": "裂纹单镜",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-49f55a32-aae6-4597-9c6a-3da1db513bd0.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/10_cracked_lens.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "11",
+    "id": "hunter_whistle",
+    "name": "猎风哨",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-95f60ed9-a07f-42a7-a3c6-4e7c8382818a.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/11_hunter_whistle.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "12",
+    "id": "berserker_fang",
+    "name": "狂战獠牙",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-c73d5d81-c4f4-42a6-b61f-a7eb08b48f0f.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/12_berserker_fang.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "13",
+    "id": "wind_shoes",
+    "name": "轻羽跑鞋",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-31776d73-9d9c-435a-8ffd-d34f52602a69.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/13_wind_shoes.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "14",
+    "id": "lead_boots",
+    "name": "铅底短靴",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-fd0e4e56-d6ac-4e3b-88e0-3da0f142a911.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/14_lead_boots.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "15",
+    "id": "clover_coin",
+    "name": "四叶铜钱",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-13c71dac-af7d-4d89-8bfb-0b39e6650806.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/15_clover_coin.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "16",
+    "id": "seed_pouch",
+    "name": "丰穗种袋",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-23d71a2c-ac41-4f9f-884d-a319b76ee769.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/16_seed_pouch.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "17",
+    "id": "scholar_bookmark",
+    "name": "学徒书签",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-c7c9fe93-788d-4dad-8f7c-153bfedf5aff.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/17_scholar_bookmark.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "18",
+    "id": "copper_bell",
+    "name": "引财铜铃",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-8c33cf47-cd3a-4e66-8d3a-2592f88a5d88.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/18_copper_bell.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "19",
+    "id": "emergency_candy",
+    "name": "应急糖块",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-ded36db0-11ef-4ea0-853b-dc955285e6a6.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/19_emergency_candy.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  },
+  {
+    "number": "20",
+    "id": "hourglass_pendant",
+    "name": "余烬沙漏",
+    "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-2c4510b9-37c3-4ba9-b7a1-99c30d70878a.png",
+    "destination": "C:/Unity_Project/RainsenVampSur/ArtReview/items-20-v1/icons/20_hourglass_pendant.png",
+    "generator": "built-in imagegen",
+    "attempts": 1
+  }
+]

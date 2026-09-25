@@ -1,0 +1,942 @@
+{
+  "finalGraphics": "Logs/Session25/GraphicsVerified/results.xml",
+  "project": "C:/Unity_Project/RainsenVampSur-QA",
+  "files": [
+    {
+      "sha256": "D88B6C4D81AC79306D0B51E5D12E3F3BD5BF71D1ECA0FA48BEBDB8ABF13368AC",
+      "path": "Assets/Art/ContentExpansion.meta"
+    },
+    {
+      "sha256": "15B28980A92B5C57C63135301EA865520AD68FFF97E59E02BB998667EBD1BE06",
+      "path": "Assets/Art/ContentExpansion/Items.meta"
+    },
+    {
+      "sha256": "1E007416588C71F9B46F7729495CF675DF5B8A79ED06234576F6BE4E00E6D5E6",
+      "path": "Assets/Art/ContentExpansion/Items/berserker_fang.png"
+    },
+    {
+      "sha256": "F3C45F6AF47B642B68F7EFDA30DAA04C960D9AE888E3F481CF39B7B4AC20B62E",
+      "path": "Assets/Art/ContentExpansion/Items/berserker_fang.png.meta"
+    },
+    {
+      "sha256": "342A4148CA4905D58ABBA1107A12461917A58E29147A97F15889DB9622B57D86",
+      "path": "Assets/Art/ContentExpansion/Items/bloodglass_vial.png"
+    },
+    {
+      "sha256": "8E0C08DAF4A7A917B11B6B9645924FA6F4FC721ED9CE58284D582C43F19334D0",
+      "path": "Assets/Art/ContentExpansion/Items/bloodglass_vial.png.meta"
+    },
+    {
+      "sha256": "EAE5B74C95C9E120BEC29594702746214BC0A14ADE8780C8741903A7EA985B38",
+      "path": "Assets/Art/ContentExpansion/Items/brass_scope.png"
+    },
+    {
+      "sha256": "ABFA374F143B177E6BDB4DC61C863BFEA021F3B3A673747AF6A0849679805653",
+      "path": "Assets/Art/ContentExpansion/Items/brass_scope.png.meta"
+    },
+    {
+      "sha256": "8A9644E23BA4868BCD8833BC5042101D15E912A11C052DB76C6285037B4575B5",
+      "path": "Assets/Art/ContentExpansion/Items/clover_coin.png"
+    },
+    {
+      "sha256": "A88B5A63255DDD3BD76D8F4801B3F50C602B75E2A1F7509E392EB69DEDC079B1",
+      "path": "Assets/Art/ContentExpansion/Items/clover_coin.png.meta"
+    },
+    {
+      "sha256": "9B26EB06D52CF4E155D9E1945A2BB19EE75553E5A2ED2E1E80195226F5FEBF87",
+      "path": "Assets/Art/ContentExpansion/Items/copper_bell.png"
+    },
+    {
+      "sha256": "C32C87FE194F7DE4851E2D7D251F786D05352D6713C843D2B06AB4DC348F5C96",
+      "path": "Assets/Art/ContentExpansion/Items/copper_bell.png.meta"
+    },
+    {
+      "sha256": "83719E933C057D8ACE0483CC1C29D39E61FD2D4E8B03324B56F78EDBD8E7F643",
+      "path": "Assets/Art/ContentExpansion/Items/cracked_lens.png"
+    },
+    {
+      "sha256": "17427BAD10FD230F39F47542796A09529D8E4A644B881018F1B2B7E15FC80811",
+      "path": "Assets/Art/ContentExpansion/Items/cracked_lens.png.meta"
+    },
+    {
+      "sha256": "8E97F8E3E57EF18F1213FDCBB8414FFE1371D50716E2949D7B77EEFFD97008BC",
+      "path": "Assets/Art/ContentExpansion/Items/emergency_candy.png"
+    },
+    {
+      "sha256": "4B4CA92803BB79BDCAE1F33C65C36C77BDB2E6A9919FC68D18D9DCA0421BB498",
+      "path": "Assets/Art/ContentExpansion/Items/emergency_candy.png.meta"
+    },
+    {
+      "sha256": "BB81C2BA4A9A762ADE4340D078F3A0D7B4F6E75E6751FB644C29D9DA7BF21181",
+      "path": "Assets/Art/ContentExpansion/Items/hourglass_pendant.png"
+    },
+    {
+      "sha256": "41A047A0CC17B2F218B5621737469F08996D59D70C2A4C87DCBE352DFAFC9914",
+      "path": "Assets/Art/ContentExpansion/Items/hourglass_pendant.png.meta"
+    },
+    {
+      "sha256": "9D55642572281135A08E80301C46702E3CDEAA90887FC5D1ED8E194B23C3BA84",
+      "path": "Assets/Art/ContentExpansion/Items/hunter_whistle.png"
+    },
+    {
+      "sha256": "8E2E43F003D9FA34B593525DB09EF152D488102870D3E3CD252DFCE82BA9D8D4",
+      "path": "Assets/Art/ContentExpansion/Items/hunter_whistle.png.meta"
+    },
+    {
+      "sha256": "A505D31F3CB3C38722F9CCF94DDBD71E7E9636ECB7D37069AC747C42F01918C8",
+      "path": "Assets/Art/ContentExpansion/Items/iron_bento.png"
+    },
+    {
+      "sha256": "89ABA52478F0D2442387FA5A11BF6DC4B632D99F7309D1559E9578E33390E03F",
+      "path": "Assets/Art/ContentExpansion/Items/iron_bento.png.meta"
+    },
+    {
+      "sha256": "1CC441A4127423B8945EF9813A501F512A74190B8864479C90DFEBD971A010F5",
+      "path": "Assets/Art/ContentExpansion/Items/lead_boots.png"
+    },
+    {
+      "sha256": "C443A8045F4DE353ED55F3AA30714CE8C41FA31DA673C400FD4116FE70976C9C",
+      "path": "Assets/Art/ContentExpansion/Items/lead_boots.png.meta"
+    },
+    {
+      "sha256": "64949F5D5093E52B6DD0A45FF3CC69FE232FD1DE460B4ED8C11F599114D0E963",
+      "path": "Assets/Art/ContentExpansion/Items/moss_bandage.png"
+    },
+    {
+      "sha256": "30C26EE4961071110DDEFE5EB083E79334FEEB837C0BBBF5547AEB073EC682F7",
+      "path": "Assets/Art/ContentExpansion/Items/moss_bandage.png.meta"
+    },
+    {
+      "sha256": "B367697D1A7C0D26871D59A17A74C67F31A077CE0961397ECB38439618A29E5C",
+      "path": "Assets/Art/ContentExpansion/Items/paper_crane.png"
+    },
+    {
+      "sha256": "E1CABF50DF16101471B8FEE9B75E160271AEF6A062DC3325971ABFC8F2051821",
+      "path": "Assets/Art/ContentExpansion/Items/paper_crane.png.meta"
+    },
+    {
+      "sha256": "B57EC54A4BD779CC280AF8BAC22B5DC05A3E7E75316572EC3BBA87F7199FFB1F",
+      "path": "Assets/Art/ContentExpansion/Items/red_gear.png"
+    },
+    {
+      "sha256": "B09D850961D7C7A67C958DC06B9B694D42D0B76BDFA6FF953331F28534C2C651",
+      "path": "Assets/Art/ContentExpansion/Items/red_gear.png.meta"
+    },
+    {
+      "sha256": "CD99FB06C2AAEDE8CE38C59832AB453872CA786EAAF1C4EEC1964F0E4E5A5314",
+      "path": "Assets/Art/ContentExpansion/Items/scholar_bookmark.png"
+    },
+    {
+      "sha256": "879B6FA37DCE1411CD596D4362C568EC622A737613500AE4A4E2BE2E98E433FE",
+      "path": "Assets/Art/ContentExpansion/Items/scholar_bookmark.png.meta"
+    },
+    {
+      "sha256": "381B1C50E13EEFCA927E9B2104A3DC7C4F21B4CE97043DDD45647D35C5FD2052",
+      "path": "Assets/Art/ContentExpansion/Items/seed_pouch.png"
+    },
+    {
+      "sha256": "6AD7E888EB059AB63D3FCA824572D176285F41F077A48DE0C62AE0541AF136C6",
+      "path": "Assets/Art/ContentExpansion/Items/seed_pouch.png.meta"
+    },
+    {
+      "sha256": "830902F615F572672738A33AFB63A36A02FC2B1358BE07E93F5EDB24938122D6",
+      "path": "Assets/Art/ContentExpansion/Items/storm_capacitor.png"
+    },
+    {
+      "sha256": "0079D9C4C4698B02762D19068BD97B3F0B870F52372670392E373E0DB0B5341B",
+      "path": "Assets/Art/ContentExpansion/Items/storm_capacitor.png.meta"
+    },
+    {
+      "sha256": "5574B301438E897F720FCCED21354A1B5B48EEAC17E28BB5311B90A0015BCA66",
+      "path": "Assets/Art/ContentExpansion/Items/thorn_wristguard.png"
+    },
+    {
+      "sha256": "BCC88AE597358CD7645A33A535A7FA90DB4DEA526AE7FB09A630854ABEF31940",
+      "path": "Assets/Art/ContentExpansion/Items/thorn_wristguard.png.meta"
+    },
+    {
+      "sha256": "BF5F5C7BC90C66605B25ED2A5D5221BC12470588273A67374E33E27E76CD7D83",
+      "path": "Assets/Art/ContentExpansion/Items/turtle_brooch.png"
+    },
+    {
+      "sha256": "CF59EDCDA209F9A227305298D49D3C793E57D957850C3F7349FD5B9A86028F10",
+      "path": "Assets/Art/ContentExpansion/Items/turtle_brooch.png.meta"
+    },
+    {
+      "sha256": "BF6CA639241A63862FE5A11A43F0FEE2C40D01CE4DE510020F5FC569A57745E7",
+      "path": "Assets/Art/ContentExpansion/Items/wind_shoes.png"
+    },
+    {
+      "sha256": "805F05D31822EE91B7D2CEDFB4B5F90FC2F2F08A73E3FAF528C1510E8D0F7ECE",
+      "path": "Assets/Art/ContentExpansion/Items/wind_shoes.png.meta"
+    },
+    {
+      "sha256": "63C36260A73F9917FCBD31B8F3056C12AFA4FAE041564F930126B7272F370210",
+      "path": "Assets/Art/ContentExpansion/Weapons.meta"
+    },
+    {
+      "sha256": "E43050B9B1D1279BB467DDA508647FD4BE324D8922CEA20DA7243A8A301F2786",
+      "path": "Assets/Art/ContentExpansion/Weapons/01_copper_rapier.png"
+    },
+    {
+      "sha256": "3631A39C1BEBF75A4B1E1F9A85ED3844F912C0D0061B6B3F36D5F65BEE795C2A",
+      "path": "Assets/Art/ContentExpansion/Weapons/01_copper_rapier.png.meta"
+    },
+    {
+      "sha256": "2B6F1AF05489597643900C33D7CDD229C58FDD3A7406B603CF62EE85CEE4EFD9",
+      "path": "Assets/Art/ContentExpansion/Weapons/02_saw_cleaver.png"
+    },
+    {
+      "sha256": "AF4C54903429F858D0EB34A0EAD9EAC7253EDE0CE942F2CC853B5FFD981C615E",
+      "path": "Assets/Art/ContentExpansion/Weapons/02_saw_cleaver.png.meta"
+    },
+    {
+      "sha256": "8643D870540E6C441E689896D50FA38DB96762474E52DE34ABBEB7432AD063B3",
+      "path": "Assets/Art/ContentExpansion/Weapons/03_tide_spear.png"
+    },
+    {
+      "sha256": "632DB46BEC152C87B1603E9887FA6FBA14C5AAB99B8B09D1BE85C7E069A013D1",
+      "path": "Assets/Art/ContentExpansion/Weapons/03_tide_spear.png.meta"
+    },
+    {
+      "sha256": "F4067AE633E5AFA1A779E1D5AC52EA8D519911D671836448F2E8933121C6C271",
+      "path": "Assets/Art/ContentExpansion/Weapons/04_briar_bolt.png"
+    },
+    {
+      "sha256": "BF7EBA4D8D3DF912F91BBEBF954B6C8FF65D39D8CEF66A7F90E262192500B2C5",
+      "path": "Assets/Art/ContentExpansion/Weapons/04_briar_bolt.png.meta"
+    },
+    {
+      "sha256": "2DDC52B3C39B17E2C0FC0DBB54756B1CC7E181102B071B06775D77DD0D61288F",
+      "path": "Assets/Art/ContentExpansion/Weapons/05_rivet_spike.png"
+    },
+    {
+      "sha256": "F4380C746E63F68A2F8F5BD36F0761583F1FC219607E17373C5A0BAC5E38A348",
+      "path": "Assets/Art/ContentExpansion/Weapons/05_rivet_spike.png.meta"
+    },
+    {
+      "sha256": "4E0753B3E65A6452A53D95C1CBC1D1192567E57D5BB508C96E8F3A2E37B76EB0",
+      "path": "Assets/Art/ContentExpansion/Weapons/06_prism_shard.png"
+    },
+    {
+      "sha256": "69E20BDA464A0CEF9CEFDCE4E2EEB916A2F23F4B8FFB4EE5A2142090E2C72F9B",
+      "path": "Assets/Art/ContentExpansion/Weapons/06_prism_shard.png.meta"
+    },
+    {
+      "sha256": "DC46DC6FD0E1F5170874E96E983EBF539898A9A5605872DA384C55B2ACA403DA",
+      "path": "Assets/Art/ContentExpansion/Weapons/07_medical_lancet.png"
+    },
+    {
+      "sha256": "AD54D2E2516D94FDD96089FD4A6D4DAAD0EC94C0AECC2EAD90DEC00E403F9A4F",
+      "path": "Assets/Art/ContentExpansion/Weapons/07_medical_lancet.png.meta"
+    },
+    {
+      "sha256": "96D43707EFD4E98CB0BEF30FB5EFF547279F5E97793CC262024F8B940A45D2F1",
+      "path": "Assets/Art/ContentExpansion/Weapons/08_ember_censer.png"
+    },
+    {
+      "sha256": "46DFD8431F5A53DEFC9C7473A85CBEEB9CB4011AFC052853378EB6FE7126F47A",
+      "path": "Assets/Art/ContentExpansion/Weapons/08_ember_censer.png.meta"
+    },
+    {
+      "sha256": "8274E4388E4F8088452266DA324AFE36E245F52C1BFB783F6250C95DDD45A90F",
+      "path": "Assets/Art/ContentExpansion/Weapons/09_moon_disc.png"
+    },
+    {
+      "sha256": "A5738B33D3117A1AB8F6AE87256DC40A8F68E8A64DE3D387F395434AEF6D36DE",
+      "path": "Assets/Art/ContentExpansion/Weapons/09_moon_disc.png.meta"
+    },
+    {
+      "sha256": "33659CD71863207F4A306B070E342CF2AB34D9E9808BA87F926F59F47D912215",
+      "path": "Assets/Art/ContentExpansion/Weapons/10_meteor_hammer.png"
+    },
+    {
+      "sha256": "F07380FC685461192E34BFA0E9889E8DB7F8A60F19CBBBCA0A5D08E58D126C04",
+      "path": "Assets/Art/ContentExpansion/Weapons/10_meteor_hammer.png.meta"
+    },
+    {
+      "sha256": "6173D0C792033B68B86A89E0D60510BD58DA8B5A20900870BCCC4A573B831FAE",
+      "path": "Assets/Data/ContentExpansion.meta"
+    },
+    {
+      "sha256": "46560C311FB0AF209EDDB77512641D3982CA8EFB84F62D54B58BF9C86D143BC6",
+      "path": "Assets/Data/ContentExpansion/Items.meta"
+    },
+    {
+      "sha256": "0DF266333D164FA33B21661D14AD7A2F12F22426D36964B3DBE6B111E177A40A",
+      "path": "Assets/Data/ContentExpansion/Items/berserker_fang.asset"
+    },
+    {
+      "sha256": "93EA26CBE34CE0E9F35C52F544BD69ED9C6092EBAAC744EC4CD4762FC21B7690",
+      "path": "Assets/Data/ContentExpansion/Items/berserker_fang.asset.meta"
+    },
+    {
+      "sha256": "20A5E98FB9566ABBCAF0836EB624626213119B49F5F6B39C80BF870C8E88CCC6",
+      "path": "Assets/Data/ContentExpansion/Items/bloodglass_vial.asset"
+    },
+    {
+      "sha256": "74E7315E855976E4FD20CA313D3B3BAAAE461DD2C8810D059B6952BA15EDDF51",
+      "path": "Assets/Data/ContentExpansion/Items/bloodglass_vial.asset.meta"
+    },
+    {
+      "sha256": "F2E352776CC169710481856E403EBEEAAF431A92A18400AECE0AD302C17992E2",
+      "path": "Assets/Data/ContentExpansion/Items/brass_scope.asset"
+    },
+    {
+      "sha256": "9DF1E408083D2214950A6AE89BD5B15C24AF9ED2D9EF4ED22C2124D8765B28D6",
+      "path": "Assets/Data/ContentExpansion/Items/brass_scope.asset.meta"
+    },
+    {
+      "sha256": "E1530701D5619BAC1D1400887D66D51F8EC3F7A050A2D92CEC8984F2DC6B1B38",
+      "path": "Assets/Data/ContentExpansion/Items/clover_coin.asset"
+    },
+    {
+      "sha256": "46188F7CC56F760A9AC4120F4DB30FA9C25270A7286CA7EDD216ACBE734C62A5",
+      "path": "Assets/Data/ContentExpansion/Items/clover_coin.asset.meta"
+    },
+    {
+      "sha256": "BA1019D7923F58AE70B278AAA7015308D12ADADD65F8E276F837828F9346B847",
+      "path": "Assets/Data/ContentExpansion/Items/copper_bell.asset"
+    },
+    {
+      "sha256": "1B94D2F9FE4CC1354F4629A6F0A6BD7A3EA2746FAB4446F6061AE119E31175B5",
+      "path": "Assets/Data/ContentExpansion/Items/copper_bell.asset.meta"
+    },
+    {
+      "sha256": "1390975D055519093A68CF43CAF84CBDF355B77EE32A2023A301CFE139F406D1",
+      "path": "Assets/Data/ContentExpansion/Items/cracked_lens.asset"
+    },
+    {
+      "sha256": "77C4EE91D632B2B6DC90643DAE6C1EB3649A02A8D235CD052D88913A1E544584",
+      "path": "Assets/Data/ContentExpansion/Items/cracked_lens.asset.meta"
+    },
+    {
+      "sha256": "20BBEFF1E301246A78D759C42A2D0D6A58FF333DD1C43089885FE19A765290EC",
+      "path": "Assets/Data/ContentExpansion/Items/emergency_candy.asset"
+    },
+    {
+      "sha256": "65097F4F9AACAE10DE8AB56ECCECC63218EAF75981DC1A9059D5D4C2C4EF90CC",
+      "path": "Assets/Data/ContentExpansion/Items/emergency_candy.asset.meta"
+    },
+    {
+      "sha256": "AC41948DD312F326A4AF95DAAB8F71D75C171C19F29B65E18259AD5CEA581781",
+      "path": "Assets/Data/ContentExpansion/Items/emergency_candy_mechanic.asset"
+    },
+    {
+      "sha256": "4B89E011ED8BE77DF0EAE0137C54D17FD20EA2E1CB33EA80D952D04F60548345",
+      "path": "Assets/Data/ContentExpansion/Items/emergency_candy_mechanic.asset.meta"
+    },
+    {
+      "sha256": "D49DF8455BBCB47C47F164BCAD0FEA0D5F54AA5FA42E1227C16C807E1F693FA7",
+      "path": "Assets/Data/ContentExpansion/Items/hourglass_pendant.asset"
+    },
+    {
+      "sha256": "E1CEA7197579B424667139EDA0D25B1DE8176D0FDB0CFDA072D1CF551912CE1A",
+      "path": "Assets/Data/ContentExpansion/Items/hourglass_pendant.asset.meta"
+    },
+    {
+      "sha256": "02493C4DDAED6399D641CEC6AA37A57B79CF39A6915B5AA066AE05432C6CD880",
+      "path": "Assets/Data/ContentExpansion/Items/hourglass_pendant_mechanic.asset"
+    },
+    {
+      "sha256": "820011AD10DD794BEACBCCA95A0C0C94FF1BF94EC3CDAAB6AFE3613B2113B724",
+      "path": "Assets/Data/ContentExpansion/Items/hourglass_pendant_mechanic.asset.meta"
+    },
+    {
+      "sha256": "39FB621BDF69C71A7E6D07EFA6F1B43E7366CDDBFE8D5E19EF8137930A77E5B4",
+      "path": "Assets/Data/ContentExpansion/Items/hunter_whistle.asset"
+    },
+    {
+      "sha256": "BF2D3B86868A6DFB46961D260EA013CC88D6142105CBBF752FEA3EC236A26909",
+      "path": "Assets/Data/ContentExpansion/Items/hunter_whistle.asset.meta"
+    },
+    {
+      "sha256": "3F4D6CE20C0A9063C85D24FCE341D8D1D1A34D6B16139FA175424258C5748C50",
+      "path": "Assets/Data/ContentExpansion/Items/iron_bento.asset"
+    },
+    {
+      "sha256": "C6E171FCDBDAD7389FA994822D974F62E052EEB70D0F2D3849709A1F0634EEC1",
+      "path": "Assets/Data/ContentExpansion/Items/iron_bento.asset.meta"
+    },
+    {
+      "sha256": "1E6C35F30747B86CEA12D4C1AAA93E7D19A8D94B46C6AF52E159A87829961F1D",
+      "path": "Assets/Data/ContentExpansion/Items/lead_boots.asset"
+    },
+    {
+      "sha256": "0B585A77A4116D679631BF922C29EB33187E8066F606151B566AF4AE5F55F2B3",
+      "path": "Assets/Data/ContentExpansion/Items/lead_boots.asset.meta"
+    },
+    {
+      "sha256": "CA2427E3403EE7F523FAFF493D9D353C3CADC6F048376E6BC05AB5C0DE9109B2",
+      "path": "Assets/Data/ContentExpansion/Items/moss_bandage.asset"
+    },
+    {
+      "sha256": "FB95807631CC27D9364689AF0D5AC93BC8F3A1B43EEC0CB32EC3E5CDC951BBE5",
+      "path": "Assets/Data/ContentExpansion/Items/moss_bandage.asset.meta"
+    },
+    {
+      "sha256": "56D9D378ECC9791021B0763D78B7421AE0967C79819AE8EA39A635E6C6E8C4F1",
+      "path": "Assets/Data/ContentExpansion/Items/paper_crane.asset"
+    },
+    {
+      "sha256": "EF33EFAEAD17A2DE653948D25DD43BB79143C8229944E6DF2A0517A838118593",
+      "path": "Assets/Data/ContentExpansion/Items/paper_crane.asset.meta"
+    },
+    {
+      "sha256": "0E85E9B2FCF3E1695CAEDB6F5899E0ADFD3D7054A69E86A1F0ACD80C28BD87F5",
+      "path": "Assets/Data/ContentExpansion/Items/red_gear.asset"
+    },
+    {
+      "sha256": "72C9A1D4E30408078CBA7CA46C09E83B4313F06DDBDCEC6D23B081CC8FF3B8CA",
+      "path": "Assets/Data/ContentExpansion/Items/red_gear.asset.meta"
+    },
+    {
+      "sha256": "027B1059D77FC079C73A6D7713C9A3558D536D0E166FB1A3AFB231E99595942D",
+      "path": "Assets/Data/ContentExpansion/Items/scholar_bookmark.asset"
+    },
+    {
+      "sha256": "1021B4EA4BB0B2ED161B701EF6D3D06D34DBECC7710CAD65567D100955EC8E34",
+      "path": "Assets/Data/ContentExpansion/Items/scholar_bookmark.asset.meta"
+    },
+    {
+      "sha256": "E9724137589BF314E04FFDEB0B84C18ECAF634F3BA3E6F9D22BAC06CB376581F",
+      "path": "Assets/Data/ContentExpansion/Items/seed_pouch.asset"
+    },
+    {
+      "sha256": "C7F6DF0176A9071769D8112D69AD23E28939958C2FE82D1AD07F5CAA89B78D15",
+      "path": "Assets/Data/ContentExpansion/Items/seed_pouch.asset.meta"
+    },
+    {
+      "sha256": "3B49EDF427F59834F40A5F789862B2D9FF440D217C276A8EF61B40CACE1EF6A4",
+      "path": "Assets/Data/ContentExpansion/Items/storm_capacitor.asset"
+    },
+    {
+      "sha256": "BA1A5017E6F2357BD11B20BE0921BB4FEE9B387E344F72BA32D57013EEFD7185",
+      "path": "Assets/Data/ContentExpansion/Items/storm_capacitor.asset.meta"
+    },
+    {
+      "sha256": "398FAB21C791BA975EBDA4C656F50794452B7FD9F4ED7BA9F35E23BDDB77BB68",
+      "path": "Assets/Data/ContentExpansion/Items/thorn_wristguard.asset"
+    },
+    {
+      "sha256": "D4D43FD9F5FEDDE43A1A6BBE7BB629AE67E9C0A2F630EA1C047D148ABF865C96",
+      "path": "Assets/Data/ContentExpansion/Items/thorn_wristguard.asset.meta"
+    },
+    {
+      "sha256": "A1E779EB976023983071E71534EA92A3428D535CF21F6295F55AB9592EF2F554",
+      "path": "Assets/Data/ContentExpansion/Items/turtle_brooch.asset"
+    },
+    {
+      "sha256": "221941E6E7A4E7CE66937B3D808B8230EE38F58CB194856D6889DE596AA32454",
+      "path": "Assets/Data/ContentExpansion/Items/turtle_brooch.asset.meta"
+    },
+    {
+      "sha256": "4A36B2C2772EB011D9F9AD54CC1809CB2C2D9719C84B15ECBE0DF93BE7999A0E",
+      "path": "Assets/Data/ContentExpansion/Items/wind_shoes.asset"
+    },
+    {
+      "sha256": "52B5AE4763B64937621CD9B673B808883B094B50DD05DB2CDABE9D07A9CE1876",
+      "path": "Assets/Data/ContentExpansion/Items/wind_shoes.asset.meta"
+    },
+    {
+      "sha256": "71EC9ED177D9E7E3A04A85C7AD29B3F27BBDAAC21C99D67313A0568AE6ACB2DD",
+      "path": "Assets/Data/ContentExpansion/Upgrades.meta"
+    },
+    {
+      "sha256": "649A6855D082E7A7838A0499E0C4883504AA547B3A028992D92D64F679BEB906",
+      "path": "Assets/Data/ContentExpansion/Upgrades/01_copper_rapier.asset"
+    },
+    {
+      "sha256": "6330CDC6EBA9F81DF0FF61A8D398B14A78E42FCBEFC25E2426F930060EB5838E",
+      "path": "Assets/Data/ContentExpansion/Upgrades/01_copper_rapier.asset.meta"
+    },
+    {
+      "sha256": "B57803363D91147DDBA6BD685899ADFBB56EE7A5988CB934B450491F1F104062",
+      "path": "Assets/Data/ContentExpansion/Upgrades/02_saw_cleaver.asset"
+    },
+    {
+      "sha256": "E6A4662878C66554F7224735D7A35C70D38A65A1A0F012F00CC0928A82231FDA",
+      "path": "Assets/Data/ContentExpansion/Upgrades/02_saw_cleaver.asset.meta"
+    },
+    {
+      "sha256": "C8242739D201D53983755A0E3266AA2024A8D8698D2DA5EE7CE294D569F66D87",
+      "path": "Assets/Data/ContentExpansion/Upgrades/03_tide_spear.asset"
+    },
+    {
+      "sha256": "C02B39CE850955CE024C986D0CBB76CAEC7A1A310E89A48F9D38CF880A345895",
+      "path": "Assets/Data/ContentExpansion/Upgrades/03_tide_spear.asset.meta"
+    },
+    {
+      "sha256": "A042CA1D20A43621020EAE86AD8908E36422FD6AC260B7FBE12A9E351CD74E8C",
+      "path": "Assets/Data/ContentExpansion/Upgrades/04_briar_bolt.asset"
+    },
+    {
+      "sha256": "934DD313D28F870AF1CEFD2683DAC3547A422FABECC85443173C0711E78D9FC3",
+      "path": "Assets/Data/ContentExpansion/Upgrades/04_briar_bolt.asset.meta"
+    },
+    {
+      "sha256": "B998A73FF5E3A038C1C022543AA2C6D80191DAD7CCEBDC05A8A26948761E4769",
+      "path": "Assets/Data/ContentExpansion/Upgrades/05_rivet_spike.asset"
+    },
+    {
+      "sha256": "A4408B3E1DC3B55E13721F29DCB68D6AEEF2C44BE36AC255DB1AA1A3B74CD3EE",
+      "path": "Assets/Data/ContentExpansion/Upgrades/05_rivet_spike.asset.meta"
+    },
+    {
+      "sha256": "307CC153BF9A438DED79E57FD802C0671EA8EDC625D3838843DC48A7E61DF795",
+      "path": "Assets/Data/ContentExpansion/Upgrades/06_prism_shard.asset"
+    },
+    {
+      "sha256": "6265A645441E3E8159D37576DB603ED2B8A33323872C43C23CF957A30E433A58",
+      "path": "Assets/Data/ContentExpansion/Upgrades/06_prism_shard.asset.meta"
+    },
+    {
+      "sha256": "1BE36F7979E2A445516DE21F7069F68A5A0C8C497B6674402D671C75680824BF",
+      "path": "Assets/Data/ContentExpansion/Upgrades/07_medical_lancet.asset"
+    },
+    {
+      "sha256": "F3745E743CBEAEE5D7239579C9738BA230DD770949DB0D78CC72A4FE9AD34F81",
+      "path": "Assets/Data/ContentExpansion/Upgrades/07_medical_lancet.asset.meta"
+    },
+    {
+      "sha256": "23FD1FC7C8B68AF91B8154ECB749F3BD53657324E81390603A552244231BA089",
+      "path": "Assets/Data/ContentExpansion/Upgrades/08_ember_censer.asset"
+    },
+    {
+      "sha256": "6A5B0C4E60EEE28788BC15F6678B4803A81EE4A7FF6DBB7CB8305FC0FEC81764",
+      "path": "Assets/Data/ContentExpansion/Upgrades/08_ember_censer.asset.meta"
+    },
+    {
+      "sha256": "2C05F87116CDBB924EE7BE44B9169FAE99B05E8344A8A54F3D933C68E3BB215C",
+      "path": "Assets/Data/ContentExpansion/Upgrades/09_moon_disc.asset"
+    },
+    {
+      "sha256": "A848203C429C732382E2B3CF5FB4877543475CC6A194D277F042229D7996FF8E",
+      "path": "Assets/Data/ContentExpansion/Upgrades/09_moon_disc.asset.meta"
+    },
+    {
+      "sha256": "C1B8A7C3931F6351BFD4CDBC1832BC0F49B9E397A186241732F034F3732BB5A3",
+      "path": "Assets/Data/ContentExpansion/Upgrades/10_meteor_hammer.asset"
+    },
+    {
+      "sha256": "197921A2D90042E5C1E39C366277521B7BD80E24BB2D29DE606754D41E5C0B1C",
+      "path": "Assets/Data/ContentExpansion/Upgrades/10_meteor_hammer.asset.meta"
+    },
+    {
+      "sha256": "3B152F5E63D91856F781A77F858116D27AF9555C7916753509E1623AEED67523",
+      "path": "Assets/Data/ContentExpansion/Upgrades/berserker_fang.asset"
+    },
+    {
+      "sha256": "0BBF6EE224E89E3EC3038773AC0FC7CB754EEF9D87B49D36872D7D13987251F1",
+      "path": "Assets/Data/ContentExpansion/Upgrades/berserker_fang.asset.meta"
+    },
+    {
+      "sha256": "E1D97363F7DD9664C7692DAF8E4A29B47EE588211AFE0674BC13E92494235AF8",
+      "path": "Assets/Data/ContentExpansion/Upgrades/bloodglass_vial.asset"
+    },
+    {
+      "sha256": "EC32E31F15A66C5B233F99530270C81A554F9927F8EF1E5CE1CDEE4280F25C22",
+      "path": "Assets/Data/ContentExpansion/Upgrades/bloodglass_vial.asset.meta"
+    },
+    {
+      "sha256": "16008C046912F0479DAC98F4B57586A55DC70353CA93DCA4190BE26D5BCD354B",
+      "path": "Assets/Data/ContentExpansion/Upgrades/brass_scope.asset"
+    },
+    {
+      "sha256": "0C95AA5A1C918780C9676A09BBD61B0EBF6FF7767FBBF1207D984DF3FC3607C5",
+      "path": "Assets/Data/ContentExpansion/Upgrades/brass_scope.asset.meta"
+    },
+    {
+      "sha256": "28BE65EDFF84E551F0601EA7B02B42F3DF42F2B39FEFD9BAF12613BD9C837B94",
+      "path": "Assets/Data/ContentExpansion/Upgrades/clover_coin.asset"
+    },
+    {
+      "sha256": "4D62B3A4303FC935E1BDC378E9DBC67D54A4E76F4D88206991D3F5BF4D476252",
+      "path": "Assets/Data/ContentExpansion/Upgrades/clover_coin.asset.meta"
+    },
+    {
+      "sha256": "36AEB6EA8283C2B49F2C7BDB42D67C7FDD1626302AD9B6262F0717CA9E0162A8",
+      "path": "Assets/Data/ContentExpansion/Upgrades/copper_bell.asset"
+    },
+    {
+      "sha256": "BFCD2648B3177A5C70EFFE0976ECFD9D131B27C47835C1B7526533E613D092ED",
+      "path": "Assets/Data/ContentExpansion/Upgrades/copper_bell.asset.meta"
+    },
+    {
+      "sha256": "C4354078CD98F03EED72A38771AC2813D742656D2F8D1A30C3B1E66B5C568221",
+      "path": "Assets/Data/ContentExpansion/Upgrades/cracked_lens.asset"
+    },
+    {
+      "sha256": "72E814320CAC6FB764FB69072A1CFC989A93DACD7EBFD7BFC57FF9B0187F2B40",
+      "path": "Assets/Data/ContentExpansion/Upgrades/cracked_lens.asset.meta"
+    },
+    {
+      "sha256": "8ADB3F11C10D6245AD65DF7CC9B9DCA4F21C6C4CC84D2AAFE66C34E4E61D53D7",
+      "path": "Assets/Data/ContentExpansion/Upgrades/emergency_candy.asset"
+    },
+    {
+      "sha256": "128815BFBA76E398B6DDF48D2867936CFAF8240281389292AFB01FE7D2A4DC11",
+      "path": "Assets/Data/ContentExpansion/Upgrades/emergency_candy.asset.meta"
+    },
+    {
+      "sha256": "43A5959AFF2506EB3FAE7EC61F9C83FAC074B208344E4DB717616501EB458F24",
+      "path": "Assets/Data/ContentExpansion/Upgrades/hourglass_pendant.asset"
+    },
+    {
+      "sha256": "D414B84D0F094188F3410FE79F0CD6E48D6CF6931C2B6F56C1EFAC57B40E6B47",
+      "path": "Assets/Data/ContentExpansion/Upgrades/hourglass_pendant.asset.meta"
+    },
+    {
+      "sha256": "75D31E2466C0AF0EB99872BCF53583467DAE5E7EDB75CFD522BE9758E54D7094",
+      "path": "Assets/Data/ContentExpansion/Upgrades/hunter_whistle.asset"
+    },
+    {
+      "sha256": "2B4C68E9FCBBF45B73DE7BA3FD283751FEB66A148F13E5719E3A8B3A278030EF",
+      "path": "Assets/Data/ContentExpansion/Upgrades/hunter_whistle.asset.meta"
+    },
+    {
+      "sha256": "320B9737D94A9323E7CF07065F01D9BD596A0B2A2FE9DB223E4BFBFF27C78658",
+      "path": "Assets/Data/ContentExpansion/Upgrades/iron_bento.asset"
+    },
+    {
+      "sha256": "AE07737AEA2C1D9149E799506295E4DE5ED9F631FE6AC7A6440BCBCCB848EE8C",
+      "path": "Assets/Data/ContentExpansion/Upgrades/iron_bento.asset.meta"
+    },
+    {
+      "sha256": "A0734916E8E5C273F3889D58B702449F9F27D3FC22AA1DF5B4C4657D919E7635",
+      "path": "Assets/Data/ContentExpansion/Upgrades/lead_boots.asset"
+    },
+    {
+      "sha256": "1DA978CCE0A9B7DCC88B7D016BE760FB21C1EFC43C9929C1A3A16E3B984D2B75",
+      "path": "Assets/Data/ContentExpansion/Upgrades/lead_boots.asset.meta"
+    },
+    {
+      "sha256": "1E1DDD1EB9B399A21FC6818C3752874CE19AF7B4423C80FF7D9D53D0EA747F96",
+      "path": "Assets/Data/ContentExpansion/Upgrades/moss_bandage.asset"
+    },
+    {
+      "sha256": "F946BABAB5E7BFA494E71F220D7DB9B5113CC4AEBCD15942253499A92BAC2653",
+      "path": "Assets/Data/ContentExpansion/Upgrades/moss_bandage.asset.meta"
+    },
+    {
+      "sha256": "6B06F82F56964783E7F3CA2E889E945B9FAE834556E4FA992D50211A9A682866",
+      "path": "Assets/Data/ContentExpansion/Upgrades/paper_crane.asset"
+    },
+    {
+      "sha256": "A38F22CA3221D5D9910C20AA17B9F3E261C23A02BAD1681202577349783E09DE",
+      "path": "Assets/Data/ContentExpansion/Upgrades/paper_crane.asset.meta"
+    },
+    {
+      "sha256": "860DB0DC565DD6C63C7E77F108EE0A333319F466570747E863482A32F76A3B52",
+      "path": "Assets/Data/ContentExpansion/Upgrades/red_gear.asset"
+    },
+    {
+      "sha256": "CAD761920C4255B27589E1C192E70B13786E3BEA106F9212768C8B73637F5985",
+      "path": "Assets/Data/ContentExpansion/Upgrades/red_gear.asset.meta"
+    },
+    {
+      "sha256": "D1F7B9496BF24E62342B828EAF88339AED31E796E38CE0481488BB681BBFCFA1",
+      "path": "Assets/Data/ContentExpansion/Upgrades/scholar_bookmark.asset"
+    },
+    {
+      "sha256": "A310EB15AEF43D20F29D1F98AB0E9953C0A61535E3428E78E1053F239D3A8CEE",
+      "path": "Assets/Data/ContentExpansion/Upgrades/scholar_bookmark.asset.meta"
+    },
+    {
+      "sha256": "F30181F9BE7600FED456B776ED29905AD9CA2B9895507D6894127F1AE99E2478",
+      "path": "Assets/Data/ContentExpansion/Upgrades/seed_pouch.asset"
+    },
+    {
+      "sha256": "9A4703E2F22D67F1E64166BCA1675C2E236BF3932E7B11F93813F6C35A018BF1",
+      "path": "Assets/Data/ContentExpansion/Upgrades/seed_pouch.asset.meta"
+    },
+    {
+      "sha256": "ECE16424A12FB0A092430C8A0543D6A6897EAA386E38E8772B88DBC6B9AF9C90",
+      "path": "Assets/Data/ContentExpansion/Upgrades/storm_capacitor.asset"
+    },
+    {
+      "sha256": "2A45D7B08C5AC15C7FA702FEE927074EA1E7BE1F3A3CFAF2A8BB83C770553612",
+      "path": "Assets/Data/ContentExpansion/Upgrades/storm_capacitor.asset.meta"
+    },
+    {
+      "sha256": "CC4F848E9824C001B0BAFF26E6B9DD923B4A986A66E0A788D10012D74E2ED244",
+      "path": "Assets/Data/ContentExpansion/Upgrades/thorn_wristguard.asset"
+    },
+    {
+      "sha256": "37F35269CCBECA1EC7D0ADE845BFDE4386A4EC5B6E0C2D415375047CA74F344D",
+      "path": "Assets/Data/ContentExpansion/Upgrades/thorn_wristguard.asset.meta"
+    },
+    {
+      "sha256": "11DAB27FA5E438607FB46C2DA716CBCD793E059C05301B81153C2ED773BE692B",
+      "path": "Assets/Data/ContentExpansion/Upgrades/turtle_brooch.asset"
+    },
+    {
+      "sha256": "8BADAB9C6BAAC219B05A23A5CF588214E3C2FB8943F846FBA6D048FC352118E9",
+      "path": "Assets/Data/ContentExpansion/Upgrades/turtle_brooch.asset.meta"
+    },
+    {
+      "sha256": "C5CC1F8ECCBC069CCF106C753C90FEACD1217937DA10BBEF7E7B1AAD6192785E",
+      "path": "Assets/Data/ContentExpansion/Upgrades/wind_shoes.asset"
+    },
+    {
+      "sha256": "200CFB23B4C6DB27D2509E76A059C209BEC246AA805C481360D89BFB4B132EAF",
+      "path": "Assets/Data/ContentExpansion/Upgrades/wind_shoes.asset.meta"
+    },
+    {
+      "sha256": "01CF340FDD6E6F93919144E9BFFD9F494B8E1627033897E14C6DCF418585E22C",
+      "path": "Assets/Data/ContentExpansion/Weapons.meta"
+    },
+    {
+      "sha256": "2AF93D691B87A73A1D19C4A9960D8AB81A4F6CABEF37E9A5B2707DF414A2C9DE",
+      "path": "Assets/Data/ContentExpansion/Weapons/01_copper_rapier.asset"
+    },
+    {
+      "sha256": "9FF5CEB8EFF5C1A04EB1D6178CB5FC1E47CA9EE9E535DB404736897EA5CC68FC",
+      "path": "Assets/Data/ContentExpansion/Weapons/01_copper_rapier.asset.meta"
+    },
+    {
+      "sha256": "2BFC28E5290B2EE684498BD45BADD97F1B3DDDA09707FEA812AE508BA00C6985",
+      "path": "Assets/Data/ContentExpansion/Weapons/02_saw_cleaver.asset"
+    },
+    {
+      "sha256": "13ADB99794E187446C5C1271FD9F5D2A2849E203975CD8B0A9C58F60D9D96407",
+      "path": "Assets/Data/ContentExpansion/Weapons/02_saw_cleaver.asset.meta"
+    },
+    {
+      "sha256": "7AB05AFE296BD45099B466AFE091CD99A28BE9D34818346A4461275E77E4A3DB",
+      "path": "Assets/Data/ContentExpansion/Weapons/03_tide_spear.asset"
+    },
+    {
+      "sha256": "E56220DD11A21E411FA2D8196C9B43ACD88E5F13A33F8E3EC04E44F7277F8558",
+      "path": "Assets/Data/ContentExpansion/Weapons/03_tide_spear.asset.meta"
+    },
+    {
+      "sha256": "DA04BA537516FD8E154DD59D720D8C290D003EC57F0C66804DA7868BCE72FFF3",
+      "path": "Assets/Data/ContentExpansion/Weapons/04_briar_bolt.asset"
+    },
+    {
+      "sha256": "F6C28998E019C7B3BC7AB608EE7EA5848487BE86239A9879F0C0FFE0FC3AAB3F",
+      "path": "Assets/Data/ContentExpansion/Weapons/04_briar_bolt.asset.meta"
+    },
+    {
+      "sha256": "D5FA5C089A86A433415C0010451395754E156D29F6EFB52DB87B4C2901A2F7C2",
+      "path": "Assets/Data/ContentExpansion/Weapons/05_rivet_spike.asset"
+    },
+    {
+      "sha256": "8D8B1FAC4B36C0A53CAC447E092B64E5CA2F87B5E0EEDC324CDD4CB1406BC239",
+      "path": "Assets/Data/ContentExpansion/Weapons/05_rivet_spike.asset.meta"
+    },
+    {
+      "sha256": "939C4379F4CE61E2A58ADED2246ADF610836B79446995BA659B17F96C9910F22",
+      "path": "Assets/Data/ContentExpansion/Weapons/06_prism_shard.asset"
+    },
+    {
+      "sha256": "1F9F795365052CBA1ED78BEC70A76F5D7A745A448FC8EE36D8E2C262892516A8",
+      "path": "Assets/Data/ContentExpansion/Weapons/06_prism_shard.asset.meta"
+    },
+    {
+      "sha256": "63726BE486E1BCBD4EE3448022BB0FE94B2178A6F75110430C46F41DB2E6096C",
+      "path": "Assets/Data/ContentExpansion/Weapons/07_medical_lancet.asset"
+    },
+    {
+      "sha256": "9D8368B7698A68306263B994469C1BE2F42C3154117636401851E4305BB35F79",
+      "path": "Assets/Data/ContentExpansion/Weapons/07_medical_lancet.asset.meta"
+    },
+    {
+      "sha256": "F3600F4F25E954C60BA36C3EEBE4EC945B2040452A8EDA21C43070125B1A2DAF",
+      "path": "Assets/Data/ContentExpansion/Weapons/08_ember_censer.asset"
+    },
+    {
+      "sha256": "D0555D5B44E0EE9A0F5F38DBEBF151E85E08F603DE3154AC21503ABE0CAE9A54",
+      "path": "Assets/Data/ContentExpansion/Weapons/08_ember_censer.asset.meta"
+    },
+    {
+      "sha256": "EE60A31BFB4D8FE7A74DC292D72384452F97C5DFBA7339E440FD8C4F99321C9E",
+      "path": "Assets/Data/ContentExpansion/Weapons/09_moon_disc.asset"
+    },
+    {
+      "sha256": "51057FF7B0F6C16E913BAC8FA7D728F6C9726BB9C4CFFE479FB687990662860D",
+      "path": "Assets/Data/ContentExpansion/Weapons/09_moon_disc.asset.meta"
+    },
+    {
+      "sha256": "619BF95C02D7EC5D93B30EEBF119BE44B90D05DEDDBA5DF1F7F3BF94010E0E40",
+      "path": "Assets/Data/ContentExpansion/Weapons/10_meteor_hammer.asset"
+    },
+    {
+      "sha256": "55D312C902F0051BA2C260053F33ED8FCAC5FCFCCB9850ED4C65824D932383FA",
+      "path": "Assets/Data/ContentExpansion/Weapons/10_meteor_hammer.asset.meta"
+    },
+    {
+      "sha256": "129348035A74E283EE3D0FE4B04235107EC88EA0BA44504217C57D61EBEBED0B",
+      "path": "Assets/Data/ContentExpansion/definitions.json"
+    },
+    {
+      "sha256": "A84BCE809D88A97DA917B6641407731518DAB6FE7714A642B49F0476B2F33873",
+      "path": "Assets/Data/ContentExpansion/definitions.json.meta"
+    },
+    {
+      "sha256": "5AB7022506D7DCD62C5AD0736773F51823411E8B6CCF6A28C31D66FA499F7DBE",
+      "path": "Assets/Editor/ContentExpansionSetup.cs"
+    },
+    {
+      "sha256": "0E7290393400E5ADCEB8A59AF7ED665CCBCEB773A70D8F6B50526AE2A262279E",
+      "path": "Assets/Editor/ContentExpansionSetup.cs.meta"
+    },
+    {
+      "sha256": "1BE3E4086E5085C1EBEFCDA590C81B12C77FDFE4EAD43A82C6F85952C100F6ED",
+      "path": "Assets/Prefab/Weapon/ContentExpansion.meta"
+    },
+    {
+      "sha256": "5045375389DFA4F132C1D24C79C74A8D1130CDBA8896D78A6295461AA7F59FD8",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/01_copper_rapier.prefab"
+    },
+    {
+      "sha256": "CD5DE31FCC1397470499262E9D976B6872A5EA4BF9FE8130352C1C09AB859366",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/01_copper_rapier.prefab.meta"
+    },
+    {
+      "sha256": "2264D0421D4B16C2DE5AF0A0CD7D6D1C71B045AB65B2D7308DE4BDE49A7933EB",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/02_saw_cleaver.prefab"
+    },
+    {
+      "sha256": "3A3D6153D78FDF17DF98CDB162B1416D46CAEC6905A322D44D85F50E06BA6281",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/02_saw_cleaver.prefab.meta"
+    },
+    {
+      "sha256": "9BFAF0D17B3086E2E0DE06430C9D60E5878F7658CEA79274C9D7BE6A01B3F4E8",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/03_tide_spear.prefab"
+    },
+    {
+      "sha256": "0BC73CF0B10435D5234CF2363D10E2AF1C9A01D920164E22D5201B1DC829FAE8",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/03_tide_spear.prefab.meta"
+    },
+    {
+      "sha256": "3C867788C49C1BD5D37EA21BAEA92BE18BDD58714DD1C064D8A44CBFEA548898",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/04_briar_bolt.prefab"
+    },
+    {
+      "sha256": "7C44BE7337BC5FAD69570C97987FFCF2327FD89E76BFE91E2CE1B85288A4FD38",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/04_briar_bolt.prefab.meta"
+    },
+    {
+      "sha256": "650530F624520296BCA5A2B1E774BAA4A1A7172A072EED28EC3C172D3A437C79",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/05_rivet_spike.prefab"
+    },
+    {
+      "sha256": "7BE3A0CCEB3F090E35F6B074F4A5167652B595D1872685147B5CC390805559CF",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/05_rivet_spike.prefab.meta"
+    },
+    {
+      "sha256": "D511DAFF8715C7CA0AD7C74D9B01B790709AB29BD10A38769E9F786799EC18ED",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/06_prism_shard.prefab"
+    },
+    {
+      "sha256": "B851BF68590F267711CE022D24F626DDB1B0560A54E91519CB44CA3A6FBBA8EE",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/06_prism_shard.prefab.meta"
+    },
+    {
+      "sha256": "34283DD5E89AD46DA1CEB0C43A0859E255FE19305620CF12F8BDFC073704564F",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/07_medical_lancet.prefab"
+    },
+    {
+      "sha256": "308467150E778A472BBDF8C00ED150EBC427B028723EA0B028BD31E747095337",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/07_medical_lancet.prefab.meta"
+    },
+    {
+      "sha256": "49C708B0695EE9FDF02AD81DA99916EDE4CB0BAB4186E13609F1098DC898A8AE",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/08_ember_censer.prefab"
+    },
+    {
+      "sha256": "EDC3F0D54DE74242D30B982EDD0CBF1C06A5F2D5B7AC77DC067A30DBD0D2C468",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/08_ember_censer.prefab.meta"
+    },
+    {
+      "sha256": "242591C7C3E30F288FE7D16EAF280AFAD988FFB5965A27B7AFFB75D52FD0880C",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/09_moon_disc.prefab"
+    },
+    {
+      "sha256": "365A9642566C6A81B1DEDFA53E8F925454CA0FF8FB6AFEB50C3AD4C5FD51F990",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/09_moon_disc.prefab.meta"
+    },
+    {
+      "sha256": "B9E8118445026C6E6E4D088F1E96A2385F139AFC0CD6041BB9D4E7FEF08F15DB",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/10_meteor_hammer.prefab"
+    },
+    {
+      "sha256": "16DD1C5AFDFC13DD0B1E30B4F59D0BF3723672FC306BBCAC0AF0DE89B5576EC3",
+      "path": "Assets/Prefab/Weapon/ContentExpansion/10_meteor_hammer.prefab.meta"
+    },
+    {
+      "sha256": "B5A52A01EB6B93D716D4100A43BC3F54CB05A101826E879BA1A86FA197738B92",
+      "path": "Assets/Scripts/Ability/RoundItemMechanicSO.cs"
+    },
+    {
+      "sha256": "09964E0E98FD349F59655CD02FB34605E236AD235DC373111C709C2542388585",
+      "path": "Assets/Scripts/Ability/RoundItemMechanicSO.cs.meta"
+    },
+    {
+      "sha256": "C034A19333A9BD1A19ED0073BEE2B6115920C46765701808960678E3FCFE29CE",
+      "path": "Assets/Tests/Editor/ContentExpansionTests.cs"
+    },
+    {
+      "sha256": "9524EAC32C77ACF9B59D837BC7E6989E41FEB3212A5CAEDF140EFDBF53DC2306",
+      "path": "Assets/Tests/Editor/ContentExpansionTests.cs.meta"
+    },
+    {
+      "sha256": "457571752EC9E1349C1777089E5B157FB8704BAAFD75E6F89F68B30C76897A02",
+      "path": "Assets/Tests/PlayMode/ContentExpansionPlayModeTests.cs"
+    },
+    {
+      "sha256": "8F14F2E216ADF0D273B2E69B4A071063EAE723EF902FAD4F59F1C9227345717A",
+      "path": "Assets/Tests/PlayMode/ContentExpansionPlayModeTests.cs.meta"
+    },
+    {
+      "sha256": "F738034754EB81794A0A95D252F3FCF01F5E03487EEFAE1CC83B379517C3F7E4",
+      "path": "Assets/Data/GameContentCatalog.asset"
+    },
+    {
+      "sha256": "59A0C5CAE30CD04BA93692821A326BABC237A42A9CBB2A96DFC07A8D3D2AFD7B",
+      "path": "Assets/Data/Rounds/ShopCatalog.asset"
+    },
+    {
+      "sha256": "D86B3D316CDF09D2AF09A98CF2D55F8C17E63EC34AAE7A4AF32E78800A3180BD",
+      "path": "Assets/Scenes/MainLevel.unity"
+    },
+    {
+      "sha256": "CFA98E34F58E52E0A1D4D87E988CE07418A14AFA8E41E4DC7BE8EBFEA08C8C27",
+      "path": "Assets/Scripts/Core/RoundController.cs"
+    },
+    {
+      "sha256": "3E8FFD4C8EDF51155416C158610A75FA4B1DC0EB5B85C79D70524E75687754EF",
+      "path": "Assets/Scripts/Core/RunShopService.cs"
+    },
+    {
+      "sha256": "53545206CEC67A877B5AFA04F132B04EEA0168FD3CDBB70557B552D1BC48D1CF",
+      "path": "Assets/Scripts/Data/AbilityDataSO.cs"
+    },
+    {
+      "sha256": "A38A4CAAAB5BABEE5F8F80E4A3EC73D5F5D3BE1E871CB0AD73EA1916217DD079",
+      "path": "Assets/Scripts/UI/PauseInventoryView.cs"
+    },
+    {
+      "sha256": "60F3CC24EF250567F7EDB9C9C603DED910621143ABC1BB7D12756A76822E5629",
+      "path": "Assets/Scripts/UI/RoundIntermissionUI.cs"
+    },
+    {
+      "sha256": "54D9FE9F757507AA470E2DFD53BFABCF6A4B3299B9792E835733238A19BEC8DF",
+      "path": "Assets/Scripts/UI/RoundShopPresentation.cs"
+    },
+    {
+      "sha256": "E4D303D8B5E1A9EA1DDBA4347CF50E37953F6B2CF45195FB620999D719D74850",
+      "path": "Assets/Tests/PlayMode/RoundCombatPlayModeTests.cs"
+    },
+    {
+      "sha256": "1FCE3A3882323F7790D70D4324FF6E1F567669EBEA92EA8895CB7AB0DAC749A4",
+      "path": "Assets/Tests/PlayMode/SceneReloadPlayModeTests.cs"
+    }
+  ],
+  "timestamp": "2026-09-25T10:05:47.5939546+08:00",
+  "finalEditMode": "Logs/Automation/20260925-100357/summary.json",
+  "fullRegression": "Logs/Automation/20260925-095508/summary.json",
+  "branch": "codex/session-25-items-weapons"
+}

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System;
 using System.Reflection;
 using NUnit.Framework;
@@ -553,8 +553,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.That(playerMagnet, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.IsNotNull(abilityManager, "MainLevel 的 Player 缺少 AbilityManager。");
             Assert.That(ownedAbilityCount, Is.Zero, "新局不应继承上一局的正式能力状态。");
-            Assert.That(configuredAbilityUpgradeCount, Is.EqualTo(6),
-                "MainLevel 的升级池没有完整登记六项正式能力。 ");
+            Assert.That(configuredAbilityUpgradeCount, Is.EqualTo(26),
+                "MainLevel 的目录应完整登记既有六项能力及新增二十件道具。");
             Assert.That(magnetRadius, Is.EqualTo(3f).Within(FloatTolerance));
             Assert.IsNotNull(
                 playerHurtbox,

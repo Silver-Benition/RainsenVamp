@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: paper_crane
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.paper_crane
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.paper_crane.name
+  descriptionKey: upgrade.paper_crane.description
+  upgradeName: "\u7EB8\u9E64\u62A4\u7B26"
+  description: "\u95EA\u907F +4%\uFF0C\u5E78\u8FD0 +8\uFF0C\u62A4\u7532 -1\u3002"
+  icon: {fileID: 21300000, guid: bb4be9eff6d5c45408dedb02ec4a528c, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: ac51ecda8532a014e8e810fa3d6b80dc, type: 2}

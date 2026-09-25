@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: iron_bento
+  m_EditorClassIdentifier:
+  abilityID: iron_bento
+  abilityNameKey: item.iron_bento.name
+  descriptionKey: item.iron_bento.description
+  abilityDisplayName: "\u94C1\u58F3\u4FBF\u5F53"
+  displayDescription: "\u6700\u5927\u751F\u547D +3\uFF0C\u8FD1\u6218\u4F24\u5BB3+1\uFF0C\u901F\u5EA6
+    -3%\u3002"
+  icon: {fileID: 21300000, guid: cb6d372378dd27a46afba54141a28948, type: 3}
+  presentationCategory: 0
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  quality: 1
+  stackPerCopy: 1
+  maxCopies: 0
+  levelConfigs:
+  - upgradeDescription: "\u6700\u5927\u751F\u547D +3\uFF0C\u8FD1\u6218\u4F24\u5BB3+1\uFF0C\u901F\u5EA6
+      -3%\u3002"
+    statModifiers:
+    - statType: 0
+      mode: 0
+      value: 3
+    - statType: 24
+      mode: 0
+      value: 1
+    - statType: 32
+      mode: 0
+      value: -3
+  mechanic: {fileID: 0}

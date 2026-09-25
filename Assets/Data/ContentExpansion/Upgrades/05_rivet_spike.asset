@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: 05_rivet_spike
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.05_rivet_spike
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.05_rivet_spike.name
+  descriptionKey: upgrade.05_rivet_spike.description
+  upgradeName: "\u94C6\u9489\u67AA"
+  description: "\u77ED\u5C04\u7A0B\u6247\u5F62\u9F50\u5C04 3 \u679A\u94C6\u9489\uFF1B\u6BCF\u679A\u72EC\u7ACB\u547D\u4E2D\uFF0C\u540C\u4E00\u76EE\u6807\u53EF\u627F\u53D7\u591A\u679A\u3002"
+  icon: {fileID: 21300000, guid: a14c5fd1914c5114da491829d5960e37, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: f9adc340864dcde48a526f9c54276097, type: 2}
+  abilityToGrant: {fileID: 0}

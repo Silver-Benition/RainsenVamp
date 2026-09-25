@@ -71,7 +71,7 @@ public sealed class RunShopService
         // 宝箱阶段也能禁用道具；进入商店时连同上波锁定报价一起清除。
         for (int i = 0; i < _offers.Length; i++)
             if (_offers[i] != null && !_offers[i].Product.IsWeapon && (RunState.GetOrCreate(_stats).IsBanished(_offers[i].Product.Id) ||
-                (_stats != null && _stats.UsesBrotatoStats && !_offers[i].Product.content.abilityToGrant.IsAvailableInBrotato())))
+                !CanGrantItem(_offers[i].Product)))
                 _offers[i] = null;
         foreach (RunShopProduct product in _catalog.products)
         {
@@ -95,8 +95,8 @@ public sealed class RunShopService
             if (_wave <= 2 && i < 2)
                 for (int j = 0; j < _eligible.Count; j++) if (_eligible[j].IsWeapon) { index = j; break; }
             RunShopProduct product = _eligible[index];
-            int tier = product.IsWeapon ? RollTier() : 1;
-            int price = (int)Math.Min(int.MaxValue, (long)product.basePrice * tier + _wave * 2L);
+            int tier = product.IsWeapon ? RollTier() : product.content.abilityToGrant.quality;
+            int price = (int)Math.Min(int.MaxValue, (long)product.basePrice * (product.IsWeapon ? tier : 1) + _wave * 2L);
             _offers[i] = new RunShopOffer(product, tier, price);
             _eligible.RemoveAt(index);
         }

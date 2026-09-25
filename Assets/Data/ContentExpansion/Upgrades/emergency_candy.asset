@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: emergency_candy
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.emergency_candy
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.emergency_candy.name
+  descriptionKey: upgrade.emergency_candy.description
+  upgradeName: "\u5E94\u6025\u7CD6\u5757"
+  description: "\u6BCF\u56DE\u5408\u4E00\u6B21\uFF1A\u5B9E\u9645\u53D7\u4F24\u540E\u4ECD\u5B58\u6D3B\u4E14\u751F\u547D\u4E0D\u9AD8\u4E8E\u6700\u5927\u751F\u547D\u768425%\u65F6\uFF0C\u7ACB\u5373\u6062\u590D
+    \u6700\u5927\u751F\u547D\u503C15% \u70B9\u751F\u547D\u3002"
+  icon: {fileID: 21300000, guid: a8f2774ee6cb74444b7eb0a2ddd6e1d5, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: aaa449b269753914083d6062bbaf68b0, type: 2}

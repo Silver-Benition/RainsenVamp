@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: 07_medical_lancet
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.07_medical_lancet
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.07_medical_lancet.name
+  descriptionKey: upgrade.07_medical_lancet.description
+  upgradeName: "\u91C7\u8840\u9488"
+  description: "\u4F4E\u4F24\u5FEB\u901F\u9488\u5F39\uFF1B\u6B66\u5668\u81EA\u5E26\u751F\u547D\u7A83\u53D6
+    +10%/+15%/+20%/+25%\uFF0C\u7EE7\u627F\u5168\u5C40\u7A83\u53D6\u8282\u6D41\u3002"
+  icon: {fileID: 21300000, guid: 8c2a9541f8a4f9441b00d768bdc32433, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: 8bf3a40c891efc540b579c43646de786, type: 2}
+  abilityToGrant: {fileID: 0}

@@ -447,8 +447,8 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         AbilityDataSO data = reward.Product.content.abilityToGrant;
         OwnedAbilityState owned = _rounds.Items.GetOwnedAbility(data);
         _crateImage.sprite = reward.Product.Icon;
-        _crateName.text = reward.Product.Name + "\n" + string.Format(T("itemLimit", "持有 {0}/{1}"), owned?.CurrentLevel ?? 0, data.MaxLevel);
-        _crateBody.text = RoundShopPresentation.ItemDetails(data, (owned?.CurrentLevel ?? 0) + 1);
+        _crateName.text = reward.Product.Name + "\n" + string.Format(T("itemLimit", "持有 {0}/{1}"), owned?.CurrentLevel ?? 0, data.CopyLimitText);
+        _crateBody.text = RoundShopPresentation.ItemOfferDetails(data, owned?.CurrentLevel ?? 0);
         _crateHeading.text = string.Format(T("foundItemCount", "发现道具！剩余 {0}"), _rounds.PendingCrates);
         Label(_recycleCrate, string.Format(T("crateRecycleHold", "长按回收（+{0}）"), reward.RecycleValue));
         RunState run = RunState.Instance;
@@ -468,7 +468,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _icons[i].enabled = _icons[i].sprite != null;
         _cardNames[i].text = upgrades ? stat?.displayName ?? "" : offer?.Product.Name ?? T("emptyOffer", "暂无商品");
         _cardTypes[i].text = upgrades ? RoundShopPresentation.Tier(tier)
-            : offer == null ? "" : offer.Product.IsWeapon ? RoundShopPresentation.Tier(offer.Tier) : T("item", "道具");
+            : offer == null ? "" : offer.Product.IsWeapon ? RoundShopPresentation.Tier(offer.Tier) : T("item", "道具") + " · " + RoundShopPresentation.Tier(offer.Tier);
         _cardTypes[i].color = RoundShopPresentation.TierColor(upgrades ? tier : offer?.Tier ?? 1);
         if (stat != null)
         {
@@ -487,7 +487,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             {
                 AbilityDataSO data = offer.Product.content.abilityToGrant;
                 OwnedAbilityState owned = _rounds.Items.GetOwnedAbility(data);
-                _cardTexts[i].text = RoundShopPresentation.ItemDetails(data, (owned?.CurrentLevel ?? 0) + 1);
+                _cardTexts[i].text = RoundShopPresentation.ItemOfferDetails(data, owned?.CurrentLevel ?? 0);
             }
         }
         else _cardTexts[i].text = "";

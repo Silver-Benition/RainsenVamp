@@ -1,0 +1,75 @@
+{
+  "mode": "built-in image_gen",
+  "images": [
+    {
+      "id": "01_copper_rapier",
+      "name": "铜针细剑",
+      "subject": "A single slender copper rapier with needle-like straight blade, small bronze cup guard and burgundy grip.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single slender copper rapier with needle-like straight blade, small bronze cup guard and burgundy grip.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-15ccded2-b23c-49c3-8122-dbddd1474f61.png"
+    },
+    {
+      "id": "02_saw_cleaver",
+      "name": "锯齿砍刀",
+      "subject": "A single broad iron cleaver with three large saw teeth on its spine and a dark red cloth wrapped grip.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single broad iron cleaver with three large saw teeth on its spine and a dark red cloth wrapped grip.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-debf0248-65d5-4b80-be9c-bc3750179367.png"
+    },
+    {
+      "id": "03_tide_spear",
+      "name": "潮纹长枪",
+      "subject": "A single teal steel spear with a broad leaf-shaped blade, a short blue ribbon and a dark wooden shaft.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single teal steel spear with a broad leaf-shaped blade, a short blue ribbon and a dark wooden shaft.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-9d49fbdd-a563-4483-be2b-6690c420bcd6.png"
+    },
+    {
+      "id": "04_briar_bolt",
+      "name": "荆棘弩矢",
+      "subject": "A single compact wooden crossbow loaded with a thick emerald tipped thorn bolt, bronze fittings.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single compact wooden crossbow loaded with a thick emerald tipped thorn bolt, bronze fittings.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-8aa0eb92-58f9-41e4-a005-08bcdc214573.png"
+    },
+    {
+      "id": "05_rivet_spike",
+      "name": "铆钉枪",
+      "subject": "A single chunky handheld brass rivet gun, short rectangular muzzle, dark teal grip and red pressure canister.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single chunky handheld brass rivet gun, short rectangular muzzle, dark teal grip and red pressure canister.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-464738ba-f9d7-4d6c-96a5-6bfcd04b8fc9.png"
+    },
+    {
+      "id": "06_prism_shard",
+      "name": "棱晶飞梭",
+      "subject": "A single elongated violet crystal dart with three asymmetric cyan facets and a small bronze tail.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single elongated violet crystal dart with three asymmetric cyan facets and a small bronze tail.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-7e6a1623-742c-4c27-8f4d-d1bd77482ac5.png"
+    },
+    {
+      "id": "07_medical_lancet",
+      "name": "采血针",
+      "subject": "A single fantasy medical lancet dart, ivory handle with red glass reservoir, silver pointed blade.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single fantasy medical lancet dart, ivory handle with red glass reservoir, silver pointed blade.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-dbffd970-0d54-482d-a89c-d90c70a19dd0.png"
+    },
+    {
+      "id": "08_ember_censer",
+      "name": "余火香炉",
+      "subject": "A single squat dark bronze incense censer with perforated domed lid, glowing orange core and two curved handles. No smoke cloud.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single squat dark bronze incense censer with perforated domed lid, glowing orange core and two curved handles. No smoke cloud.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-19291d4b-651a-4b3c-bebb-211e20b841e4.png"
+    },
+    {
+      "id": "09_moon_disc",
+      "name": "月牙轮",
+      "subject": "A single compact silver crescent throwing disc with teal inner rim and a dark central hub. Bold crescent silhouette.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single compact silver crescent throwing disc with teal inner rim and a dark central hub. Bold crescent silhouette.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-8284a218-169a-4f12-8fd7-d0fe74010c1d.png"
+    },
+    {
+      "id": "10_meteor_hammer",
+      "name": "陨铁锤",
+      "subject": "A single dark iron throwing hammer with blocky meteorite head, glowing orange crack and a short leather grip.",
+      "prompt": "Use case: stylized-concept. Asset type: one weapon inventory icon for a 2D pixel art survivor game. ONE isolated object on genuine transparent alpha background, square canvas. Consistent 48x48 logical pixel-art aesthetic enlarged with crisp blocky clusters, dark navy outline, restrained 12-18 color palette, hard 3-tone shading, upper-left light. Centered with 15% clear padding, entire object visible, clear at 48px. Diagonal lower-left to upper-right for elongated weapons. No text, labels, grid, scene, shadow, hands, characters, watermark, glow outside object, or painted checkerboard. Subject: A single dark iron throwing hammer with blocky meteorite head, glowing orange crack and a short leather grip.",
+      "source": "C:/Users/Benition/.codex/generated_images/01a0ccba-3f0c-7211-aa23-f8d4bb9c2430/exec-7120b442-94aa-44e3-830c-1e43e85a509a.png"
+    }
+  ]
+}

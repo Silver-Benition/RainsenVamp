@@ -139,7 +139,7 @@ public sealed class PauseInventoryView
         if (!_visible || _abilities == null || index >= _abilities.OwnedAbilities.Count) return;
         OwnedAbilityState item = _abilities.OwnedAbilities[index];
         if (item == null || item.Data == null) return;
-        Show(owner, item.Data.GetDisplayName() + " x" + item.CurrentLevel,
+        Show(owner, item.Data.GetDisplayName() + " x" + item.CurrentLevel + " · " + RoundShopPresentation.Tier(item.Data.quality),
             RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel));
     }
 

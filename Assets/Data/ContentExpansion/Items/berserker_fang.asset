@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: berserker_fang
+  m_EditorClassIdentifier:
+  abilityID: berserker_fang
+  abilityNameKey: item.berserker_fang.name
+  descriptionKey: item.berserker_fang.description
+  abilityDisplayName: "\u72C2\u6218\u7360\u7259"
+  displayDescription: "\u4F24\u5BB3 +20%\uFF0C\u62A4\u7532 -2\u3002"
+  icon: {fileID: 21300000, guid: 467250921b00b4340be4f4ad8a9e649d, type: 3}
+  presentationCategory: 0
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  quality: 3
+  stackPerCopy: 1
+  maxCopies: 1
+  levelConfigs:
+  - upgradeDescription: "\u4F24\u5BB3 +20%\uFF0C\u62A4\u7532 -2\u3002"
+    statModifiers:
+    - statType: 23
+      mode: 0
+      value: 20
+    - statType: 2
+      mode: 0
+      value: -2
+  mechanic: {fileID: 0}

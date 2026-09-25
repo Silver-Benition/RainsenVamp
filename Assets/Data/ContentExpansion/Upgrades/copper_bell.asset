@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: copper_bell
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.copper_bell
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.copper_bell.name
+  descriptionKey: upgrade.copper_bell.description
+  upgradeName: "\u5F15\u8D22\u94DC\u94C3"
+  description: "\u62FE\u53D6\u8303\u56F4 +20%\u3002"
+  icon: {fileID: 21300000, guid: 9b401dcc399abf0439f8df08dda637c4, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: 53c543877b6ca144fbcf411c93377df8, type: 2}

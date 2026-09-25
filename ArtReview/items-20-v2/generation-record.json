@@ -1,0 +1,7 @@
+{
+  "mode": "built-in imagegen edit",
+  "source": "../items-20-v1/icons/09_red_gear.png",
+  "output": "icons/09_red_gear.png",
+  "sha256": "b57ec54a4bd779cc280af8bac22b5dc05a3e7e75316572ec3bba87f7199ffb1f",
+  "prompt": "Edit target: supplied red copper gear inventory icon. Precise-object-edit. Replace the single gear with attached winding key by exactly TWO visibly intermeshing red copper gears, one slightly larger, their teeth meshing at diagonal contact. Remove the winding key. Preserve the original chunky pixel-art style, bold dark outline, red copper and warm brass palette, top-left highlights, isolated inventory icon composition. Show opposite rotation with only two small subtle pixel motion arcs, no text, no arrows, no additional objects. Static sprite, not animation or sprite sheet. Transparent RGBA background, generous empty margin all sides, centered complete silhouette, readable downscaled to48px. Do not paint checkerboard."
+}

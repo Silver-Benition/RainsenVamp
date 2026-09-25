@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: 10_meteor_hammer
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.10_meteor_hammer
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.10_meteor_hammer.name
+  descriptionKey: upgrade.10_meteor_hammer.description
+  upgradeName: "\u9668\u94C1\u9524"
+  description: "\u5411\u4E0A\u629B\u51FA\u65CB\u8F6C\u91CD\u9524\uFF0C\u6CBF\u629B\u7269\u7EBF\u843D\u4E0B\uFF1B\u989D\u5916\u7A7F\u900F
+    1/2/3/4\uFF0C\u65E0\u7206\u70B8\u6548\u679C\u3002"
+  icon: {fileID: 21300000, guid: e080e503e9123284da3cd4a0e190726a, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: 019b8f3c613b9e14b8d27c05de894322, type: 2}
+  abilityToGrant: {fileID: 0}

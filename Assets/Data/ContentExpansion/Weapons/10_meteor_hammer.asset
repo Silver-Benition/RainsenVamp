@@ -1,0 +1,260 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54fac86b00a88784db7cc28ee21c0c83, type: 3}
+  m_Name: 10_meteor_hammer
+  m_EditorClassIdentifier:
+  weaponID: 10_meteor_hammer
+  weaponNameKey: weapon.10_meteor_hammer.name
+  descriptionKey: weapon.10_meteor_hammer.description
+  weaponDisplayName: "\u9668\u94C1\u9524"
+  displayDescription: "\u5411\u4E0A\u629B\u51FA\u65CB\u8F6C\u91CD\u9524\uFF0C\u6CBF\u629B\u7269\u7EBF\u843D\u4E0B\uFF1B\u989D\u5916\u7A7F\u900F
+    1/2/3/4\uFF0C\u65E0\u7206\u70B8\u6548\u679C\u3002"
+  runtimeType: 3
+  icon: {fileID: 21300000, guid: e080e503e9123284da3cd4a0e190726a, type: 3}
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  levelConfigs:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 12
+    cooldown: 1.5
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 1
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 18
+    cooldown: 1.4
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 2
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 27
+    cooldown: 1.3
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 3
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 38
+    cooldown: 1.2
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 4
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  projectilePrefab: {fileID: 3354745344068750947, guid: ea7026704a9da40469d8ac94a00900f8, type: 3}
+  ignoredPlayerStats: 0
+  roundTierConfigs:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 12
+    cooldown: 1.5
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 1
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 18
+    cooldown: 1.4
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 2
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 27
+    cooldown: 1.3
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 3
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:
+  - meleeScaling: 1.3
+    rangedScaling: 0
+    elementalScaling: 0
+    damagePercent: 0
+    critChance: 0
+    critMultiplier: 2
+    lifeSteal: 0
+    attackSpeed: 0
+    rangeBonus: 0
+    attackRange: 6
+    damage: 38
+    cooldown: 1.2
+    projectileCount: 1
+    projectileSpeed: 6
+    pierceCount: 4
+    lifeTime: 3
+    spreadAngle: 0
+    bounceCount: 0
+    bounceMode: 2
+    auraRadius: 1.6
+    tickInterval: 0.8
+    orbitRadius: 1.65
+    orbitAngularSpeed: 160
+    lobGravity: 7
+    spinSpeed: 450
+    meleeRange: 1.45
+    meleeArc: 80
+    activeDuration: 0.16
+    features:

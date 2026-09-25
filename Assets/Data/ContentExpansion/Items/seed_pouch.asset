@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: seed_pouch
+  m_EditorClassIdentifier:
+  abilityID: seed_pouch
+  abilityNameKey: item.seed_pouch.name
+  descriptionKey: item.seed_pouch.description
+  abilityDisplayName: "\u4E30\u7A57\u79CD\u888B"
+  displayDescription: "\u6536\u83B7 +8\uFF0C\u8FD1\u6218\u4F24\u5BB3 -1\u3002"
+  icon: {fileID: 21300000, guid: 9d3b30d61ddd88547a1db4996b61d132, type: 3}
+  presentationCategory: 0
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  quality: 1
+  stackPerCopy: 1
+  maxCopies: 0
+  levelConfigs:
+  - upgradeDescription: "\u6536\u83B7 +8\uFF0C\u8FD1\u6218\u4F24\u5BB3 -1\u3002"
+    statModifiers:
+    - statType: 34
+      mode: 0
+      value: 8
+    - statType: 24
+      mode: 0
+      value: -1
+  mechanic: {fileID: 0}

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: 04_briar_bolt
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.04_briar_bolt
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.04_briar_bolt.name
+  descriptionKey: upgrade.04_briar_bolt.description
+  upgradeName: "\u8346\u68D8\u5F29\u77E2"
+  description: "\u5411\u5F53\u524D\u7784\u51C6\u65B9\u5411\u53D1\u5C04\u7A7F\u900F\u5F29\u77E2\uFF1B\u989D\u5916\u7A7F\u900F\u968F\u54C1\u8D28\u4E3A
+    2/3/4/5\u3002"
+  icon: {fileID: 21300000, guid: 149df00373e319a4f8a88df006ee3cab, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: c5cb36d7baf6ad844b2aa5fda1d3ad6c, type: 2}
+  abilityToGrant: {fileID: 0}

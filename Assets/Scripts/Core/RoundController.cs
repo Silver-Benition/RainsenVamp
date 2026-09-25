@@ -32,6 +32,8 @@ public sealed class RoundController : MonoBehaviour
     public LevelUpManager Loadout => _loadout;
     public AbilityManager Items => _items;
     public event Action Changed;
+    /// <summary>有效战斗计时推进后广播当前回合已用秒数，供低频条件机制监听。</summary>
+    public event Action<float> CombatTimeAdvanced;
     private PlayerStats _player;
     private PlayerHealth _health;
     private LevelUpManager _loadout;
@@ -100,7 +102,12 @@ public sealed class RoundController : MonoBehaviour
 
     /// <summary>只累计战斗时间；生存时间不受敌对冻结影响。</summary>
     public void Tick(float delta)
-    { if (Phase == RoundPhase.Combat && Current != null) Current.Tick(delta); }
+    {
+        if (Phase != RoundPhase.Combat || Current == null || !AllowsCombat || delta <= 0
+            || float.IsNaN(delta) || float.IsInfinity(delta)) return;
+        Current.Tick(delta);
+        CombatTimeAdvanced?.Invoke(Current.Elapsed);
+    }
 
     /// <summary>在本帧伤害事件完成后裁决通关；死亡复活流程拥有优先权。</summary>
     private void LateUpdate()

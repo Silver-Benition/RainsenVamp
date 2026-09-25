@@ -1,0 +1,16 @@
+{
+  "samples": {
+    "brotato": 10,
+    "vampire": 8,
+    "holo": 8,
+    "soulstone": 10
+  },
+  "total": 36,
+  "navTargets": 6,
+  "mobilePageOverflow": false,
+  "pageErrors": [],
+  "reviewIcons": 20,
+  "sourceWorkbookUnchanged": true,
+  "gameChanges": false,
+  "unityTests": "Not applicable: review artifacts only"
+}

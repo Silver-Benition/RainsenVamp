@@ -51,3 +51,7 @@ ExportedObj/
 *.aab
 *.app
 *.unitypackage
+
+# Session 25: local website hosting configuration
+/ArtReview/survivor-item-research/.openai/
+/outputs/**/~$*.xlsx

@@ -35,10 +35,70 @@ MonoBehaviour:
     basePrice: 18
   - content: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17306, type: 2}
     basePrice: 18
+  - content: {fileID: 11400000, guid: 6ecf67c60be51c6418333a72520d1145, type: 2}
+    basePrice: 14
+  - content: {fileID: 11400000, guid: 2b4ae7203c4513c4887d4f3151579061, type: 2}
+    basePrice: 16
+  - content: {fileID: 11400000, guid: b63819513c4e22b48a98877cb96f05c0, type: 2}
+    basePrice: 36
+  - content: {fileID: 11400000, guid: 0bab6ad380e442d40901d57db716f440, type: 2}
+    basePrice: 16
+  - content: {fileID: 11400000, guid: 023b496bcd9ba7b4bba6b6c37f5d989f, type: 2}
+    basePrice: 36
+  - content: {fileID: 11400000, guid: 7ad5efe514c60f84ba73f285fbb4056c, type: 2}
+    basePrice: 16
+  - content: {fileID: 11400000, guid: 0b17e57034bf6bd47a51ec2f6c0375c9, type: 2}
+    basePrice: 16
+  - content: {fileID: 11400000, guid: 95496125b260fbf4989a7aeaa587bca6, type: 2}
+    basePrice: 40
+  - content: {fileID: 11400000, guid: 7bdb8b247b87d784586caf3995df9cf7, type: 2}
+    basePrice: 36
+  - content: {fileID: 11400000, guid: f4a5a759332d8714daf204a84054e679, type: 2}
+    basePrice: 40
+  - content: {fileID: 11400000, guid: 1ebe66d9a6aac334aa93fff3ed4de688, type: 2}
+    basePrice: 14
+  - content: {fileID: 11400000, guid: 177b6d6a2fcbde845988a2b8c2af1b6f, type: 2}
+    basePrice: 64
+  - content: {fileID: 11400000, guid: 9afd976a5a61a674a93756b607008954, type: 2}
+    basePrice: 16
+  - content: {fileID: 11400000, guid: 376a019cda7865a47b4325f985dd4ca7, type: 2}
+    basePrice: 40
+  - content: {fileID: 11400000, guid: 07d0f24d14edf6f45a2396eec311b289, type: 2}
+    basePrice: 56
+  - content: {fileID: 11400000, guid: 0a3ffb6df37b3cf44a456054ce020d9b, type: 2}
+    basePrice: 18
+  - content: {fileID: 11400000, guid: b368bc99f41f707488c8242c67985165, type: 2}
+    basePrice: 32
+  - content: {fileID: 11400000, guid: 139011247e1dbc74c976ac07fe45cae6, type: 2}
+    basePrice: 14
+  - content: {fileID: 11400000, guid: ae267b86caae48e48a67502497f48bdc, type: 2}
+    basePrice: 56
+  - content: {fileID: 11400000, guid: 2873c8a16aedd224e8f984a44685ce89, type: 2}
+    basePrice: 72
+  - content: {fileID: 11400000, guid: f1f8c0ae59521734f8b2df1367c74f12, type: 2}
+    basePrice: 16
+  - content: {fileID: 11400000, guid: e4f8ff1540433424b9899d55e3310492, type: 2}
+    basePrice: 20
+  - content: {fileID: 11400000, guid: dc202603e43f7224cac64a2ee0f68cad, type: 2}
+    basePrice: 20
+  - content: {fileID: 11400000, guid: 1fcdc7003fab94540812b646bc29004f, type: 2}
+    basePrice: 22
+  - content: {fileID: 11400000, guid: 27ef8ea6d3f117d438bf867e7eedb002, type: 2}
+    basePrice: 22
+  - content: {fileID: 11400000, guid: d35805d93ad6b2f47990667174515a2e, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 862e5ab7a3a404c4fbc192d1ce597588, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 13ee8052a72b9814f86e39882d897a6a, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: d9cefa2efc725b54fadde69b108d442b, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 4700b5d3dc6b12b4eb7d0e0f566cbea7, type: 2}
+    basePrice: 24
   stats:
   - id: round.stat.MaxHealth
     nameKey: round.stat.MaxHealth
-    displayName: 最大生命
+    displayName: "\u6700\u5927\u751F\u547D"
     icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
     modifier:
       statType: 0
@@ -51,7 +111,7 @@ MonoBehaviour:
     - 12
   - id: round.stat.HpRegeneration
     nameKey: round.stat.HpRegeneration
-    displayName: 生命再生
+    displayName: "\u751F\u547D\u518D\u751F"
     icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
     modifier:
       statType: 21
@@ -64,7 +124,7 @@ MonoBehaviour:
     - 5
   - id: round.stat.LifeSteal
     nameKey: round.stat.LifeSteal
-    displayName: 生命窃取
+    displayName: "\u751F\u547D\u7A83\u53D6"
     icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
     modifier:
       statType: 22
@@ -77,7 +137,7 @@ MonoBehaviour:
     - 4
   - id: round.stat.DamagePercent
     nameKey: round.stat.DamagePercent
-    displayName: 伤害
+    displayName: "\u4F24\u5BB3"
     icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
     modifier:
       statType: 23
@@ -90,7 +150,7 @@ MonoBehaviour:
     - 16
   - id: round.stat.MeleeDamage
     nameKey: round.stat.MeleeDamage
-    displayName: 近战伤害
+    displayName: "\u8FD1\u6218\u4F24\u5BB3"
     icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 24
@@ -103,7 +163,7 @@ MonoBehaviour:
     - 8
   - id: round.stat.RangedDamage
     nameKey: round.stat.RangedDamage
-    displayName: 远程伤害
+    displayName: "\u8FDC\u7A0B\u4F24\u5BB3"
     icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
     modifier:
       statType: 25
@@ -116,7 +176,7 @@ MonoBehaviour:
     - 4
   - id: round.stat.ElementalDamage
     nameKey: round.stat.ElementalDamage
-    displayName: 元素伤害
+    displayName: "\u5143\u7D20\u4F24\u5BB3"
     icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
     modifier:
       statType: 26
@@ -129,7 +189,7 @@ MonoBehaviour:
     - 4
   - id: round.stat.AttackSpeed
     nameKey: round.stat.AttackSpeed
-    displayName: 攻击速度
+    displayName: "\u653B\u51FB\u901F\u5EA6"
     icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 27
@@ -142,7 +202,7 @@ MonoBehaviour:
     - 20
   - id: round.stat.CritChance
     nameKey: round.stat.CritChance
-    displayName: 暴击率
+    displayName: "\u66B4\u51FB\u7387"
     icon: {fileID: 21300000, guid: 7149e8d26a6d49f4951c06ed1c0b16dc, type: 3}
     modifier:
       statType: 28
@@ -155,7 +215,7 @@ MonoBehaviour:
     - 9
   - id: round.stat.Range
     nameKey: round.stat.Range
-    displayName: 范围
+    displayName: "\u8303\u56F4"
     icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 30
@@ -168,7 +228,7 @@ MonoBehaviour:
     - 60
   - id: round.stat.Armor
     nameKey: round.stat.Armor
-    displayName: 护甲
+    displayName: "\u62A4\u7532"
     icon: {fileID: 21300000, guid: ac33fbbab8ee40b99cbb5b4b6b9fd247, type: 3}
     modifier:
       statType: 2
@@ -181,7 +241,7 @@ MonoBehaviour:
     - 4
   - id: round.stat.Dodge
     nameKey: round.stat.Dodge
-    displayName: 闪避
+    displayName: "\u95EA\u907F"
     icon: {fileID: 21300000, guid: cb443d542aa14f92a9d16d1c5b80f290, type: 3}
     modifier:
       statType: 31
@@ -194,7 +254,7 @@ MonoBehaviour:
     - 12
   - id: round.stat.SpeedPercent
     nameKey: round.stat.SpeedPercent
-    displayName: 速度
+    displayName: "\u901F\u5EA6"
     icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
     modifier:
       statType: 32
@@ -207,7 +267,7 @@ MonoBehaviour:
     - 12
   - id: round.stat.LuckPoints
     nameKey: round.stat.LuckPoints
-    displayName: 幸运
+    displayName: "\u5E78\u8FD0"
     icon: {fileID: 21300000, guid: 6d855bbed7ef4c768c751ac4664af877, type: 3}
     modifier:
       statType: 33
@@ -220,7 +280,7 @@ MonoBehaviour:
     - 20
   - id: round.stat.Harvesting
     nameKey: round.stat.Harvesting
-    displayName: 收获
+    displayName: "\u6536\u83B7"
     icon: {fileID: 21300000, guid: 358e654388564adb8245079303358691, type: 3}
     modifier:
       statType: 34

@@ -966,6 +966,13 @@ namespace RainsenVampSur.Tests.PlayMode
                         }
                         foreach (Button button in panel.GetComponentsInChildren<Button>())
                         {
+                            // 滚动内容允许超出屏幕；由视口裁切，不能把不可见的后续行当成布局溢出。
+                            ScrollRect scroll = button.GetComponentInParent<ScrollRect>();
+                            if (scroll != null && button.transform.IsChildOf(scroll.content))
+                            {
+                                Assert.IsNotNull(scroll.viewport.GetComponent<RectMask2D>());
+                                continue;
+                            }
                             var corners = new Vector3[4]; ((RectTransform)button.transform).GetWorldCorners(corners);
                             foreach (Vector3 corner in corners)
                             {

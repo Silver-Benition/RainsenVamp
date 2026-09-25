@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: clover_coin
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.clover_coin
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.clover_coin.name
+  descriptionKey: upgrade.clover_coin.description
+  upgradeName: "\u56DB\u53F6\u94DC\u94B1"
+  description: "\u5E78\u8FD0 +20\uFF0C\u4F24\u5BB3 -4%\u3002"
+  icon: {fileID: 21300000, guid: 3934863138d4fe54aa301b20ab706b29, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: 6d7150adcf3db634d8e07f1973bbde1c, type: 2}

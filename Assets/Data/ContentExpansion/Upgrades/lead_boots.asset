@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: lead_boots
+  m_EditorClassIdentifier:
+  upgradeID: upgrade.lead_boots
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.lead_boots.name
+  descriptionKey: upgrade.lead_boots.description
+  upgradeName: "\u94C5\u5E95\u77ED\u9774"
+  description: "\u62A4\u7532 +3\uFF0C\u95EA\u907F -4%\u3002"
+  icon: {fileID: 21300000, guid: 09862d7a2ef0e104e854a6d52c619adb, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: 41ae21c9e8c1e184bbe40b8e60cda4a1, type: 2}

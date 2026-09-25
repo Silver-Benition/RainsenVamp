@@ -53,6 +53,15 @@ public sealed class AbilityDataSO : ScriptableObject
     [Min(0.01f)] public float loadoutIconScale = 1f;
     public Vector2 loadoutIconOffset;
 
+    [Header("道具品质与重复拾取")]
+    [Range(1, 4)] public int quality = 1;
+    [Tooltip("开启后第一项配置表示单件收益；每次拾取按数量累加。旧能力仍使用等级快照。")]
+    public bool stackPerCopy;
+    [Min(0), Tooltip("重复拾取模式的持有上限；0 表示无设计上限。")]
+    public int maxCopies = 1;
+    public string CopyLimitText => stackPerCopy && maxCopies == 0
+        ? RoundShopPresentation.Text("item.unlimited", "不限") : MaxLevel.ToString();
+
     [Header("等级与机制")]
     [Tooltip("索引 0 对应 Lv.1；每项保存该等级的累计属性快照。")]
     public List<AbilityLevelData> levelConfigs = new List<AbilityLevelData>
@@ -64,7 +73,8 @@ public sealed class AbilityDataSO : ScriptableObject
     public AbilityMechanicSO mechanic;
 
     /// <summary>返回能力最大等级；空配置仍按一级处理，避免候选系统出现零级上限。</summary>
-    public int MaxLevel => Mathf.Max(1, levelConfigs != null ? levelConfigs.Count : 0);
+    public int MaxLevel => stackPerCopy ? (maxCopies == 0 ? int.MaxValue : Mathf.Max(1, maxCopies))
+        : Mathf.Max(1, levelConfigs != null ? levelConfigs.Count : 0);
 
     /// <summary>读取能力稳定 ID；缺失时以资产名兼容测试和旧内容。</summary>
     public string GetStableId()
@@ -100,6 +110,19 @@ public sealed class AbilityDataSO : ScriptableObject
             return new AbilityLevelData();
         }
 
+        if (stackPerCopy)
+        {
+            AbilityLevelData single = levelConfigs[0];
+            int copies = Mathf.Clamp(level, 1, MaxLevel);
+            if (copies == 1 || single == null) return single;
+            // 只在拾取和查看详情时构建累计快照；共享资产始终保存单件值。
+            var total = new AbilityLevelData { upgradeDescription = single.upgradeDescription };
+            foreach (PlayerStatModifier modifier in single.statModifiers)
+                total.statModifiers.Add(new PlayerStatModifier(modifier.StatType, modifier.Mode,
+                    modifier.Mode == PlayerStatModifierMode.Multiplicative
+                        ? Mathf.Pow(modifier.Value, copies) : modifier.Value * copies));
+            return total;
+        }
         int index = Mathf.Clamp(level - 1, 0, levelConfigs.Count - 1);
         return levelConfigs[index];
     }
