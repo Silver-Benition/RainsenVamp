@@ -75,6 +75,7 @@ public sealed class RunShopService
                 _offers[i] = null;
         foreach (RunShopProduct product in _catalog.products)
         {
+            if (product.IsWeapon && product.content.weaponToGrant.retiredFromPool) continue;
             if (_stats != null && _stats.UsesBrotatoStats && !product.IsWeapon &&
                 !product.content.abilityToGrant.IsAvailableInBrotato()) continue;
             if (AccountProgressService.Current.IsUpgradeSealed(product.Id)) continue;

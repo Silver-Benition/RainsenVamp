@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
@@ -42,7 +42,7 @@ namespace RainsenVampSur.Tests.PlayMode
         }
 
         /// <summary>所有已审阅道具均能通过实际商店购买；不限容量且暂停背包显示全部图像。</summary>
-        [UnityTest] public IEnumerator ReviewedItems_BuyAllTwentyAndShowInventory()
+        [UnityTest] public IEnumerator ReviewedItems_BuyAllThirtyAndShowInventory()
         {
             int count = 0;
             foreach (object product in _products)
@@ -53,12 +53,12 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.IsTrue((bool)Call(_shop, "Buy", 0), (string)Call(data, "GetDisplayName"));
                 Assert.NotNull(Call(_items, "GetOwnedAbility", data)); count++;
             }
-            Assert.AreEqual(20, count); Assert.AreEqual(20, Get<int>(_items, "OwnedAbilityCount"));
+            Assert.AreEqual(30, count); Assert.AreEqual(30, Get<int>(_items, "OwnedAbilityCount"));
             Component ui=(Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
             Call(ui,"Refresh");yield return null;Canvas.ForceUpdateCanvases();
             ScrollRect shopScroll=Get<GameObject>(ui,"Panel").transform.Find("ItemsArea").GetComponent<ScrollRect>();
             shopScroll.verticalNormalizedPosition=0;yield return null;
-            Bounds last=RectTransformUtility.CalculateRelativeRectTransformBounds(shopScroll.viewport,shopScroll.content.GetChild(19));
+            Bounds last=RectTransformUtility.CalculateRelativeRectTransformBounds(shopScroll.viewport,shopScroll.content.GetChild(29));
             Assert.GreaterOrEqual(last.min.y,shopScroll.viewport.rect.yMin-1);
             Assert.LessOrEqual(last.max.y,shopScroll.viewport.rect.yMax+1);
             yield return Capture("items-shop");
@@ -67,7 +67,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Image[] images = UnityEngine.Object.FindObjectsOfType<Image>(); int itemIcons = 0;
             foreach (Image image in images)
                 if (image.name == "Icon" && image.transform.parent.name.StartsWith("ItemSlot")) { Assert.NotNull(image.sprite); itemIcons++; }
-            Assert.AreEqual(20, itemIcons);
+            Assert.AreEqual(30, itemIcons);
             yield return Capture("items-inventory");
             ScrollRect inventory=ui.transform.Find("PauseItems").GetComponentInChildren<ScrollRect>();
             inventory.verticalNormalizedPosition=0;yield return null;
@@ -89,7 +89,7 @@ namespace RainsenVampSur.Tests.PlayMode
                 object data = Field(Field(product, "content"), "weaponToGrant");
                 if (data == null || !((string)Field(data, "weaponID")).Contains("_")) continue;
                 string id = (string)Field(data, "weaponID");
-                if (id.Length < 3 || !char.IsDigit(id[0]) || id[2] != '_') continue;
+                if (id.Length < 3 || !int.TryParse(id.Substring(0, 2), out int ordinal) || ordinal > 10 || id[2] != '_') continue;
                 SeedOffer(product, 1); Assert.IsTrue((bool)Call(_shop, "Buy", 0), id);
                 IList owned = Get<IList>(_loadout, "OwnedWeapons"); object weapon = owned[owned.Count - 1];
                 Assert.AreSame(data, Field(weapon, "weaponData"));
@@ -169,7 +169,7 @@ namespace RainsenVampSur.Tests.PlayMode
             {
                 ScrollRect inventory=ui.transform.Find("PauseItems").GetComponentInChildren<ScrollRect>();
                 inventory.verticalNormalizedPosition=0;yield return null;Canvas.ForceUpdateCanvases();
-                Bounds bounds=RectTransformUtility.CalculateRelativeRectTransformBounds(inventory.viewport,inventory.content.GetChild(19));
+                Bounds bounds=RectTransformUtility.CalculateRelativeRectTransformBounds(inventory.viewport,inventory.content.GetChild(inventory.content.childCount - 1));
                 Assert.GreaterOrEqual(bounds.min.y,inventory.viewport.rect.yMin-1);
                 Assert.LessOrEqual(bounds.max.y,inventory.viewport.rect.yMax+1);
             }

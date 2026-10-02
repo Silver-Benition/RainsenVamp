@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: workshop_blueprint
+  m_EditorClassIdentifier: 
+  abilityID: workshop_blueprint
+  abilityNameKey: item.workshop_blueprint.name
+  descriptionKey: item.workshop_blueprint.description
+  abilityDisplayName: "\u5DE5\u574A\u56FE\u7EB8"
+  displayDescription: "\u5DE5\u7A0B\u5B66 +2\uFF0C\u73A9\u5BB6\u4F24\u5BB3 -3%\u3002"
+  icon: {fileID: 21300000, guid: 1543eea0ff91c744c86670b1b57539f8, type: 3}
+  presentationCategory: 0
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  quality: 1
+  stackPerCopy: 1
+  maxCopies: 5
+  levelConfigs:
+  - upgradeDescription: "\u5DE5\u7A0B\u5B66 +2\uFF0C\u73A9\u5BB6\u4F24\u5BB3 -3%\u3002"
+    statModifiers:
+    - statType: 29
+      mode: 0
+      value: 2
+    - statType: 23
+      mode: 0
+      value: -3
+  mechanic: {fileID: 0}

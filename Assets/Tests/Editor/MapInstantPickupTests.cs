@@ -320,7 +320,7 @@ namespace RainsenVampSur.Tests
 
         /// <summary>
         /// 主关卡必须直接按输出分辨率渲染，并继续使用 32 PPU 网格稳定世界移动。
-        /// 该配置取消 480×270 中间纹理，避免小型高密度 Sprite 先被压缩再放大。
+        /// 参考尺寸恢复为 480×270，保留更宽的战场视野；仍不使用低分辨率中间纹理，避免细节先被压缩再放大。
         /// </summary>
         [Test]
         public void MainLevelScene_使用原生分辨率像素对齐()
@@ -338,6 +338,8 @@ namespace RainsenVampSur.Tests
             Assert.That(pixelPerfectCamera.assetsPPU, Is.EqualTo(32));
             Assert.That(pixelPerfectCamera.refResolutionX, Is.EqualTo(480));
             Assert.That(pixelPerfectCamera.refResolutionY, Is.EqualTo(270));
+            Assert.That((float)pixelPerfectCamera.refResolutionX / pixelPerfectCamera.refResolutionY,
+                Is.EqualTo(16f / 9f).Within(FloatTolerance));
             Assert.That(
                 pixelPerfectCamera.gridSnapping,
                 Is.EqualTo(PixelPerfectCamera.GridSnapping.PixelSnapping));

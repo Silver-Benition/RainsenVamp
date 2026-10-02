@@ -22,6 +22,8 @@ public static class ContentExpansionSetup
     {
         public string id, name, template, description;
         public int price;
+        public float visualAngleOffset;
+        public MeleeAttackPattern meleePattern;
         public List<WeaponLevelData> tiers;
     }
 
@@ -68,6 +70,9 @@ public static class ContentExpansionSetup
             data.descriptionKey = "weapon." + weapon.id + ".description";
             data.weaponDisplayName = weapon.name; data.displayDescription = weapon.description;
             data.runtimeType = template.runtimeType;
+            data.retiredFromPool = false;
+            data.visualAngleOffset = weapon.visualAngleOffset;
+            data.meleePattern = weapon.meleePattern;
             data.icon = ImportIcon(Art + "/Weapons/" + weapon.id + ".png");
             data.roundTierConfigs = weapon.tiers;
             data.levelConfigs = JsonUtility.FromJson<Weapon>(JsonUtility.ToJson(weapon)).tiers;
@@ -104,12 +109,22 @@ public static class ContentExpansionSetup
         string path = Prefabs + "/" + weapon.id + ".prefab";
         GameObject root = PrefabUtility.LoadPrefabContents(AssetDatabase.GetAssetPath(template.projectilePrefab));
         root.name = weapon.id;
+        var melee = root.GetComponent<MeleeSwingHitbox>();
+        if (melee != null)
+        {
+            var geometry = new SerializedObject(melee);
+            geometry.FindProperty("minimumInnerRadius").floatValue = .05f;
+            geometry.FindProperty("visualScaleMultiplier").floatValue = 1f;
+            geometry.FindProperty("visualAngleOffset").floatValue = weapon.visualAngleOffset;
+            geometry.ApplyModifiedPropertiesWithoutUndo();
+        }
         SpriteRenderer renderer = root.GetComponentInChildren<SpriteRenderer>(true);
         if (template.runtimeType == WeaponRuntimeType.Aura)
         {
             renderer.color = new Color(1, .4f, .1f, .25f);
             // 圆形范围贴图继续表达真实判定，中心香炉显示武器身份。
             var center = new GameObject("Censer", typeof(SpriteRenderer));
+            center.SetActive(false); // 香炉实体图像由挂点持武视图显示，玩家中心仅保留范围效果。
             center.transform.SetParent(root.transform, false); center.transform.localScale = Vector3.one * .45f;
             var visual = center.GetComponent<SpriteRenderer>(); visual.sprite = icon; visual.sortingOrder = renderer.sortingOrder + 1;
         }

@@ -15,8 +15,14 @@ public enum WeaponRuntimeType
 }
 
 /// <summary>
-/// 弹射模式枚举。
+/// 近战动作模式；交替序号由各装备实例独立保存。
 /// </summary>
+public enum MeleeAttackPattern { Sweep = 0, Thrust = 1, Alternating = 2 }
+
+/// <summary>命中后重新选择目标的弹射模式。</summary>
+public enum ExpansionWeaponKind { None, Piston, Railgun, Welder, Mine, Returning, Frost, Whip, Seed, Echo, Ink }
+
+/// <summary>弹射路径类型，保持旧资产编号。</summary>
 public enum BounceMode
 {
     None = 0,
@@ -62,6 +68,9 @@ public sealed class WeaponLevelData
     public float meleeScaling;
     public float rangedScaling;
     public float elementalScaling;
+    public float engineeringScaling;
+    public float secondaryDamage;
+    public float secondaryElementalScaling;
     public float damagePercent;
     public float critChance;
     [Min(1)] public float critMultiplier = 2f;
@@ -125,6 +134,15 @@ public sealed class WeaponDataSO : ScriptableObject
     [TextArea, Tooltip("本地化系统接入前使用的直接显示描述。")]
     public string displayDescription;
     public WeaponRuntimeType runtimeType = WeaponRuntimeType.Projectile;
+    public ExpansionWeaponKind expansionKind;
+    public GameObject expansionEffectPrefab;
+    public Sprite effectSprite;
+
+    [Header("正式可用性与持武表现")]
+    public bool retiredFromPool;
+    [Min(.1f)] public float heldSize = .65f;
+    public float visualAngleOffset;
+    public MeleeAttackPattern meleePattern = MeleeAttackPattern.Sweep;
 
     [Header("UI 表现")]
     [Tooltip("武器在升级候选和右上角持有栏中使用的统一图标。")]

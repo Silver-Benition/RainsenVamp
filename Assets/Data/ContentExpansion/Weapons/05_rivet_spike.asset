@@ -16,7 +16,8 @@ MonoBehaviour:
   weaponNameKey: weapon.05_rivet_spike.name
   descriptionKey: weapon.05_rivet_spike.description
   weaponDisplayName: "\u94C6\u9489\u67AA"
-  displayDescription: "\u77ED\u5C04\u7A0B\u6247\u5F62\u9F50\u5C04 3 \u679A\u94C6\u9489\uFF1B\u6BCF\u679A\u72EC\u7ACB\u547D\u4E2D\uFF0C\u540C\u4E00\u76EE\u6807\u53EF\u627F\u53D7\u591A\u679A\u3002"
+  displayDescription: "\u77ed\u5c04\u7a0b\u6247\u5f62\u9f50\u5c04 3 \u679a\u94c6\u9489\uff1b\u6bcf\u679a\u72ec\u7acb\u547d\u4e2d\uff0c\u540c\u4e00\u76ee\u6807\u53ef\u627f\u53d7\u591a\u679a\u3002"
+  visualAngleOffset: -20
   runtimeType: 0
   icon: {fileID: 21300000, guid: a14c5fd1914c5114da491829d5960e37, type: 3}
   loadoutIconScale: 1

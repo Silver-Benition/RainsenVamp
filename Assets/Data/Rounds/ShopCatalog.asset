@@ -13,13 +13,7 @@ MonoBehaviour:
   m_Name: ShopCatalog
   m_EditorClassIdentifier:
   products:
-  - content: {fileID: 11400000, guid: 68a38a4daeb9a1e46986a012567f7112, type: 2}
-    basePrice: 12
-  - content: {fileID: 11400000, guid: 9ea6b2025d22e754f8e05a471bcbd528, type: 2}
-    basePrice: 12
   - content: {fileID: 11400000, guid: 2e87e0eacd6d695498e92618491ece73, type: 2}
-    basePrice: 12
-  - content: {fileID: 11400000, guid: 5488dd8f1abd6f546889add8478f4cbb, type: 2}
     basePrice: 12
   - content: {fileID: 11400000, guid: 2e29f349924bc69478a151313abd1cef, type: 2}
     basePrice: 12
@@ -95,6 +89,46 @@ MonoBehaviour:
     basePrice: 24
   - content: {fileID: 11400000, guid: 4700b5d3dc6b12b4eb7d0e0f566cbea7, type: 2}
     basePrice: 24
+  - content: {fileID: 11400000, guid: 93895fe524c3b7e4fbde8d66df801f26, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 628b177c9ee3a3345ab8b93bf80ee53a, type: 2}
+    basePrice: 28
+  - content: {fileID: 11400000, guid: 3994d5822c35f864585f1905ee2d11b8, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: b61c600e229cb6643b84706cfe077cdc, type: 2}
+    basePrice: 28
+  - content: {fileID: 11400000, guid: 750b994033087b24eafb4aa3a3960aa9, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 5d1b205f39110f343924f3a17626de62, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 881c99a0b93ff9e4eac61de9fd306cfd, type: 2}
+    basePrice: 26
+  - content: {fileID: 11400000, guid: 2cbed2695e5fa9f45a82444eb7c052d8, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: fbfd5076a0b9bbf438d645a951c0f5e4, type: 2}
+    basePrice: 22
+  - content: {fileID: 11400000, guid: 87720b84bdd5ae046b3c0a1a0663f4ac, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 878e0617a2b3b554baa78246a39d9842, type: 2}
+    basePrice: 24
+  - content: {fileID: 11400000, guid: 25af59f166f0c6b40aa8183546e212cc, type: 2}
+    basePrice: 48
+  - content: {fileID: 11400000, guid: 697cf15666c276d49a930eb4e597fd65, type: 2}
+    basePrice: 80
+  - content: {fileID: 11400000, guid: 08a56607e60d58744be7d5413e173ebc, type: 2}
+    basePrice: 120
+  - content: {fileID: 11400000, guid: f1fb36585e1b3af4a9f734bcf9bebacb, type: 2}
+    basePrice: 18
+  - content: {fileID: 11400000, guid: 57ddf986f506345499582219f47b718a, type: 2}
+    basePrice: 40
+  - content: {fileID: 11400000, guid: eb7e306feae40cc43bc4a6a09cb79080, type: 2}
+    basePrice: 20
+  - content: {fileID: 11400000, guid: 50a42ea5c9ddc32489bc6c4c55da9bd2, type: 2}
+    basePrice: 44
+  - content: {fileID: 11400000, guid: b37ee3b713e0b064eb6f007670fecc27, type: 2}
+    basePrice: 68
+  - content: {fileID: 11400000, guid: 47f0230941cde0149833130831d3f922, type: 2}
+    basePrice: 96
   stats:
   - id: round.stat.MaxHealth
     nameKey: round.stat.MaxHealth
@@ -291,6 +325,19 @@ MonoBehaviour:
     - 8
     - 10
     - 12
+  - id: engineering
+    nameKey: stat.Engineering
+    displayName: "\u5DE5\u7A0B\u5B66"
+    icon: {fileID: 21300000, guid: 1543eea0ff91c744c86670b1b57539f8, type: 3}
+    modifier:
+      statType: 29
+      mode: 0
+      value: 2
+    tierValues:
+    - 2
+    - 3
+    - 4
+    - 5
   initialRerollPrice: 2
   rerollPriceStep: 2
   recycleRatio: 0.25

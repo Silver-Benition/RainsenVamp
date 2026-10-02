@@ -56,7 +56,7 @@ public sealed class AuraWeapon : WeaponBase
             {
                 existingAura.Initialize(
                     weaponData,
-                    transform,
+                    OwnerTransform,
                     tickInterval,
                     damage,
                     lifeTime,
@@ -67,14 +67,14 @@ public sealed class AuraWeapon : WeaponBase
 
         _auraInstance = PoolManager.Instance.Spawn(
             weaponData.projectilePrefab,
-            transform.position,
+            OwnerTransform.position,
             Quaternion.identity);
         if (_auraInstance != null
             && _auraInstance.TryGetComponent<AuraDamageZone>(out var aura))
         {
             aura.Initialize(
                 weaponData,
-                transform,
+                OwnerTransform,
                 tickInterval,
                 damage,
                 lifeTime,

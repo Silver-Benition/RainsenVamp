@@ -228,7 +228,7 @@ namespace RainsenVampSur.Tests.PlayMode
                                 string weaponId = weaponData?.GetType()
                                     .GetField("weaponID")
                                     ?.GetValue(weaponData) as string;
-                                selectedStartingWeaponApplied = weaponId == "throwing_axe";
+                                selectedStartingWeaponApplied = weaponId == "10_meteor_hammer";
                                 break;
                             }
                         }

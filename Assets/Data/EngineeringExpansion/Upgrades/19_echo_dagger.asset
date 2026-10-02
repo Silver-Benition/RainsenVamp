@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: 19_echo_dagger
+  m_EditorClassIdentifier: 
+  upgradeID: upgrade.19_echo_dagger
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.19_echo_dagger.name
+  descriptionKey: upgrade.19_echo_dagger.description
+  upgradeName: "\u53E0\u5F71\u77ED\u5200"
+  description: "\u6325\u65A9\u7ED3\u675F 0.3 \u79D2\u540E\uFF0C\u5728\u539F\u4F4D\u7F6E\u8FFD\u52A0
+    60% \u4F24\u5BB3\u6B8B\u5F71\uFF0C\u654C\u4EBA\u53EF\u79BB\u5F00\u539F\u533A\u57DF\u8EB2\u907F\u3002"
+  icon: {fileID: 21300000, guid: 0e0e7fa1417b4024f900f61571d56b94, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: 4d81cf97cfb32424aa9631c1e15646d7, type: 2}
+  abilityToGrant: {fileID: 0}

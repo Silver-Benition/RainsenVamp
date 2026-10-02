@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
@@ -43,14 +43,14 @@ namespace RainsenVampSur.Tests.PlayMode
             Call(_panel,"TogglePanel");
             for(int i=0;i<10;i++) yield return null;
             Assert.IsTrue((bool)Field(_panel,"_visible"));
-            IList items=(IList)Field(_panel,"_items");Assert.AreEqual(24,items.Count);
+            IList items=(IList)Field(_panel,"_items");Assert.AreEqual(34,items.Count);
             int reviewed=0;
             foreach(object item in items)
             {
                 Assert.AreEqual("Item",item.GetType().GetField("presentationCategory").GetValue(item).ToString());
                 if((bool)item.GetType().GetField("stackPerCopy").GetValue(item)) reviewed++;
             }
-            Assert.AreEqual(20,reviewed);
+            Assert.AreEqual(30,reviewed);
             object bandage=FindItem(items,"moss_bandage"),gear=FindItem(items,"red_gear"),clover=FindItem(items,"clover_coin");
             Assert.AreEqual(5,Call(_panel,"GrantItems",bandage,int.MaxValue));
             Assert.AreEqual(3,Call(_panel,"GrantItems",gear,5));

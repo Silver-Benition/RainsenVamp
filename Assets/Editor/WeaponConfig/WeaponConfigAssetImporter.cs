@@ -262,7 +262,7 @@ public static class WeaponConfigAssetImporter
             UpgradeDataSO upgrade = upgrades[index];
             string path = upgrade != null ? AssetDatabase.GetAssetPath(upgrade) : string.Empty;
             string guid = string.IsNullOrEmpty(path) ? string.Empty : AssetDatabase.AssetPathToGUID(path);
-            if (upgrade != null && upgrade.weaponToGrant != null && seenUpgradeGuids.Add(guid))
+            if (upgrade != null && upgrade.weaponToGrant != null && !upgrade.weaponToGrant.retiredFromPool && seenUpgradeGuids.Add(guid))
             {
                 resolvedUpgrades.Add(upgrade);
             }
@@ -281,7 +281,7 @@ public static class WeaponConfigAssetImporter
 
             string path = AssetDatabase.GUIDToAssetPath(guid);
             UpgradeDataSO upgrade = AssetDatabase.LoadAssetAtPath<UpgradeDataSO>(path);
-            if (upgrade != null && upgrade.weaponToGrant != null)
+            if (upgrade != null && upgrade.weaponToGrant != null && !upgrade.weaponToGrant.retiredFromPool)
             {
                 resolvedUpgrades.Add(upgrade);
             }

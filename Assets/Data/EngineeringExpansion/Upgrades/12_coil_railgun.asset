@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: 12_coil_railgun
+  m_EditorClassIdentifier: 
+  upgradeID: upgrade.12_coil_railgun
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.12_coil_railgun.name
+  descriptionKey: upgrade.12_coil_railgun.description
+  upgradeName: "\u78C1\u8F68\u957F\u94F3"
+  description: "\u77ED\u6682\u84C4\u80FD\u540E\u53D1\u5C04\u8D2F\u7A7F\u5C04\u675F\uFF0C\u6700\u591A\u547D\u4E2D
+    3/4/5/6 \u4E2A\u76EE\u6807\u3002"
+  icon: {fileID: 21300000, guid: 8236cb5072cef934da59aa4351e972f5, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 11400000, guid: 32ad886ae9be3a242b415bba3715a2ac, type: 2}
+  abilityToGrant: {fileID: 0}

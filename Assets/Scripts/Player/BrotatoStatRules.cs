@@ -10,16 +10,16 @@ public static class BrotatoStatRules
         PlayerStatType.DamagePercent, PlayerStatType.MeleeDamage, PlayerStatType.RangedDamage,
         PlayerStatType.ElementalDamage, PlayerStatType.AttackSpeed, PlayerStatType.CritChance,
         PlayerStatType.Range, PlayerStatType.Armor, PlayerStatType.Dodge, PlayerStatType.SpeedPercent,
-        PlayerStatType.LuckPoints, PlayerStatType.Harvesting };
+        PlayerStatType.LuckPoints, PlayerStatType.Harvesting, PlayerStatType.Engineering };
     public static readonly PlayerStatType[] Secondary = { PlayerStatType.ExperienceGain, PlayerStatType.PickupRange };
     public static readonly PlayerStatType[] Resources = { PlayerStatType.Revival, PlayerStatType.Reroll, PlayerStatType.Skip, PlayerStatType.Banish };
 
-    /// <summary>判断玩家正式内容可以修改的属性；工程学仅保留接口，不能获取。</summary>
+    /// <summary>判断玩家正式内容可以修改的属性；工程学随工程武器和构筑物一同开放。</summary>
     public static bool IsAvailable(PlayerStatType stat)
     {
         return stat == PlayerStatType.MaxHealth || stat == PlayerStatType.Armor ||
             (stat >= PlayerStatType.Revival && stat <= PlayerStatType.Banish) ||
-            ((int)stat >= 21 && (int)stat < StatCount && stat != PlayerStatType.Engineering);
+            ((int)stat >= 21 && (int)stat < StatCount);
     }
 
     /// <summary>旧系统消费端使用的中性值；基础移动/拾取尺寸由角色配置提供，不能通过旧修改器提升。</summary>
@@ -77,7 +77,8 @@ public static class BrotatoStatRules
     {
         float flat = weapon.damage + weapon.meleeScaling * player.GetFinalStat(PlayerStatType.MeleeDamage)
             + weapon.rangedScaling * player.GetFinalStat(PlayerStatType.RangedDamage)
-            + weapon.elementalScaling * player.GetFinalStat(PlayerStatType.ElementalDamage);
+            + weapon.elementalScaling * player.GetFinalStat(PlayerStatType.ElementalDamage)
+            + weapon.engineeringScaling * player.GetFinalStat(PlayerStatType.Engineering);
         return Mathf.Max(1, Mathf.Floor(Mathf.Max(0, flat) * Mathf.Max(0, (100 + weapon.damagePercent + player.GetFinalStat(PlayerStatType.DamagePercent)) * .01f)));
     }
 

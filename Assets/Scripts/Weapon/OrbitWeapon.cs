@@ -124,7 +124,7 @@ public sealed class OrbitWeapon : WeaponBase
             {
                 orbiter.Initialize(
                     weaponData,
-                    transform,
+                    OwnerTransform,
                     GetCurrentDamage(),
                     GetCurrentAreaMultiplier(), CreateHitSnapshot());
             }

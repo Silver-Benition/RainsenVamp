@@ -154,6 +154,7 @@ public class LevelUpManager : MonoBehaviour
         foreach (var weapon in existingWeapons)
         {
             if (weapon == null || weapon.weaponData == null) continue;
+            if (weapon.weaponData.retiredFromPool) { weapon.enabled = false; continue; }
 
             string weaponId = GetWeaponId(weapon.weaponData);
             if (string.IsNullOrEmpty(weaponId)) continue;
@@ -376,7 +377,7 @@ public class LevelUpManager : MonoBehaviour
     /// <returns>成功时返回玩家持有的武器组件；配置或玩家无效时返回 null。</returns>
     private WeaponBase GrantOrUpgradeWeapon(WeaponDataSO weaponData)
     {
-        if (weaponData == null || playerTransform == null)
+        if (weaponData == null || weaponData.retiredFromPool || playerTransform == null)
         {
             Debug.LogWarning("[LevelUpManager] 武器授予失败：武器配置或玩家引用无效。");
             return null;
@@ -471,7 +472,7 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>动态创建一把 Lv.1 武器并登记稳定 ID；调用方负责容量与重复检查。</summary>
     private WeaponBase CreateNewWeapon(WeaponDataSO weaponData, string weaponId)
     {
-        if (weaponData == null || playerTransform == null || string.IsNullOrWhiteSpace(weaponId))
+        if (weaponData == null || weaponData.retiredFromPool || playerTransform == null || string.IsNullOrWhiteSpace(weaponId))
         {
             return null;
         }
@@ -480,7 +481,7 @@ public class LevelUpManager : MonoBehaviour
         newWeaponObject.transform.SetParent(playerTransform);
         newWeaponObject.transform.localPosition = Vector3.zero;
 
-        WeaponBase weaponBase = CreateWeaponRuntime(newWeaponObject, weaponData.runtimeType);
+        WeaponBase weaponBase = CreateWeaponRuntime(newWeaponObject, weaponData);
         weaponBase.weaponData = weaponData;
         ownedWeapons[weaponId] = weaponBase;
         _ownedWeaponOrder.Add(weaponBase);
@@ -556,8 +557,10 @@ public class LevelUpManager : MonoBehaviour
     /// <param name="weaponObject">本次动态创建的武器宿主对象。</param>
     /// <param name="runtimeType">武器数据声明的运行时类型。</param>
     /// <returns>已经挂载到宿主对象上的武器运行时组件。</returns>
-    private WeaponBase CreateWeaponRuntime(GameObject weaponObject, WeaponRuntimeType runtimeType)
+    private WeaponBase CreateWeaponRuntime(GameObject weaponObject, WeaponDataSO data)
     {
+        if (data.expansionKind != ExpansionWeaponKind.None) return weaponObject.AddComponent<ExpansionWeapon>();
+        WeaponRuntimeType runtimeType = data.runtimeType;
         switch (runtimeType)
         {
             case WeaponRuntimeType.Aura:
@@ -587,6 +590,7 @@ public class LevelUpManager : MonoBehaviour
         for (int i = 0; i < allAvailableUpgrades.Count; i++)
         {
             UpgradeDataSO upgrade = allAvailableUpgrades[i];
+            if (upgrade != null && upgrade.weaponToGrant != null && upgrade.weaponToGrant.retiredFromPool) continue;
             if (upgrade == null || !upgrade.HasExactlyOneReward()) continue;
 
             if (AccountProgressService.Current.IsUpgradeSealed(upgrade.GetStableId()))
@@ -667,7 +671,7 @@ public class LevelUpManager : MonoBehaviour
     /// <returns>可以获得或继续升级时返回 true。</returns>
     public bool CanAcquireWeapon(WeaponDataSO weaponData)
     {
-        if (weaponData == null)
+        if (weaponData == null || weaponData.retiredFromPool)
         {
             return false;
         }
@@ -689,6 +693,12 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>集中发布武器清单变化，避免表现层轮询运行时组件。</summary>
     private void NotifyOwnedWeaponsChanged()
     {
+        if (playerTransform != null)
+        {
+            WeaponMountLayout layout = playerTransform.GetComponent<WeaponMountLayout>();
+            if (layout == null) layout = playerTransform.gameObject.AddComponent<WeaponMountLayout>();
+            layout.Refresh(_ownedWeaponOrder);
+        }
         RunTransactionEvents.Publish(OwnedWeaponsChanged);
     }
 
@@ -890,7 +900,7 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>校验同品质满槽自动合并或新增槽位，不在校验阶段修改装备。</summary>
     public bool CanBuyRoundWeapon(WeaponDataSO data, int tier)
     {
-        if (data == null || tier < 1 || tier > 4 || !ResolvePlayerReferences()) return false;
+        if (data == null || data.retiredFromPool || tier < 1 || tier > 4 || !ResolvePlayerReferences()) return false;
         return _ownedWeaponOrder.Count < PlayerLoadoutRules.MaxWeaponCount || (tier < 4 && FindRoundMatch(data, tier, null) != null);
     }
 

@@ -27,6 +27,7 @@ public static class RoundCombatSetup
         foreach (UpgradeDataSO upgrade in loadout.allAvailableUpgrades)
         {
             if (upgrade == null || !upgrade.HasExactlyOneReward()) continue;
+            if (upgrade.weaponToGrant != null && upgrade.weaponToGrant.retiredFromPool) continue;
             shop.products.Add(new RunShopProduct { content = upgrade, basePrice = upgrade.weaponToGrant != null ? 12 : 18 });
             if (upgrade.weaponToGrant == null) continue;
             WeaponDataSO weapon = upgrade.weaponToGrant;

@@ -16,8 +16,8 @@ MonoBehaviour:
   weaponNameKey: weapon.07_medical_lancet.name
   descriptionKey: weapon.07_medical_lancet.description
   weaponDisplayName: "\u91C7\u8840\u9488"
-  displayDescription: "\u4F4E\u4F24\u5FEB\u901F\u9488\u5F39\uFF1B\u6B66\u5668\u81EA\u5E26\u751F\u547D\u7A83\u53D6
-    +10%/+15%/+20%/+25%\uFF0C\u7EE7\u627F\u5168\u5C40\u7A83\u53D6\u8282\u6D41\u3002"
+  displayDescription: "\u4f4e\u4f24\u5feb\u901f\u9488\u5f39\uff1b\u6b66\u5668\u81ea\u5e26\u751f\u547d\u7a83\u53d6 +10%/+15%/+20%/+25%\uff0c\u7ee7\u627f\u5168\u5c40\u7a83\u53d6\u8282\u6d41\u3002"
+  visualAngleOffset: -45
   runtimeType: 0
   icon: {fileID: 21300000, guid: 8c2a9541f8a4f9441b00d768bdc32433, type: 3}
   loadoutIconScale: 1

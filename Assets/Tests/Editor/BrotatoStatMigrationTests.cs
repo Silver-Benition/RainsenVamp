@@ -108,7 +108,7 @@ namespace RainsenVampSur.Tests
             PlayerStats stats = Player();
             foreach (PlayerStatType old in new[] { PlayerStatType.Curse, PlayerStatType.Might, PlayerStatType.Area, PlayerStatType.Duration, PlayerStatType.Cooldown })
             { Set(stats, old, 100); Assert.That(stats.GetFinalStat(old), Is.EqualTo(1)); }
-            foreach (PlayerStatType old in new[] { PlayerStatType.Amount, PlayerStatType.Defang, PlayerStatType.Charm, PlayerStatType.Engineering })
+            foreach (PlayerStatType old in new[] { PlayerStatType.Amount, PlayerStatType.Defang, PlayerStatType.Charm })
             { Set(stats, old, 100); Assert.That(stats.GetFinalStat(old), Is.Zero); }
             Set(stats, PlayerStatType.Dodge, -40); Assert.That(stats.GetFinalStat(PlayerStatType.Dodge), Is.EqualTo(-40));
             Set(stats, PlayerStatType.MaxHealth, -100); Assert.That(stats.MaxHealth, Is.EqualTo(1));
@@ -145,7 +145,7 @@ namespace RainsenVampSur.Tests
         [Test] public void ProductionCatalogs_UseAvailableStatsAndExplicitTiers()
         {
             var shop = AssetDatabase.LoadAssetAtPath<RunShopCatalogSO>("Assets/Data/Rounds/ShopCatalog.asset");
-            Assert.IsTrue(shop.Validate(out string error), error); Assert.That(shop.stats.Count, Is.EqualTo(15));
+            Assert.IsTrue(shop.Validate(out string error), error); Assert.That(shop.stats.Count, Is.EqualTo(16));
             foreach (RoundStatUpgrade entry in shop.stats)
             { Assert.IsTrue(BrotatoStatRules.IsAvailable(entry.modifier.StatType)); Assert.That(entry.tierValues.Length, Is.EqualTo(4)); }
             RoundStatUpgrade damage = shop.stats.Find(x => x.modifier.StatType == PlayerStatType.DamagePercent);

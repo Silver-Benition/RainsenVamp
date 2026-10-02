@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -140,7 +140,7 @@ public sealed class PauseInventoryView
         OwnedAbilityState item = _abilities.OwnedAbilities[index];
         if (item == null || item.Data == null) return;
         Show(owner, item.Data.GetDisplayName() + " x" + item.CurrentLevel + " · " + RoundShopPresentation.Tier(item.Data.quality),
-            RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel));
+            RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel, _player));
     }
 
     /// <summary>把详情放在源图标上方；由 Canvas 坐标约束四边，适配相机与覆盖层 Canvas。</summary>

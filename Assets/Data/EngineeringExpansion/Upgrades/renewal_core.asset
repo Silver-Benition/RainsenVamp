@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: renewal_core
+  m_EditorClassIdentifier: 
+  upgradeID: upgrade.renewal_core
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.renewal_core.name
+  descriptionKey: upgrade.renewal_core.description
+  upgradeName: "\u590D\u82CF\u5FC3\u6838"
+  description: "\u6700\u5927\u751F\u547D +15\uFF0C\u751F\u547D\u518D\u751F +6\uFF0C\u751F\u547D\u7A83\u53D6
+    -5%\u3002\u4E0D\u662F\u590D\u6D3B\u9053\u5177\u3002"
+  icon: {fileID: 21300000, guid: 159d7e14bb4c36446a5c192254b2c0cf, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: fb0a301cadf671640999e9252a925e65, type: 2}

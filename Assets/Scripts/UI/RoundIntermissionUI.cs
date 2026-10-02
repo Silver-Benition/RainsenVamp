@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -29,13 +29,13 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private readonly List<CanvasGroup> _combatHud = new List<CanvasGroup>();
     private TMP_Text _title, _balance, _reserve, _status, _combatBalance, _weaponHeading, _itemHeading, _level;
     private readonly TMP_Text[] _cardNames = new TMP_Text[4], _cardTypes = new TMP_Text[4], _cardTexts = new TMP_Text[4];
-    private readonly Image[] _icons = new Image[4];
+    private readonly Image[] _icons = new Image[4], _cardBackgrounds = new Image[4];
     private readonly Button[] _actions = new Button[4], _secondary = new Button[4], _banish = new Button[4];
     private readonly List<InventoryCell> _itemCells = new List<InventoryCell>();
     private readonly InventoryCell[] _weaponCells = new InventoryCell[6];
-    private readonly TMP_Text[] _statNames = new TMP_Text[15], _statValues = new TMP_Text[15];
-    private readonly Image[] _statIcons = new Image[15];
-    private readonly GameObject[] _statRows = new GameObject[15];
+    private readonly TMP_Text[] _statNames = new TMP_Text[BrotatoStatRules.Primary.Length], _statValues = new TMP_Text[BrotatoStatRules.Primary.Length];
+    private readonly Image[] _statIcons = new Image[BrotatoStatRules.Primary.Length];
+    private readonly GameObject[] _statRows = new GameObject[BrotatoStatRules.Primary.Length];
     private ScrollRect _itemScroll;
     private GridLayoutGroup _itemGrid;
     private RectTransform _weaponGrid;
@@ -89,6 +89,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             int index = i;
             float left = .035f + i * .181f;
             RectTransform card = Box("Offer" + i, panel, left, .365f, left + .172f, .853f, Surface);
+            _cardBackgrounds[i] = card.GetComponent<Image>();
             Outline(card);
             _icons[i] = Icon("Icon", card, .055f, .79f, .31f, .955f);
             _cardNames[i] = Text("Name", card, "", .35f, .845f, .95f, .966f, 27);
@@ -115,7 +116,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>宝箱页使用单张详情卡和三种互斥操作，物品效果仍由控制器执行。</summary>
     private void BuildCrate(RectTransform panel)
     {
-        _crateCard = Box("CrateReward", panel, .20f, .365f, .58f, .85f, Color.clear);
+        _crateCard = Box("CrateReward", panel, .10f, .365f, .72f, .91f, Color.clear);
         _crateHeading = Text("Heading", _crateCard, T("foundItem", "发现道具！"), 0, .88f, 1, 1, 38);
         _crateHeading.alignment = TextAlignmentOptions.Center;
         RectTransform details = Box("Details", _crateCard, .12f, .34f, .88f, .85f, Surface);
@@ -201,8 +202,8 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _level = Text("Level", board, "", .09f, .75f, .93f, .805f, 22);
         for (int i = 0; i < _statRows.Length; i++)
         {
-            float top = .73f - i * .045f;
-            RectTransform row = Box("Stat" + i, board, .07f, top - .040f, .94f, top, Color.clear);
+            float top = .73f - i * (.69f / BrotatoStatRules.Primary.Length);
+            RectTransform row = Box("Stat" + i, board, .07f, top - .038f, .94f, top, Color.clear);
             row.GetComponent<Image>().raycastTarget = true; _statRows[i] = row.gameObject;
             row.gameObject.AddComponent<RoundHoverTarget>();
             _statIcons[i] = Icon("Icon", row, 0, .06f, .10f, .94f);
@@ -448,7 +449,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         OwnedAbilityState owned = _rounds.Items.GetOwnedAbility(data);
         _crateImage.sprite = reward.Product.Icon;
         _crateName.text = reward.Product.Name + "\n" + string.Format(T("itemLimit", "持有 {0}/{1}"), owned?.CurrentLevel ?? 0, data.CopyLimitText);
-        _crateBody.text = RoundShopPresentation.ItemOfferDetails(data, owned?.CurrentLevel ?? 0);
+        _crateBody.text = RoundShopPresentation.ItemOfferDetails(data, owned?.CurrentLevel ?? 0, _rounds.Player);
         _crateHeading.text = string.Format(T("foundItemCount", "发现道具！剩余 {0}"), _rounds.PendingCrates);
         Label(_recycleCrate, string.Format(T("crateRecycleHold", "长按回收（+{0}）"), reward.RecycleValue));
         RunState run = RunState.Instance;
@@ -464,6 +465,10 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         RoundStatUpgrade stat = upgrades && i < _rounds.Choices.Count ? _rounds.Choices[i] : null;
         bool has = upgrades ? stat != null : offer != null;
         int tier = stat != null ? _rounds.ChoiceTiers[i] : offer?.Tier ?? 1;
+        // 商品复用同一张卡片：每次刷新都重设底色，避免空位、一级商品或属性升级页残留上一件商品的品级色。
+        // 深色底混入现有品级色，既扩大辨识面积，又保持正文、价格和品级文字的可读性。
+        _cardBackgrounds[i].color = !upgrades && offer != null && tier > 1
+            ? Color.Lerp(Surface, RoundShopPresentation.TierColor(tier), .35f) : Surface;
         _icons[i].sprite = upgrades ? stat?.icon : offer?.Product.Icon;
         _icons[i].enabled = _icons[i].sprite != null;
         _cardNames[i].text = upgrades ? stat?.displayName ?? "" : offer?.Product.Name ?? T("emptyOffer", "暂无商品");
@@ -487,7 +492,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             {
                 AbilityDataSO data = offer.Product.content.abilityToGrant;
                 OwnedAbilityState owned = _rounds.Items.GetOwnedAbility(data);
-                _cardTexts[i].text = RoundShopPresentation.ItemOfferDetails(data, owned?.CurrentLevel ?? 0);
+                _cardTexts[i].text = RoundShopPresentation.ItemOfferDetails(data, owned?.CurrentLevel ?? 0, _rounds.Player);
             }
         }
         else _cardTexts[i].text = "";
@@ -592,7 +597,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         RevealItem(owner);
         ShowTooltip(owner, item.Data.icon, item.Data.GetDisplayName(),
             string.Format(T("stacks", "已获得 x{0}"), item.CurrentLevel),
-            RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel));
+            RoundShopPresentation.ItemDetails(item.Data, item.CurrentLevel, _rounds.Player));
         _tooltipCombine.gameObject.SetActive(false); _tooltipRecycle.gameObject.SetActive(false);
     }
 

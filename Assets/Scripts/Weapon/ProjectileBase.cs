@@ -1,210 +1,158 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>池化直飞弹体，支持命中后的瞬时转向或持续追踪；每次生命独立记录已命中的实体。</summary>
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public class ProjectileBase : MonoBehaviour, IPoolable
 {
-    // =====================================================================
-    // 内部运行时状态
-    // =====================================================================
-    private GameObject prefabReference;     // 归还对象池的凭证
-    private WeaponDataSO weaponData;        // 武器数据（保留引用，供未来扩展使用）
-
-    private int currentPierce;             // 剩余额外穿透层数（0=下次命中即消失）
-    private int currentBounce;             // 剩余弹射次数
-    private BounceMode currentBounceMode;  // 弹射类型（指向性 / 追踪性）
-    private float lifeTimer;               // 剩余存活时间
-    private Vector3 moveDirection;         // 当前飞行方向
-    private float currentDamage;           // 当前伤害值
-    private float currentSpeed;            // 当前飞行速度
+    private GameObject prefabReference;
+    private WeaponDataSO weaponData;
+    private int currentPierce;
+    private int currentBounce;
+    private BounceMode currentBounceMode;
+    private float lifeTimer;
+    private float totalLifetime;
+    private Vector3 moveDirection;
+    private float currentDamage;
+    private float currentSpeed;
     private Vector3 baseLocalScale;
+    private Transform visual;
+    private SpriteRenderer visualRenderer;
+    private Quaternion baseVisualRotation;
+    private Collider2D trackingTarget;
+    private uint trackingGeneration;
+    private bool trackingActive;
+    private Component trackingIdentity;
+    private readonly HashSet<Component> hitTargets = new HashSet<Component>();
+    private WeaponHitSnapshot _hitSnapshot;
+    public Vector3 FlightDirection => moveDirection;
 
-    // 弹射时排除已命中目标，防止来回弹同一个怪
-    // 用 HashSet 而非 List：Contains() 查找复杂度 O(1) vs List 的 O(N)，
-    // OnTriggerEnter2D 高频调用时性能更稳定。对象池复用时必须 Clear()。
-    private readonly HashSet<Collider2D> hitColliders = new HashSet<Collider2D>();
-
-    /// <summary>缓存 Prefab 初始缩放，确保对象池复用时 Area 不会重复累乘。</summary>
+    /// <summary>缓存初始尺寸和视觉节点；运行时只旋转图像，不改变弹体的世界移动方式。</summary>
     private void Awake()
     {
         baseLocalScale = transform.localScale;
+        SpriteRenderer renderer = GetComponentInChildren<SpriteRenderer>();
+        // 扩展弹体的根渲染器被禁用，使用实际显示素材的子节点。
+        if (renderer == null || !renderer.enabled)
+        {
+            foreach (SpriteRenderer candidate in GetComponentsInChildren<SpriteRenderer>())
+                if (candidate.enabled) { renderer = candidate; break; }
+        }
+        visualRenderer = renderer;
+        visual = renderer != null ? renderer.transform : transform;
+        baseVisualRotation = visual.localRotation;
     }
 
-    private WeaponHitSnapshot _hitSnapshot;
-
-    /// <summary>对象池回收时恢复初始尺寸并清理命中集合。</summary>
+    /// <summary>回池时清理目标、伤害来源与姿态，防止下一发继承旧目标。</summary>
     private void OnDisable()
     {
         _hitSnapshot = default;
         transform.localScale = baseLocalScale;
-        hitColliders.Clear();
-        weaponData = null;
-        currentDamage = 0f;
-        currentSpeed = 0f;
-        currentPierce = 0;
-        currentBounce = 0;
-        lifeTimer = 0f;
+        if (visual != null) visual.localRotation = baseVisualRotation;
+        hitTargets.Clear(); trackingTarget = null; trackingGeneration = 0; trackingActive = false; trackingIdentity = null; moveDirection = Vector3.zero;
+        weaponData = null; currentDamage = 0f; currentSpeed = 0f;
+        currentPierce = 0; currentBounce = 0; lifeTimer = 0f; totalLifetime = 0f;
     }
 
-    // =====================================================================
-    // IPoolable 接口
-    // =====================================================================
-    public void SetPrefabReference(GameObject prefab)
-    {
-        prefabReference = prefab;
-    }
+    /// <summary>记录对象池归还凭证。</summary>
+    public void SetPrefabReference(GameObject prefab) { prefabReference = prefab; }
 
-    // =====================================================================
-    // Initialize 重载：默认从 Lv1 配置读取（供快速测试用）
-    // =====================================================================
+    /// <summary>以一级数据初始化独立弹体，供旧入口和测试使用。</summary>
     public virtual void Initialize(WeaponDataSO data, Vector3 direction)
     {
-        WeaponLevelData levelData = data != null ? data.GetLevelConfig(1) : null;
-        Initialize(
-            data,
-            direction,
-            levelData != null ? levelData.damage : 0f,
-            levelData != null ? levelData.projectileSpeed : 0f,
-            levelData != null ? levelData.pierceCount : 0,
-            levelData != null ? levelData.lifeTime : 1f,
-            levelData != null ? levelData.bounceCount : 0,
-            levelData != null ? levelData.bounceMode : BounceMode.Directional,
-            1f
-        );
+        WeaponLevelData level = data != null ? data.GetLevelConfig(1) : null;
+        Initialize(data, direction, level != null ? level.damage : 0f,
+            level != null ? level.projectileSpeed : 0f, level != null ? level.pierceCount : 0,
+            level != null ? level.lifeTime : 1f, level != null ? level.bounceCount : 0,
+            level != null ? level.bounceMode : BounceMode.None);
     }
 
-    // =====================================================================
-    // Initialize 重载：注入当前等级快照（由 WeaponBase.Attack() 调用）
-    // =====================================================================
+    /// <summary>注入完整攻击快照；首次飞行沿发射方向，追踪只在成功弹射选敌后启用。</summary>
     public virtual void Initialize(WeaponDataSO data, Vector3 direction,
         float damage, float speed, int pierce, float lifeTimeValue,
         int bounce = 0, BounceMode bounceMode = BounceMode.Directional,
         float areaMultiplier = 1f, WeaponHitSnapshot hitSnapshot = default)
     {
-        _hitSnapshot = hitSnapshot;
-        weaponData = data;
-        moveDirection = direction.normalized;
-        currentDamage = damage;
-        currentSpeed = speed;
-        currentPierce = pierce;       // 0 = 不穿透，命中1次即消失
-        lifeTimer = lifeTimeValue;
-        currentBounce = bounce;
-        currentBounceMode = bounceMode;
-        float safeAreaMultiplier = Mathf.Max(0.01f, areaMultiplier);
-        transform.localScale = new Vector3(
-            baseLocalScale.x * safeAreaMultiplier,
-            baseLocalScale.y * safeAreaMultiplier,
-            baseLocalScale.z);
-
-        // 对象池复用时必须清空，否则上一发子弹的命中记录会影响新子弹
-        hitColliders.Clear();
+        _hitSnapshot = hitSnapshot; weaponData = data;
+        currentDamage = damage; currentSpeed = Mathf.Max(0f, speed);
+        currentPierce = Mathf.Max(0, pierce); currentBounce = Mathf.Max(0, bounce);
+        currentBounceMode = bounceMode; lifeTimer = Mathf.Max(.01f, lifeTimeValue); totalLifetime = 0f;
+        trackingTarget = null; trackingGeneration = 0; trackingActive = false; trackingIdentity = null; hitTargets.Clear();
+        transform.localScale = new Vector3(baseLocalScale.x * Mathf.Max(.01f, areaMultiplier),
+            baseLocalScale.y * Mathf.Max(.01f, areaMultiplier), baseLocalScale.z);
+        SetDirection(direction);
     }
 
-    // =====================================================================
-    // 每帧更新：移动 + 生命周期
-    // =====================================================================
+    /// <summary>发射后按当前持武长度归一化同款投掷素材，保持碰撞体同步缩放。</summary>
+    public void MatchHeldSize(float length) { WeaponVisualGeometry.MatchThrownSize(transform, visualRenderer, weaponData, length); }
+
+    /// <summary>同步世界飞行方向与素材长轴；转向时调用同一入口，避免图像与运动分离。</summary>
+    private void SetDirection(Vector3 direction)
+    {
+        if (direction.sqrMagnitude > .0001f) moveDirection = direction.normalized;
+        else if (moveDirection.sqrMagnitude < .0001f) moveDirection = Vector3.right;
+        if (visual != null)
+            visual.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(moveDirection.y, moveDirection.x) * Mathf.Rad2Deg
+                + (weaponData != null ? weaponData.visualAngleOffset : 0f));
+    }
+
+    /// <summary>追踪已选目标时只读取缓存位置；目标失效才补查，绝不每帧扫描全部敌人。</summary>
     private void Update()
     {
-        // 直线飞行（Translate 比 Rigidbody2D.MovePosition 轻量，适合不参与复杂物理的子弹）
-        transform.Translate(moveDirection * currentSpeed * Time.deltaTime, Space.World);
-
-        // 生命周期超时自动回收
-        lifeTimer -= Time.deltaTime;
-        if (lifeTimer <= 0f)
+        if (trackingActive)
         {
-            ReturnToPool();
+            if (!WeaponTargeting.IsValidCached(trackingTarget, trackingIdentity, trackingGeneration))
+            {
+                trackingTarget = WeaponTargeting.FindNearest(transform.position, 10f, hitTargets);
+                trackingIdentity = WeaponTargeting.Identity(trackingTarget);
+                trackingGeneration = trackingIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
+                trackingActive = trackingTarget != null;
+                if (trackingActive)
+                    lifeTimer = Mathf.Max(lifeTimer, Vector3.Distance(transform.position,
+                        trackingIdentity.transform.position) / Mathf.Max(.01f, currentSpeed) + .5f);
+            }
+            if (trackingTarget != null)
+                SetDirection(trackingIdentity.transform.position - transform.position);
         }
+        transform.Translate(moveDirection * currentSpeed * Time.deltaTime, Space.World);
+        lifeTimer -= Time.deltaTime; totalLifetime += Time.deltaTime;
+        if (lifeTimer <= 0f || totalLifetime >= 30f) ReturnToPool();
     }
 
-    // =====================================================================
-    // 碰撞处理：伤害 → 弹射判断 → 穿透判断
-    // =====================================================================
+    /// <summary>同一受击身份只命中一次；成功选择下一个敌人才消耗弹射次数，否则按穿透处理。</summary>
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // 弹射模式：跳过已命中过的目标（防止来回弹同一个怪）
-        if (currentBounce > 0 && hitColliders.Contains(collision)) return;
-
-        // 先按 Enemy Layer 过滤，防止玩家实现 IDamageable 后被己方投射物误伤。
-        if (!DamageTargetFilter.TryGetEnemyDamageable(collision, out IDamageable damageableEntity)) return;
-
-        _hitSnapshot.Apply(damageableEntity, currentDamage, weaponData);
-
-        // 记录本次命中（用于弹射排除）
-        hitColliders.Add(collision);
-
-        // --- 弹射判断 ---
-        if (currentBounce > 0)
+        if (!WeaponTargeting.IsValid(collision)) return;
+        Component identity = WeaponTargeting.Identity(collision);
+        if (!hitTargets.Add(identity)) return;
+        // 先记录身份再结算：敌人可能在伤害回调中立刻死亡和回池。
+        _hitSnapshot.Apply((IDamageable)identity, currentDamage, weaponData);
+        if (currentBounce > 0 && currentBounceMode != BounceMode.None)
         {
-            switch (currentBounceMode)
+            Collider2D next = WeaponTargeting.FindNearest(transform.position, 10f, hitTargets);
+            if (next != null)
             {
-                case BounceMode.Directional:
-                    // 指向性弹射：立即找最近未命中目标，瞬间转向继续飞
-                    Collider2D nextTarget = FindNextBounceTarget();
-                    if (nextTarget != null)
-                    {
-                        moveDirection = (nextTarget.transform.position - transform.position).normalized;
-                        currentBounce--;
-                        return; // 弹射不消耗穿透次数，直接继续飞
-                    }
-                    // 找不到下一个目标，弹射耗尽，走穿透/回收流程
-                    break;
-
-                case BounceMode.Tracking:
-                    // 追踪性弹射：预留接口，实际逻辑由 TrackingProjectile 子类实现
-                    // 此处仅消耗次数，不改变行为（基类不处理全程追踪运动）
-                    currentBounce--;
-                    return;
+                currentBounce--;
+                Vector3 delta = WeaponTargeting.Identity(next).transform.position - transform.position;
+                SetDirection(delta);
+                trackingTarget = currentBounceMode == BounceMode.Tracking ? next : null;
+                trackingActive = trackingTarget != null;
+                trackingIdentity = WeaponTargeting.Identity(trackingTarget);
+                trackingGeneration = trackingIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
+                // 每次有效弹射获得一段可到达目标的寿命；总寿命仍受上面的安全上限约束。
+                lifeTimer = Mathf.Max(lifeTimer, delta.magnitude / Mathf.Max(.01f, currentSpeed) + .5f);
+                return;
             }
         }
-
-        // --- 穿透判断 ---
-        // pierceCount = 0：不穿透，命中1次即消失
-        // pierceCount = N：还能额外命中 N 次
+        trackingTarget = null; trackingActive = false; trackingIdentity = null;
         currentPierce--;
-        if (currentPierce < 0)  // 注意：< 0 而非 <= 0，因为 0 表示"还剩最后一次穿透"
-        {
-            ReturnToPool();
-        }
+        if (currentPierce < 0) ReturnToPool();
     }
 
-    // =====================================================================
-    // 辅助方法：寻找下一个弹射目标（指向性弹射专用）
-    // =====================================================================
-    /// <summary>
-    /// 以当前位置为圆心，在 searchRadius 范围内查找最近的未命中 IDamageable。
-    /// OverlapCircleAll 是 Physics2D 轻量查询，无 Rigidbody 分配，性能可接受。
-    /// </summary>
-    private Collider2D FindNextBounceTarget(float searchRadius = 10f)
-    {
-        Collider2D[] candidates = Physics2D.OverlapCircleAll(
-            transform.position,
-            searchRadius,
-            DamageTargetFilter.EnemyLayerMask);
-
-        Collider2D bestTarget = null;
-        float bestDist = float.MaxValue;
-
-        foreach (var candidate in candidates)
-        {
-            if (hitColliders.Contains(candidate)) continue;                    // 排除已命中目标
-            if (!DamageTargetFilter.TryGetEnemyDamageable(candidate, out _)) continue;
-
-            float dist = Vector3.Distance(transform.position, candidate.transform.position);
-            if (dist < bestDist)
-            {
-                bestDist = dist;
-                bestTarget = candidate;
-            }
-        }
-
-        return bestTarget;
-    }
-
-    // =====================================================================
-    // 回收
-    // =====================================================================
+    /// <summary>通过原始 Prefab 键回池；独立测试实体没有池时仅禁用。</summary>
     private void ReturnToPool()
     {
-        PoolManager.Instance.Release(prefabReference, gameObject);
+        if (prefabReference != null && PoolManager.Instance != null) PoolManager.Instance.Release(prefabReference, gameObject);
+        else gameObject.SetActive(false);
     }
 }

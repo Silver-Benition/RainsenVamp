@@ -48,6 +48,7 @@ public static class RoundShopPresentation
             AppendScaling(text, level.meleeScaling, PlayerStatType.MeleeDamage, richText);
             AppendScaling(text, level.rangedScaling, PlayerStatType.RangedDamage, richText);
             AppendScaling(text, level.elementalScaling, PlayerStatType.ElementalDamage, richText);
+            AppendScaling(text, level.engineeringScaling, PlayerStatType.Engineering, richText);
             text.Append("）");
             // 基础暴击为零仍可从角色获得概率；乘数是武器的能力，零概率也值得展示。
             if (level.critMultiplier > 1)
@@ -61,7 +62,7 @@ public static class RoundShopPresentation
         float range = modern ? BrotatoStatRules.WeaponRange(baseRange, level.rangeBonus, player.GetFinalStat(PlayerStatType.Range), melee) : baseRange;
         float speed = modern ? BrotatoStatRules.AttackIntervalMultiplier(level.attackSpeed + player.GetFinalStat(PlayerStatType.AttackSpeed)) : 1;
         float interval = (aura ? level.tickInterval : level.cooldown) * speed;
-        if (modern && melee) interval *= range / Mathf.Max(.25f, baseRange);
+        if (melee) interval = MeleeAttackTiming.Interval(level, range, speed);
         if (orbit) Row(text, "rotation", "转速", (level.orbitAngularSpeed / speed).ToString("0.#") + "度/秒");
         else Row(text, aura ? "tick" : "cooldown", aura ? "伤害间隔" : "冷却", Mathf.Max(aura ? .01f : .05f, interval).ToString("0.##") + Text("round.seconds", "秒"));
         if (range > 0)
@@ -74,7 +75,33 @@ public static class RoundShopPresentation
         if (!aura && level.projectileCount > 1) Row(text, "amount", "数量", level.projectileCount.ToString());
         if (projectile && level.pierceCount > 0) Row(text, "pierce", "穿透", level.pierceCount.ToString());
         if (data.runtimeType == WeaponRuntimeType.Projectile && level.bounceCount > 0) Row(text, "bounce", "弹射", level.bounceCount.ToString());
+        if (data.expansionKind != ExpansionWeaponKind.None)
+            Row(text, "effect", "效果", Text("weapon.effect." + data.weaponID, ExpansionDescription(data, tier, damage, player)));
         return text.ToString();
+    }
+
+    /// <summary>特殊攻击的紧凑回退说明；稳定武器键支持后续翻译覆盖。</summary>
+    private static string ExpansionDescription(WeaponDataSO data, int tier, float damage, PlayerStats player)
+    {
+        WeaponLevelData level = data.GetRoundTierConfig(tier);
+        switch (data.expansionKind)
+        {
+            case ExpansionWeaponKind.Piston: return "每第三拳余波 " + Mathf.Max(1, Mathf.Floor(damage * .5f)) + " 伤害，最多 " + (tier + 1) + " 目标";
+            case ExpansionWeaponKind.Railgun: return "蓄能 0.3 秒，最多贯穿 " + (tier + 2) + " 个目标";
+            case ExpansionWeaponKind.Welder: return "喷射 0.6 秒，结算三次伤害";
+            case ExpansionWeaponKind.Mine: return "爆炸半径 " + (100 + 10 * (tier - 1)) + "，最多两枚，存活 6 秒";
+            case ExpansionWeaponKind.Returning: return "去程与回程各可命中一次";
+            case ExpansionWeaponKind.Frost: return "减速 25%，持续 " + (1 + .2f * (tier - 1)).ToString("0.#") + " 秒（首领减半）";
+            case ExpansionWeaponKind.Whip:
+                float elemental = player != null ? player.GetFinalStat(PlayerStatType.ElementalDamage) : 0;
+                float percent = level.damagePercent + (player != null ? player.GetFinalStat(PlayerStatType.DamagePercent) : 0);
+                float burn = Mathf.Max(1, Mathf.Floor((level.secondaryDamage + level.secondaryElementalScaling * elemental) * Mathf.Max(0, 1 + percent * .01f)));
+                return "灼烧 " + burn + "×3（基础 " + level.secondaryDamage + " + 25%元素），只取最强";
+            case ExpansionWeaponKind.Seed: return "分裂三颗 " + Mathf.Max(1, Mathf.Floor(damage * .35f)) + " 伤害子种，射程 " + (180 + 20 * (tier - 1));
+            case ExpansionWeaponKind.Echo: return "0.3 秒后原地残影 " + Mathf.Max(1, Mathf.Floor(damage * .6f)) + " 伤害";
+            case ExpansionWeaponKind.Ink: return "墨带持续 1.5 秒，重叠只结算最强伤害";
+            default: return "";
+        }
     }
 
     /// <summary>只列出非零缩放系数；角色属性为零不会抹去武器成长信息。</summary>
@@ -90,16 +117,16 @@ public static class RoundShopPresentation
     { text.Append("\n").Append(Text("round." + key, fallback)).Append("：").Append(value); }
 
     /// <summary>购买或宝箱展示单件收益与持有上限，避免把累计收益误读为本次增量。</summary>
-    public static string ItemOfferDetails(AbilityDataSO data, int owned)
+    public static string ItemOfferDetails(AbilityDataSO data, int owned, PlayerStats player = null)
     {
         if (data == null) return "";
-        string detail = ItemDetails(data, data.stackPerCopy ? 1 : (owned < data.MaxLevel ? owned + 1 : owned));
+        string detail = ItemDetails(data, data.stackPerCopy ? 1 : (owned < data.MaxLevel ? owned + 1 : owned), player);
         return data.stackPerCopy ? Text("item.perCopy", "每件：") + "\n" + detail + "\n"
             + string.Format(Text("item.ownedLimit", "持有 {0}/{1}"), owned, data.CopyLimitText) : detail;
     }
 
     /// <summary>道具按当前等级配置列出属性，保留负面收益；机制型道具另附其说明。</summary>
-    public static string ItemDetails(AbilityDataSO data, int level)
+    public static string ItemDetails(AbilityDataSO data, int level, PlayerStats player = null)
     {
         if (data == null) return "";
         var text = new StringBuilder();
@@ -117,6 +144,17 @@ public static class RoundShopPresentation
                     .Append(percent || PlayerStatPresentation.IsPointPercent(modifier.StatType) ? "%" : "");
                 if (modifier.Mode == PlayerStatModifierMode.Multiplicative) text.Append(Text("round.multiplier", "（乘算）"));
             }
+        if (data.mechanic is StructureItemMechanicSO structure && structure.kind != StructureKind.None)
+        {
+            float engineering = player != null ? player.GetFinalStat(PlayerStatType.Engineering) : 0;
+            float bonus = player != null && player.TryGetComponent(out EngineeringLoadout loadout) ? loadout.AttackSpeedBonus : 0;
+            text.Append(Text("round.damage", "伤害")).Append("：")
+                .Append(BrotatoStatRules.EngineeringPower(structure.damage, structure.engineeringScaling, engineering).ToString("0"))
+                .Append("（").Append(structure.damage).Append(" + ").Append((structure.engineeringScaling * 100).ToString("0"))
+                .Append("%").Append(PlayerStatPresentation.GetDisplayName(PlayerStatType.Engineering)).Append("）");
+            Row(text, "cooldown", "冷却", (structure.interval / (1 + bonus * .01f)).ToString("0.##") + Text("round.seconds", "秒"));
+            Row(text, "range", "范围", (structure.range / BrotatoStatRules.RangeUnits).ToString("0"));
+        }
         if (data.mechanic != null || text.Length == 0)
         {
             string description = data.GetLevelDescription(level);

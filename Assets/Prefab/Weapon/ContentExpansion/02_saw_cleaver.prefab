@@ -193,8 +193,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1df5a2199869edc4f8a5fb1d005bed88, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  minimumInnerRadius: 0.35
-  visualScaleMultiplier: 1.25
+  minimumInnerRadius: 0.05
+  visualScaleMultiplier: 1
   visualAngleOffset: -45
   visualRoot: {fileID: 4510146356908817165}
   spriteRenderer: {fileID: 958188180369654835}

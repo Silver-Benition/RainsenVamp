@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: copper_sentry
+  m_EditorClassIdentifier: 
+  upgradeID: upgrade.copper_sentry
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.copper_sentry.name
+  descriptionKey: upgrade.copper_sentry.description
+  upgradeName: "\u94DC\u9489\u54E8\u5854"
+  description: "\u6BCF\u4EF6\u90E8\u7F72 1 \u5EA7\u94DC\u9489\u54E8\u5854\uFF1A\u6BCF\u79D2\u5411\u6700\u8FD1\u654C\u4EBA\u53D1\u5C04\u94DC\u9489\uFF0C\u4EC5\u53D7\u5DE5\u7A0B\u5B66\u4E0E\u6784\u7B51\u7269\u4E13\u5C5E\u589E\u76CA\u5F71\u54CD\u3002"
+  icon: {fileID: 21300000, guid: 65a08ae49853d1640b16f113dcc89b4b, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: 47507e4c5c605aa4787f22bfa7be9f4d, type: 2}

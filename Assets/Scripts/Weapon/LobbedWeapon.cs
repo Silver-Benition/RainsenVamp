@@ -32,7 +32,7 @@ public sealed class LobbedWeapon : WeaponBase
             return;
         }
 
-        Vector3 baseDirection = GetUpperHemisphereAimDirection();
+        Vector3 baseDirection = GetAimDirection();
         int count = GetCurrentProjectileCount();
         Vector3 inheritedVelocity = _ownerRigidbody != null
             ? new Vector3(_ownerRigidbody.velocity.x, _ownerRigidbody.velocity.y, 0f)
@@ -40,7 +40,7 @@ public sealed class LobbedWeapon : WeaponBase
 
         for (int index = 0; index < count; index++)
         {
-            Vector3 direction = CalculateUpperHemisphereSpreadDirection(
+            Vector3 direction = CalculateSpreadDirection(
                 baseDirection,
                 index,
                 count,
@@ -60,11 +60,13 @@ public sealed class LobbedWeapon : WeaponBase
                     direction,
                     GetCurrentDamage(),
                     GetCurrentProjectileSpeed(),
-                    GetProjectileLifetime(levelData),
+                    Mathf.Max(30f, levelData.lifeTime),
                     levelData.pierceCount,
                     levelData.lobGravity,
                     levelData.spinSpeed,
-                    GetCurrentAreaMultiplier(), CreateHitSnapshot());
+                    CurrentVisualRangeRatio, CreateHitSnapshot());
+                projectile.MatchHeldSize(LaunchVisualLength);
+                instance.transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg + weaponData.visualAngleOffset);
             }
             else if (instance != null)
             {

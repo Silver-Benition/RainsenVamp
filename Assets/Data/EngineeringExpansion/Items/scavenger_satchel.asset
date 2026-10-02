@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c0e4b9d2147258f3a6c8e10b17001, type: 3}
+  m_Name: scavenger_satchel
+  m_EditorClassIdentifier: 
+  abilityID: scavenger_satchel
+  abilityNameKey: item.scavenger_satchel.name
+  descriptionKey: item.scavenger_satchel.description
+  abilityDisplayName: "\u62FE\u8352\u8005\u630E\u5305"
+  displayDescription: "\u6536\u83B7 +18\uFF0C\u62FE\u53D6\u8303\u56F4 +25%\uFF0C\u901F\u5EA6
+    -3%\u3002"
+  icon: {fileID: 21300000, guid: 7e01aa40ecfbcd14f83256bd41e1fa97, type: 3}
+  presentationCategory: 0
+  loadoutIconScale: 1
+  loadoutIconOffset: {x: 0, y: 0}
+  quality: 3
+  stackPerCopy: 1
+  maxCopies: 2
+  levelConfigs:
+  - upgradeDescription: "\u6536\u83B7 +18\uFF0C\u62FE\u53D6\u8303\u56F4 +25%\uFF0C\u901F\u5EA6
+      -3%\u3002"
+    statModifiers:
+    - statType: 34
+      mode: 0
+      value: 18
+    - statType: 36
+      mode: 1
+      value: 0.25
+    - statType: 32
+      mode: 0
+      value: -3
+  mechanic: {fileID: 0}

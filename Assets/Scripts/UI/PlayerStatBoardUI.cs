@@ -30,8 +30,8 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
     private TextMeshProUGUI _valuesText;
     private bool _statsSubscribed;
     private RectTransform _modernRows;
-    private readonly TMP_Text[] _names = new TMP_Text[15], _values = new TMP_Text[15];
-    private readonly RectTransform[] _rows = new RectTransform[15];
+    private readonly TMP_Text[] _names = new TMP_Text[BrotatoStatRules.Primary.Length], _values = new TMP_Text[BrotatoStatRules.Primary.Length];
+    private readonly RectTransform[] _rows = new RectTransform[BrotatoStatRules.Primary.Length];
     private Button _primaryTab, _secondaryTab;
     private StatTooltipView _statTooltip;
     private bool _secondary;
@@ -46,7 +46,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
     public string CurrentValuesText => _modernRows != null ? _currentModernValues : _valuesText != null ? _valuesText.text : string.Empty;
 
     /// <summary>当前建立的属性行数。</summary>
-    public int DisplayedStatCount => _modernRows != null ? (_secondary ? OtherStats.Length : 15) : PlayerStatPresentation.StatCount;
+    public int DisplayedStatCount => _modernRows != null ? (_secondary ? OtherStats.Length : BrotatoStatRules.Primary.Length) : PlayerStatPresentation.StatCount;
 
     /// <summary>预建看板并取得玩家属性；首次打开暂停菜单时不会产生逐帧创建。</summary>
     private void Awake()
@@ -358,7 +358,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
             _primaryTab = MakeTab("Primary", "主要", .06f, .48f, false);
             _secondaryTab = MakeTab("Secondary", "次要 / 特殊", .52f, .94f, true);
             _statTooltip = new StatTooltipView((RectTransform)transform, _labelsText.font);
-            for (int i = 0; i < 15; i++)
+            for (int i = 0; i < BrotatoStatRules.Primary.Length; i++)
             {
                 RectTransform row = MakeRect("Stat" + i, _modernRows, 0, 0, 1, 1); _rows[i] = row;
                 row.gameObject.AddComponent<Image>().color = Color.clear;
@@ -375,14 +375,14 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
         _primaryTab.image.color = _secondary ? backgroundColor : new Color32(64, 74, 51, 255);
         _secondaryTab.image.color = _secondary ? new Color32(64, 74, 51, 255) : backgroundColor;
         var values = new StringBuilder();
-        for (int i = 0; i < 15; i++)
+        for (int i = 0; i < BrotatoStatRules.Primary.Length; i++)
         {
             RectTransform row = _rows[i]; row.gameObject.SetActive(i < stats.Length);
             if (i >= stats.Length) continue;
-            PlayerStatType stat = stats[i]; float top = 1 - i / 15f;
+            PlayerStatType stat = stats[i]; float top = 1 - i / (float)BrotatoStatRules.Primary.Length;
             // 次要属性与流程资源之间保留一行空隙，分类不挤占核心栏。
-            if (_secondary && i >= 2) top -= 1f / 15;
-            SetRect(row, 0, top - .06f, 1, top);
+            if (_secondary && i >= 2) top -= 1f / BrotatoStatRules.Primary.Length;
+            SetRect(row, 0, top - .056f, 1, top);
             _names[i].text = PlayerStatPresentation.GetDisplayName(stat);
             float value = _playerStats.GetFinalStat(stat); RunState state = RunState.Instance;
             if (state != null)

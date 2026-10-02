@@ -1,100 +1,84 @@
 using UnityEngine;
 
-/// <summary>
-/// 瞄准方向控制器。挂在 Player 上，为所有武器提供统一的"发射方向"。
-///
-/// 当前模式：
-/// - FollowMovement：跟随玩家移动方向，停止移动时保持最后朝向
-///
-/// 未来扩展：
-/// - Manual：由鼠标/右摇杆控制瞄准方向（移动方向 ≠ 攻击方向）
-/// - NearestEnemy：自动锁定最近敌人方向
-/// </summary>
+/// <summary>统一维护自动目标和手动方向；武器从各自挂点计算射向目标的方向。</summary>
 public class AimController : MonoBehaviour
 {
-    public enum AimMode
-    {
-        FollowMovement = 0,  // 跟随移动方向（Vampire Survivors 经典模式）
-        // Manual = 1,       // 手动瞄准（预留：鼠标/右摇杆）
-        // NearestEnemy = 2, // 自动锁定最近敌人（预留）
-    }
-
-    [Header("瞄准模式")]
-    public AimMode aimMode = AimMode.FollowMovement;
-
-    [Header("默认朝向")]
-    [Tooltip("游戏开始时 / 未产生任何输入前的默认发射方向")]
+    public enum AimMode { FollowMovement = 0, NearestEnemy = 1, Manual = 2 }
+    public AimMode aimMode = AimMode.NearestEnemy;
     [SerializeField] private Vector2 defaultDirection = Vector2.right;
-
-    /// <summary>
-    /// 当前瞄准方向（归一化）。武器系统读取此属性决定发射朝向。
-    /// </summary>
-    public Vector2 AimDirection { get; private set; }
-
-    /// <summary>
-    /// 最后一次有效水平输入的朝向符号；向右为 1，向左为 -1。
-    /// </summary>
+    [SerializeField, Min(.02f)] private float retargetInterval = .08f;
+    [SerializeField, Min(1f)] private float searchRadius = 1000f;
+    private Collider2D _target;
+    private uint _targetGeneration;
+    private Component _targetIdentity;
+    private float _nextSearch;
+    private Vector2 _manualDirection = Vector2.right;
+    public Vector2 AimDirection { get; private set; } = Vector2.right;
     public float HorizontalFacingSign { get; private set; } = 1f;
 
-    /// <summary>
-    /// 使用默认瞄准方向初始化瞄准向量与稳定水平朝向。
-    /// </summary>
+    /// <summary>准备默认方向，零向量回退向右；不在初始化阶段枚举场景。</summary>
     private void Awake()
     {
-        AimDirection = defaultDirection.normalized;
-        HorizontalFacingSign = AimDirection.x < -0.01f ? -1f : 1f;
+        AimDirection = defaultDirection.sqrMagnitude > .0001f ? defaultDirection.normalized : Vector2.right;
+        _manualDirection = AimDirection;
+        HorizontalFacingSign = AimDirection.x < 0 ? -1f : 1f;
     }
 
+    /// <summary>以低频共享查询更新最近目标，保留旧移动模式供历史夹具使用。</summary>
     private void Update()
     {
-        switch (aimMode)
-        {
-            case AimMode.FollowMovement:
-                UpdateFollowMovement();
-                break;
-
-            // 未来模式在这里扩展
-            // case AimMode.Manual:
-            //     UpdateManualAim();
-            //     break;
-        }
+        Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        if (Mathf.Abs(input.x) > .01f) HorizontalFacingSign = Mathf.Sign(input.x);
+        if (!RoundController.AllowsCombat) return;
+        if (aimMode == AimMode.FollowMovement && input.sqrMagnitude > .0001f) AimDirection = input.normalized;
+        else if (aimMode == AimMode.Manual) AimDirection = _manualDirection;
+        else if (aimMode == AimMode.NearestEnemy) RefreshTarget();
     }
 
-    /// <summary>
-    /// 跟随移动方向模式：读取输入轴，有输入时更新方向，无输入时保持最后朝向。
-    /// </summary>
-    private void UpdateFollowMovement()
+    /// <summary>切换模式并使目标缓存过期，不修改任何武器的独立冷却。</summary>
+    public void SetMode(AimMode mode)
+    { aimMode = mode; _target = null; _targetGeneration = 0; _nextSearch = 0f; }
+
+    /// <summary>鼠标或摇杆适配层注入世界方向；零输入保留上次方向，是否切换模式由调用方控制。</summary>
+    public void SetManualDirection(Vector2 direction)
     {
-        float moveX = Input.GetAxisRaw("Horizontal");
-        float moveY = Input.GetAxisRaw("Vertical");
+        if (!float.IsNaN(direction.x) && !float.IsNaN(direction.y)
+            && !float.IsInfinity(direction.x) && !float.IsInfinity(direction.y) && direction.sqrMagnitude > .0001f)
+            _manualDirection = direction.normalized;
+        if (aimMode == AimMode.Manual) AimDirection = _manualDirection;
+    }
 
-        Vector2 input = new Vector2(moveX, moveY);
-
-        // 只在有实际输入时更新方向（停下时保持最后方向，和 Vampire Survivors 一致）
-        if (input.sqrMagnitude > 0.01f)
+    /// <summary>返回指定挂点指向目标的方向；无敌人时保持上次有效朝向。</summary>
+    public Vector2 DirectionFrom(Vector2 origin)
+    {
+        if (aimMode == AimMode.Manual) return _manualDirection;
+        if (aimMode == AimMode.NearestEnemy)
         {
-            AimDirection = input.normalized;
-            if (Mathf.Abs(input.x) > 0.01f)
+            RefreshTarget();
+            if (WeaponTargeting.IsValidCached(_target, _targetIdentity, _targetGeneration))
             {
-                HorizontalFacingSign = Mathf.Sign(input.x);
+                Vector2 delta = (Vector2)_targetIdentity.transform.position - origin;
+                if (delta.sqrMagnitude > .0001f) return delta.normalized;
             }
         }
+        return AimDirection;
     }
 
-    // =======================================================================
-    // 预留：手动瞄准模式（后续实现时取消注释并扩展）
-    // =======================================================================
-    // private void UpdateManualAim()
-    // {
-    //     // 鼠标方案：
-    //     // Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-    //     // AimDirection = ((Vector2)(mouseWorld - transform.position)).normalized;
-    //
-    //     // 右摇杆方案：
-    //     // float aimX = Input.GetAxisRaw("RightStickHorizontal");
-    //     // float aimY = Input.GetAxisRaw("RightStickVertical");
-    //     // Vector2 aimInput = new Vector2(aimX, aimY);
-    //     // if (aimInput.sqrMagnitude > 0.1f)
-    //     //     AimDirection = aimInput.normalized;
-    // }
+    /// <summary>每个角色至多按固定间隔扫描一次；目标失效时本次发射立即补查。</summary>
+    private void RefreshTarget()
+    {
+        bool valid = WeaponTargeting.IsValidCached(_target, _targetIdentity, _targetGeneration);
+        if (Time.time >= _nextSearch || ((_target != null || _targetGeneration != 0) && !valid))
+        {
+            _target = WeaponTargeting.FindNearest(transform.position, searchRadius);
+            _targetIdentity = WeaponTargeting.Identity(_target);
+            _targetGeneration = _targetIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
+            _nextSearch = Time.time + retargetInterval;
+        }
+        if (WeaponTargeting.IsValidCached(_target, _targetIdentity, _targetGeneration))
+        {
+            Vector2 delta = _targetIdentity.transform.position - transform.position;
+            if (delta.sqrMagnitude > .0001f) AimDirection = delta.normalized;
+        }
+    }
 }

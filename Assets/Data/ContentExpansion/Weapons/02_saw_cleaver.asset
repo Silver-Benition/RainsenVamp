@@ -16,7 +16,8 @@ MonoBehaviour:
   weaponNameKey: weapon.02_saw_cleaver.name
   descriptionKey: weapon.02_saw_cleaver.description
   weaponDisplayName: "\u952F\u9F7F\u780D\u5200"
-  displayDescription: "\u6162\u901F\u5E7F\u89D2\u6325\u51FB\uFF1B\u9AD8\u8FD1\u6218\u7F29\u653E\uFF0C\u9002\u5408\u4E00\u6B21\u547D\u4E2D\u591A\u4E2A\u76EE\u6807\u3002"
+  displayDescription: "\u6162\u901f\u5e7f\u89d2\u6325\u51fb\uff1b\u9ad8\u8fd1\u6218\u7f29\u653e\uff0c\u9002\u5408\u4e00\u6b21\u547d\u4e2d\u591a\u4e2a\u76ee\u6807\u3002"
+  visualAngleOffset: -45
   runtimeType: 4
   icon: {fileID: 21300000, guid: a480376b381603446addcbed8be7e5dd, type: 3}
   loadoutIconScale: 1

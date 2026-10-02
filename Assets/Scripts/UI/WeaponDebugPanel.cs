@@ -179,7 +179,7 @@ public sealed class WeaponDebugPanel : MonoBehaviour
         for (int index = 0; index < _levelUpManager.allAvailableUpgrades.Count; index++)
         {
             UpgradeDataSO upgrade = _levelUpManager.allAvailableUpgrades[index];
-            if (upgrade == null || upgrade.weaponToGrant == null)
+            if (upgrade == null || upgrade.weaponToGrant == null || upgrade.weaponToGrant.retiredFromPool)
             {
                 continue;
             }

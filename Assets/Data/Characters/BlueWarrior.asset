@@ -41,7 +41,7 @@ MonoBehaviour:
     banish: 0
     charm: 0
     defang: 0
-  startingWeapon: {fileID: 11400000, guid: 7f9c4488bc7eae54cabb2e1298db4f47, type: 2}
+  startingWeapon: {fileID: 11400000, guid: 019b8f3c613b9e14b8d27c05de894322, type: 2}
   passive:
     passiveID: passive_unyielding
     passiveNameKey: passive.unyielding.name

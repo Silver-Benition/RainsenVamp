@@ -143,6 +143,9 @@ public sealed class LobbedProjectile : MonoBehaviour, IPoolable
         }
     }
 
+    /// <summary>发射后使用持武尺寸，同步整体碰撞体；池化回收恢复原始比例。</summary>
+    public void MatchHeldSize(float length) { WeaponVisualGeometry.MatchThrownSize(transform, _spriteRenderer, _weaponData, length); }
+
     /// <summary>
     /// 按恒定初速度和向下重力计算确定性弹道，同步飞斧自转，并在满足安全条件时回收。
     /// </summary>

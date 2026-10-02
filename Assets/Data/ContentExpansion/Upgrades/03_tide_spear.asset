@@ -18,7 +18,7 @@ MonoBehaviour:
   upgradeNameKey: upgrade.03_tide_spear.name
   descriptionKey: upgrade.03_tide_spear.description
   upgradeName: "\u6F6E\u7EB9\u957F\u67AA"
-  description: "\u957F\u8DDD\u79BB\u7A84\u89D2\u626B\u523A\uFF1B\u4EE5\u653B\u51FB\u8282\u594F\u6362\u53D6\u8FD1\u6218\u8986\u76D6\u8DDD\u79BB\u3002"
+  description: "\u4ece\u6301\u6b66\u6302\u70b9\u671d\u654c\u4eba\u4ea4\u66ff\u6267\u884c\u7a81\u523a\u4e0e\u6a2a\u626b\uff0c\u6bcf\u6b21\u52a8\u4f5c\u53ef\u547d\u4e2d\u8def\u5f84\u4e0a\u7684\u591a\u4e2a\u654c\u4eba\u3002"
   icon: {fileID: 21300000, guid: 68f2cc8eeb5f54b4c82d39bd98666c3f, type: 3}
   customLevelDescs: []
   weaponToGrant: {fileID: 11400000, guid: 3bcd2aa889b03664eab99baefeb6c049, type: 2}

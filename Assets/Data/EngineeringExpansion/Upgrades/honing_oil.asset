@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 358e7be3010d416469555e8e70fdcdca, type: 3}
+  m_Name: honing_oil
+  m_EditorClassIdentifier: 
+  upgradeID: upgrade.honing_oil
+  baseWeight: 100
+  luckInfluence: 0
+  upgradeNameKey: upgrade.honing_oil.name
+  descriptionKey: upgrade.honing_oil.description
+  upgradeName: "\u78E8\u5203\u6CB9"
+  description: "\u8FD1\u6218\u4F24\u5BB3 +2\uFF0C\u653B\u51FB\u901F\u5EA6 +3%\uFF0C\u8FDC\u7A0B\u4F24\u5BB3
+    -2\u3002"
+  icon: {fileID: 21300000, guid: e1ed5c858a2ff2049b1a10525a5e61c0, type: 3}
+  customLevelDescs: []
+  weaponToGrant: {fileID: 0}
+  abilityToGrant: {fileID: 11400000, guid: 81a7ad7534b77f147b841014ac891574, type: 2}

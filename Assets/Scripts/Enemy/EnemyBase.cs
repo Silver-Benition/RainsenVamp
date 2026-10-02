@@ -10,6 +10,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     public EnemyDataSO enemyData;
 
     private float _currentHealth;
+    public EnemyCombatStatus CombatStatus { get; private set; }
     private Transform _playerTransform;
     private PlayerStats _playerStats;
     private Rigidbody2D _rigidbody;
@@ -27,8 +28,11 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     /// <summary>当前生命周期剩余生命，供调试和测试只读观察。</summary>
     public float CurrentHealth => _currentHealth;
 
+    /// <summary>每次出池递增，供攻击方识别同一个对象的不同生命，避免追踪旧敌人。</summary>
+    public uint LifeGeneration { get; private set; }
+
     /// <summary>当前生命周期移动速度。</summary>
-    public float CurrentMoveSpeed => _spawnSnapshot.MoveSpeed;
+    public float CurrentMoveSpeed => _spawnSnapshot.MoveSpeed * (CombatStatus != null ? CombatStatus.SpeedFactor : 1f);
 
     /// <summary>当前生命周期玩家接触伤害。</summary>
     public float CurrentCollisionDamage => _spawnSnapshot.CollisionDamage;
@@ -47,6 +51,8 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     protected virtual void Awake()
     {
         _rigidbody = GetComponent<Rigidbody2D>();
+        CombatStatus = GetComponent<EnemyCombatStatus>();
+        if (CombatStatus == null) CombatStatus = gameObject.AddComponent<EnemyCombatStatus>();
         _hitFlash = GetComponent<HitFlash>();
         if (_hitFlash == null)
         {
@@ -83,6 +89,8 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     /// <summary>对象池取出时恢复基础快照、动量、朝向和玩家目标。</summary>
     protected virtual void OnEnable()
     {
+        LifeGeneration++;
+        if (LifeGeneration == 0) LifeGeneration = 1;
         ResetRuntimeSnapshot();
         if (_rigidbody != null)
         {
@@ -156,7 +164,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
             return;
         }
 
-        _rigidbody.velocity = RoundArena.ConstrainVelocity(_rigidbody, direction * _spawnSnapshot.MoveSpeed, .5f);
+        _rigidbody.velocity = RoundArena.ConstrainVelocity(_rigidbody, direction * CurrentMoveSpeed, .5f);
 
         if (direction.x != 0f)
         {

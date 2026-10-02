@@ -14,6 +14,7 @@ public static class StatIconPresentation
     /// <summary>以稳定序号输出内嵌图标，纯文本环境或资源缺失时返回本地化名称。</summary>
     public static string Token(PlayerStatType stat, bool richText)
     {
+        if (stat == PlayerStatType.Engineering) return PlayerStatPresentation.GetDisplayName(stat);
         int index = stat == PlayerStatType.MeleeDamage ? 0 : stat == PlayerStatType.RangedDamage ? 1 : 2;
         return richText && Icons != null ? "<sprite index=" + index + ">" : PlayerStatPresentation.GetDisplayName(stat);
     }

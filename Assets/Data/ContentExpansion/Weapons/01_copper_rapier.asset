@@ -16,8 +16,8 @@ MonoBehaviour:
   weaponNameKey: weapon.01_copper_rapier.name
   descriptionKey: weapon.01_copper_rapier.description
   weaponDisplayName: "\u94DC\u9488\u7EC6\u5251"
-  displayDescription: "\u5FEB\u901F\u7A84\u89D2\u6325\u523A\uFF1B\u81EA\u5E26\u66B4\u51FB
-    +5%\uFF0C\u66B4\u51FB\u4F24\u5BB3\u4E3A 2.5 \u500D\u3002"
+  displayDescription: "\u5feb\u901f\u7a84\u89d2\u6325\u523a\uff1b\u81ea\u5e26\u66b4\u51fb +5%\uff0c\u66b4\u51fb\u4f24\u5bb3\u4e3a 2.5 \u500d\u3002"
+  visualAngleOffset: -45
   runtimeType: 4
   icon: {fileID: 21300000, guid: f8ceb468e8a32a143998ddf4cac82398, type: 3}
   loadoutIconScale: 1

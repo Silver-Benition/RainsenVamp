@@ -553,53 +553,62 @@ namespace RainsenVampSur.Tests.PlayMode
         [UnityTest]
         public IEnumerator Inventory_HoverTransferAndFocusKeepInstanceActionsCorrect()
         {
-            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null; yield return null;
-            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
-            GameObject panel = Get<GameObject>(ui, "Panel"), tooltip = Get<GameObject>(ui, "Tooltip");
-            object loadout = Get<object>(_rounds, "Loadout");
-            IList owned = Get<IList>(loadout, "OwnedWeapons");
-            object first = owned[0];
-            object data = first.GetType().GetField("weaponData").GetValue(first);
-            object second = Call(loadout, "BuyRoundWeapon", data, 1);
-            GrantCatalogItems();
-            Call(ui, "Refresh"); yield return null;
-            GameObject icon = panel.transform.Find("WeaponsArea/WeaponSlot0").gameObject;
-            var pointer = new PointerEventData(EventSystem.current);
-            Assert.IsFalse(tooltip.activeSelf);
-            ExecuteEvents.Execute(icon, pointer, ExecuteEvents.pointerEnterHandler);
-            Assert.IsTrue(tooltip.activeSelf);
-            Assert.IsTrue(tooltip.transform.Find("Combine").GetComponent<Button>().interactable);
-            ExecuteEvents.Execute(icon, pointer, ExecuteEvents.pointerExitHandler);
-            ExecuteEvents.Execute(tooltip, pointer, ExecuteEvents.pointerEnterHandler);
-            yield return new WaitForSecondsRealtime(.2f);
-            Assert.IsTrue(tooltip.activeSelf, "鼠标移入详情操作区后必须保持显示。");
-            ExecuteEvents.Execute(tooltip, pointer, ExecuteEvents.pointerExitHandler);
-            yield return new WaitForSecondsRealtime(.2f);
-            Assert.IsFalse(tooltip.activeSelf, "离开图标和详情后应关闭。");
+            // 本用例显式派发鼠标和导航事件；真实输入模块不能在等待帧中混入额外悬停/选择。
+            BaseInputModule input = EventSystem.current.currentInputModule;
+            bool wasEnabled = input != null && input.enabled;
+            if (input != null) input.enabled = false;
+            try
+            {
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds); yield return null; yield return null;
+                Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+                GameObject panel = Get<GameObject>(ui, "Panel"), tooltip = Get<GameObject>(ui, "Tooltip");
+                object loadout = Get<object>(_rounds, "Loadout");
+                IList owned = Get<IList>(loadout, "OwnedWeapons");
+                object first = owned[0];
+                object data = first.GetType().GetField("weaponData").GetValue(first);
+                object second = Call(loadout, "BuyRoundWeapon", data, 1);
+                GrantCatalogItems();
+                Call(ui, "Refresh"); yield return null;
+                GameObject icon = panel.transform.Find("WeaponsArea/WeaponSlot0").gameObject;
+                var pointer = new PointerEventData(EventSystem.current);
+                Assert.IsFalse(tooltip.activeSelf);
+                ExecuteEvents.Execute(icon, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.IsTrue(tooltip.activeSelf);
+                Assert.IsTrue(tooltip.transform.Find("Combine").GetComponent<Button>().interactable);
+                ExecuteEvents.Execute(icon, pointer, ExecuteEvents.pointerExitHandler);
+                ExecuteEvents.Execute(tooltip, pointer, ExecuteEvents.pointerEnterHandler);
+                yield return new WaitForSecondsRealtime(.2f);
+                Assert.IsTrue(tooltip.activeSelf, "鼠标移入详情操作区后必须保持显示。");
+                ExecuteEvents.Execute(tooltip, pointer, ExecuteEvents.pointerExitHandler);
+                yield return new WaitForSecondsRealtime(.2f);
+                Assert.IsFalse(tooltip.activeSelf, "离开图标和详情后应关闭。");
 
-            EventSystem.current.SetSelectedGameObject(icon);
-            Assert.IsTrue(tooltip.activeSelf, "键盘/手柄聚焦应展示详情。");
-            GameObject recycle = tooltip.transform.Find("Recycle").gameObject;
-            EventSystem.current.SetSelectedGameObject(recycle);
-            yield return new WaitForSecondsRealtime(.2f);
-            Assert.IsTrue(tooltip.activeSelf, "导航进入详情按钮后不能被图标失焦关闭。");
-            ExecuteEvents.Execute(recycle, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
-            Assert.AreEqual(1, owned.Count);
-            Assert.AreSame(second, owned[0], "回收必须作用于查看的实例，不得误删同类另一把。");
-            Assert.IsFalse(tooltip.activeSelf);
+                EventSystem.current.SetSelectedGameObject(icon);
+                Assert.IsTrue(tooltip.activeSelf, "键盘/手柄聚焦应展示详情。");
+                GameObject recycle = tooltip.transform.Find("Recycle").gameObject;
+                EventSystem.current.SetSelectedGameObject(recycle);
+                yield return new WaitForSecondsRealtime(.2f);
+                Assert.IsTrue(tooltip.activeSelf, "导航进入详情按钮后不能被图标失焦关闭。");
+                ExecuteEvents.Execute(recycle, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Assert.AreEqual(1, owned.Count);
+                Assert.AreSame(second, owned[0], "回收必须作用于查看的实例，不得误删同类另一把。");
+                Assert.IsFalse(tooltip.activeSelf);
 
-            GameObject itemIcon = panel.transform.Find("ItemsArea/Viewport/Content/ItemSlot0").gameObject;
-            ExecuteEvents.Execute(itemIcon, pointer, ExecuteEvents.pointerEnterHandler);
-            Assert.IsTrue(tooltip.activeSelf);
-            Assert.IsFalse(tooltip.transform.Find("Recycle").gameObject.activeSelf);
-            Assert.IsFalse(tooltip.transform.Find("Combine").gameObject.activeSelf);
-            Assert.IsNotEmpty(Get<string>(tooltip.transform.Find("Description").GetComponent("TextMeshProUGUI"), "text"));
-            ExecuteEvents.Execute(itemIcon, pointer, ExecuteEvents.pointerExitHandler);
-            yield return new WaitForSecondsRealtime(.2f);
-            Assert.IsFalse(tooltip.activeSelf);
-            ExecuteEvents.Execute(panel.transform.Find("StatsBoard/Secondary").gameObject,
-                new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
-            Assert.AreEqual("经验获取", Get<string>(panel.transform.Find("StatsBoard/Stat0/Name").GetComponent("TextMeshProUGUI"), "text"));
+                EventSystem.current.SetSelectedGameObject(null);
+                GameObject itemIcon = panel.transform.Find("ItemsArea/Viewport/Content/ItemSlot0").gameObject;
+                ExecuteEvents.Execute(itemIcon, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.IsTrue(tooltip.activeSelf);
+                Assert.IsFalse(tooltip.transform.Find("Recycle").gameObject.activeSelf);
+                Assert.IsFalse(tooltip.transform.Find("Combine").gameObject.activeSelf);
+                Assert.IsNotEmpty(Get<string>(tooltip.transform.Find("Description").GetComponent("TextMeshProUGUI"), "text"));
+                ExecuteEvents.Execute(itemIcon, pointer, ExecuteEvents.pointerExitHandler);
+                yield return new WaitForSecondsRealtime(.2f);
+                Assert.IsFalse(tooltip.activeSelf);
+                ExecuteEvents.Execute(panel.transform.Find("StatsBoard/Secondary").gameObject,
+                    new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Assert.AreEqual("经验获取", Get<string>(panel.transform.Find("StatsBoard/Stat0/Name").GetComponent("TextMeshProUGUI"), "text"));
+            }
+            finally { if (input != null) input.enabled = wasEnabled; }
         }
 
         /// <summary>持有大量道具时滚动区保持图标尺寸，导航到底部会自动露出目标图标。</summary>
@@ -673,7 +682,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Call(player, "AddExp", 16f); Assert.AreEqual(before - 4, Get<float>(health, "CurrentHealth"));
             object flow = UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")); Call(flow, "PauseGame"); yield return null;
             Component board = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerStatBoardUI"));
-            Assert.AreEqual(15, Get<int>(board, "DisplayedStatCount"));
+            Assert.AreEqual(16, Get<int>(board, "DisplayedStatCount"));
             Transform boardRoot = Get<RectTransform>(board, "BoardRoot"); var pointer = new PointerEventData(EventSystem.current);
             ExecuteEvents.Execute(boardRoot.Find("Rows/Stat2").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
             Transform tooltip = board.transform.Find("StatTooltip"); Assert.IsTrue(tooltip.gameObject.activeSelf);
@@ -775,6 +784,34 @@ namespace RainsenVampSur.Tests.PlayMode
             }
         }
 
+        /// <summary>为现有布局截图固定四档报价；从正式目录挑选内容，不修改共享资产或随机商店规则。</summary>
+        private void SetQualityPreviewOffers()
+        {
+            object config = _rounds.GetType().GetField("config").GetValue(_rounds);
+            object catalog = config.GetType().GetField("shopCatalog").GetValue(config);
+            object weapon = null;
+            var tierItems = new object[4];
+            foreach (object product in (IList)catalog.GetType().GetField("products").GetValue(catalog))
+            {
+                object content = product.GetType().GetField("content").GetValue(product);
+                if (Get<bool>(product, "IsWeapon"))
+                {
+                    object data = content.GetType().GetField("weaponToGrant").GetValue(content);
+                    if ((string)data.GetType().GetField("weaponID").GetValue(data) == "12_coil_railgun") weapon = product;
+                }
+                else
+                {
+                    object data = content.GetType().GetField("abilityToGrant").GetValue(content);
+                    int quality = (int)data.GetType().GetField("quality").GetValue(data);
+                    if (quality >= 1 && quality <= 4 && data.GetType().GetField("mechanic").GetValue(data)?.GetType().Name == "StructureItemMechanicSO") tierItems[quality - 1] = product;
+                }
+            }
+            Assert.NotNull(weapon); Assert.NotNull(tierItems[2]); Assert.NotNull(tierItems[3]);
+            IList offers = Get<IList>(Get<object>(_rounds, "Shop"), "Offers");
+            for (int i = 0; i < 4; i++)
+                offers[i] = Activator.CreateInstance(TypeOf("RunShopOffer"), i < 2 ? weapon : tierItems[i], i + 1, 20 * (i + 1));
+        }
+
         /// <summary>1080p 局间布局使用真实相机和正式 UI，可选输出截图。</summary>
         [UnityTest]
         public IEnumerator Layout_1920x1080() { yield return VerifyLayout(1920, 1080); }
@@ -848,6 +885,12 @@ namespace RainsenVampSur.Tests.PlayMode
                         while (Get<object>(_rounds, "Phase").ToString() == "Upgrades")
                         { Call(_rounds, "Choose", 0); yield return null; }
                         SetCountStat(Get<object>(_rounds, "Player"), "Banish", 2);
+                        // 用正式工程道具的长说明验收宝箱，避免随机抽到短描述掩盖溢出。
+                        object fixtureConfig = _rounds.GetType().GetField("config").GetValue(_rounds);
+                        object fixtureCatalog = fixtureConfig.GetType().GetField("shopCatalog").GetValue(fixtureConfig);
+                        foreach (object product in (IList)fixtureCatalog.GetType().GetField("products").GetValue(fixtureCatalog))
+                            if (Get<string>(product, "Id") == "upgrade.shell_mortar")
+                                _rounds.GetType().GetProperty("CurrentCrate").SetValue(_rounds, Activator.CreateInstance(TypeOf("RunCrateReward"), product, 1, .5f));
                         Call(ui, "Refresh");
                     }
                     if (page == "crate-hold")
@@ -879,6 +922,7 @@ namespace RainsenVampSur.Tests.PlayMode
                         GrantCatalogItems();
                         SetCountStat(Get<object>(_rounds, "Player"), "Banish", 2);
                         Call(Get<object>(_rounds, "Wallet"), "Credit", 1234);
+                        SetQualityPreviewOffers();
                         Call(ui, "Refresh");
                     }
                     if (Get<object>(_rounds, "Phase").ToString() == "Shop")
@@ -942,6 +986,12 @@ namespace RainsenVampSur.Tests.PlayMode
                         if (page.EndsWith("details")) Assert.IsTrue(ui.transform.Find("PauseInventoryTooltip").gameObject.activeSelf);
                         foreach (Component label in board.GetComponentsInChildren(textType))
                             Assert.IsFalse(Get<bool>(label, "isTextOverflowing"), "暂停属性溢出:" + label.name);
+                    }
+                    if (page.StartsWith("crate-"))
+                    {
+                        var crateBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(layoutPanel.transform, layoutPanel.transform.Find("CrateReward/Banish"));
+                        var itemsBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(layoutPanel.transform, layoutPanel.transform.Find("ItemsArea"));
+                        Assert.Greater(crateBounds.min.y, itemsBounds.max.y + height * .04f, "宝箱操作不能覆盖道具栏或标题");
                     }
                     if (page == "passed" || page == "upgrades" || page == "crate-reward")
                     {
@@ -1089,7 +1139,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.Greater(Get<int>(shop, "RefreshPrice"), normalPrice);
         }
 
-        /// <summary>远离中心结束回合后，下一波同一帧的真实武器攻击必须使用中心位置。</summary>
+        /// <summary>远离中心结束回合后，下一波同一帧的真实武器攻击必须使用归中后的武器挂点。</summary>
         [UnityTest]
         public IEnumerator Feedback5_NextRoundFirstShotUsesCenteredTransform()
         {
@@ -1108,12 +1158,15 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.AreEqual(0, UnityEngine.Object.FindObjectsOfType(TypeOf("ProjectileBase")).Length);
             Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
             Component weapon = (Component)Get<IList>(Get<object>(_rounds, "Loadout"), "OwnedWeapons")[0];
+            // 新规则只在有效射程内有敌人时出手；首发归中回归必须显式提供可攻击目标。
+            SpawnFixture("Assets/Prefab/Enemy/EnemyWeak_1.prefab", weapon.transform.position + Vector3.right * 1.5f);
+            Physics2D.SyncTransforms();
             RuntimeComponentTestUtility.Invoke(weapon, "Update");
             UnityEngine.Object[] shots = UnityEngine.Object.FindObjectsOfType(TypeOf("ProjectileBase"));
             TestContext.Out.WriteLine("first-frame body=" + body.position + ", player=" + player.transform.position + ", weapon=" + weapon.transform.position + ", shots=" + shots.Length);
             Assert.Greater(shots.Length, 0, "必须实际发射，不能通过禁用全部攻击让测试假通过。");
             foreach (Component shot in shots)
-                Assert.Less(shot.transform.position.sqrMagnitude, .01f, "新回合首发仍在旧位置：" + shot.transform.position);
+                Assert.Less((shot.transform.position - weapon.transform.position).sqrMagnitude, .01f, "新回合首发必须位于归中后的武器挂点：" + shot.transform.position);
             Assert.Less(player.transform.position.sqrMagnitude, .01f);
             yield return new WaitForFixedUpdate(); yield return null;
             Assert.Less(player.transform.position.sqrMagnitude, .01f, "恢复物理后不能跳回旧位置");

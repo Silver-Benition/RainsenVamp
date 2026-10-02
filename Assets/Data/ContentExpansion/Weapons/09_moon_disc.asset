@@ -16,8 +16,8 @@ MonoBehaviour:
   weaponNameKey: weapon.09_moon_disc.name
   descriptionKey: weapon.09_moon_disc.description
   weaponDisplayName: "\u6708\u7259\u8F6E"
-  displayDescription: "\u6301\u7EED\u73AF\u7ED5\u7684\u6708\u7259\u5203\uFF1B\u6570\u91CF\u968F\u54C1\u8D28\u4E3A
-    1/1/2/2\uFF0C\u8FDB\u5165\u78B0\u649E\u8303\u56F4\u65F6\u9020\u6210\u4F24\u5BB3\u3002"
+  displayDescription: "\u6301\u7eed\u73af\u7ed5\u7684\u6708\u7259\u5203\uff1b\u6570\u91cf\u968f\u54c1\u8d28\u4e3a 1/1/2/2\uff0c\u8fdb\u5165\u78b0\u649e\u8303\u56f4\u65f6\u9020\u6210\u4f24\u5bb3\u3002"
+  visualAngleOffset: 0
   runtimeType: 2
   icon: {fileID: 21300000, guid: 0e2738893137d0b4ba62eae8a9c9c53d, type: 3}
   loadoutIconScale: 1

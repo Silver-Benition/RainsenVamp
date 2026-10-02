@@ -1,52 +1,70 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-/// <summary>
-/// 近战挥击武器。每次冷却生成一个短生命周期的池化扇扫判定。
-/// </summary>
+/// <summary>从独立挂点生成池化近战动作；交替序号属于装备实例，不写入共享配置。</summary>
 public sealed class MeleeWeapon : WeaponBase
 {
-    /// <summary>
-    /// 从玩家头顶生成雨伞挥击，并按稳定水平面向决定顺时针或逆时针。
-    /// </summary>
+    private bool _nextThrust = true;
+    public bool NextAttackIsThrust => weaponData != null && (weaponData.meleePattern == MeleeAttackPattern.Thrust
+        || (weaponData.meleePattern == MeleeAttackPattern.Alternating && _nextThrust));
+
+    private readonly List<MeleeSwingHitbox> _swings = new List<MeleeSwingHitbox>(4);
+    protected override bool CanStartAttack
+    {
+        get
+        {
+            for (int i = _swings.Count - 1; i >= 0; i--)
+                if (_swings[i] == null || !_swings[i].BelongsTo(transform)) _swings.RemoveAt(i);
+            return _swings.Count == 0;
+        }
+    }
+
+    /// <summary>所有动作使用完整基础距离索敌，挥击位置与武器长度分别计算。</summary>
+    protected override float GetAttackRange() => CurrentVisualRange;
+
+    /// <summary>新回合清理未完成动作，再从突刺开始。</summary>
+    public override void ResetRoundCooldown() { ClearSwings(); base.ResetRoundCooldown(); _nextThrust = true; }
+
+    /// <summary>卸下或暂停装备时取消动作，避免遗留脱离来源的伤害。</summary>
+    private void OnDisable() { ClearSwings(); }
+
+    /// <summary>仅取消仍属于本挂点的实例，池复用后的外来动作不受影响。</summary>
+    private void ClearSwings()
+    {
+        foreach (MeleeSwingHitbox swing in _swings)
+            if (swing != null && swing.BelongsTo(transform)) swing.Cancel();
+        _swings.Clear();
+    }
+
+    /// <summary>冷却完成时快照瞄准方向；仅生成成功后推进交替序号，多发共享本次动作类型。</summary>
     protected override void Attack()
     {
-        if (weaponData == null || weaponData.projectilePrefab == null || PoolManager.Instance == null)
-        {
-            return;
-        }
-
-        WeaponLevelData levelData = GetCurrentLevelData();
-        if (levelData == null)
-        {
-            return;
-        }
-
+        if (weaponData == null || weaponData.projectilePrefab == null || PoolManager.Instance == null) return;
+        WeaponLevelData level = GetCurrentLevelData();
+        if (level == null) return;
+        if (!CanStartAttack) return;
+        bool thrust = NextAttackIsThrust;
+        Vector3 direction = GetAimDirection();
         int count = GetCurrentProjectileCount();
-        for (int index = 0; index < count; index++)
+        float duration = GetModifiedDuration(level.activeDuration);
+        bool generated = false;
+        WeaponHeldView view = HeldView;
+        for (int i = 0; i < count; i++)
         {
-            GameObject instance = PoolManager.Instance.Spawn(
-                weaponData.projectilePrefab,
-                transform.position,
-                Quaternion.identity);
-            if (instance != null
-                && instance.TryGetComponent<MeleeSwingHitbox>(out var swingHitbox))
+            GameObject instance = PoolManager.Instance.Spawn(weaponData.projectilePrefab, transform.position, Quaternion.identity);
+            if (instance != null && instance.TryGetComponent<MeleeSwingHitbox>(out var hitbox))
             {
-                // Amount 大于零时把额外挥击均匀排布在玩家周围，避免完全重叠后退化为伤害倍增。
-                float startAngleOffset = count > 1 ? 360f * index / count : 0f;
-                swingHitbox.Initialize(
-                    weaponData,
-                    transform,
-                    GetHorizontalFacingSign() >= 0f,
-                    GetCurrentDamage(),
-                    GetModifiedRange(levelData.meleeRange),
-                    levelData.meleeArc,
-                    GetModifiedDuration(levelData.activeDuration),
-                    startAngleOffset, CreateHitSnapshot());
+                hitbox.InitializeDirected(weaponData, transform, CalculateSpreadDirection(direction, i, count, level.spreadAngle),
+                    thrust, GetCurrentDamage(), GetModifiedRange(level.meleeRange), level.meleeArc, duration, CreateHitSnapshot());
+                hitbox.ConfigureTargeted(GetMeleeTargetPoint(direction), CurrentMeleeTiming);
+                _swings.Add(hitbox);
+                if (!generated && view != null) hitbox.BeginFromHeld(view);
+                generated = true;
             }
-            else if (instance != null)
-            {
-                PoolManager.Instance.Release(weaponData.projectilePrefab, instance);
-            }
+            else if (instance != null) PoolManager.Instance.Release(weaponData.projectilePrefab, instance);
         }
+        if (!generated) return;
+        if (weaponData.meleePattern == MeleeAttackPattern.Alternating) _nextThrust = !_nextThrust;
+
     }
 }

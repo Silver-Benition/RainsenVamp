@@ -13,7 +13,46 @@ public class WeaponBase : MonoBehaviour
     protected AimController _aimController;
     protected PlayerStats _playerStats;
     protected PlayerHealth _ownerHealth;
+    private Collider2D _attackTarget;
+    private Component _attackTargetIdentity;
+    private uint _attackTargetGeneration;
+    private float _nextAttackTargetSearch;
+    public float CurrentAttackRange => GetAttackRange();
+    /// <summary>近战按玩家中心索敌，避免装备在背侧挂点时损失基础距离。</summary>
+    public Vector2 AttackOrigin => weaponData != null && weaponData.runtimeType == WeaponRuntimeType.Melee
+        ? (Vector2)OwnerTransform.position : (Vector2)transform.position;
+    public MeleeAttackTiming CurrentMeleeTiming => new MeleeAttackTiming(GetCurrentLevelData()?.activeDuration ?? .2f,
+        CurrentVisualRange, GetCurrentCooldownMultiplier());
 
+    /// <summary>出手时锁定攻击落点；手动方向不被自动目标覆盖，大体型敌人只要求碰撞边缘入圈。</summary>
+    protected Vector2 GetMeleeTargetPoint(Vector2 direction)
+    {
+        Collider2D target = WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration)
+            ? _attackTarget : WeaponTargeting.FindNearest(AttackOrigin, CurrentAttackRange);
+        bool automatic = _aimController == null || _aimController.aimMode == AimController.AimMode.NearestEnemy;
+        if (automatic && target != null)
+            return AttackOrigin + Vector2.ClampMagnitude((Vector2)WeaponTargeting.Identity(target).transform.position - AttackOrigin, CurrentAttackRange);
+        float distance = target != null ? Vector2.Distance(AttackOrigin, target.transform.position) : CurrentAttackRange;
+        return AttackOrigin + direction.normalized * Mathf.Clamp(distance, .25f, CurrentAttackRange);
+    }
+
+    /// <summary>攻击挂点与玩家中心分离，持续范围技能显式使用玩家中心。</summary>
+    public Transform OwnerTransform => _aimController != null ? _aimController.transform : transform.parent != null ? transform.parent : transform;
+    public Vector2 CurrentAimDirection => GetAimDirection();
+    /// <summary>持续环绕和光环仅保留玩家中心效果，不占用持武挂点。</summary>
+    public bool UsesHeldMount => !(this is AuraWeapon) && !(this is OrbitWeapon);
+    internal WeaponHeldView HeldView { get; set; }
+    /// <summary>投掷使用发射瞬间实际显示的长度，范围正在平滑改变时也不会突然放大。</summary>
+    protected float LaunchVisualLength => HeldView != null && HeldView.Renderer != null
+        ? WeaponVisualGeometry.ProjectedLength(HeldView.Renderer.sprite, weaponData.visualAngleOffset) * Mathf.Abs(HeldView.Renderer.transform.lossyScale.x)
+        : CurrentVisualLength;
+    public float CurrentVisualRange => GetModifiedRange(GetCurrentLevelData()?.meleeRange ?? 1f);
+    /// <summary>发射器随当前射程比例缩放；近战与攻击实体共用剑身长度。</summary>
+    public float CurrentVisualLength => weaponData != null && weaponData.runtimeType == WeaponRuntimeType.Melee
+        ? WeaponVisualGeometry.MeleeLength(CurrentVisualRange)
+        : Mathf.Max(.05f, weaponData != null ? weaponData.heldSize : .65f) * CurrentVisualRangeRatio;
+    public float CurrentVisualRangeRatio => GetModifiedRange(GetCurrentLevelData()?.attackRange ?? 5f)
+        / Mathf.Max(.25f, GetCurrentLevelData()?.attackRange ?? 5f);
     public int CurrentLevel => _currentLevel;
     public int MaxLevel => RoundController.Enabled ? 4 : (weaponData != null ? weaponData.MaxLevel : 1);
     public bool IsMaxLevel => CurrentLevel >= MaxLevel;
@@ -38,14 +77,46 @@ public class WeaponBase : MonoBehaviour
             return;
         }
 
-        _currentCooldown -= Time.deltaTime;
+        _currentCooldown = Mathf.Max(0f, _currentCooldown - Time.deltaTime);
         if (_currentCooldown > 0f)
         {
             return;
         }
 
+        // 空场只等待目标，不消耗已经就绪的冷却，也不推进近战交替序号。
+        // 光环与环绕是用户保留的常驻例外，仍按原有生命周期刷新。
+        if (UsesHeldMount && !TryAcquireAttackTarget()) return;
+        if (!CanStartAttack) return;
         Attack();
         _currentCooldown = GetCurrentCooldown();
+    }
+
+    /// <summary>直飞与投掷使用当前品质射程；近战覆盖此入口，按下一动作真实可达距离判断。</summary>
+    protected virtual bool CanStartAttack => true;
+
+    /// <summary>返回出手前有效索敌范围。</summary>
+    protected virtual float GetAttackRange()
+    {
+        WeaponLevelData level = GetCurrentLevelData();
+        return level != null ? GetModifiedRange(level.attackRange) : 0f;
+    }
+
+    /// <summary>就绪武器至多每 0.08 秒查询一次局部物理范围；缓存目标每次出手前校验生命及距离。</summary>
+    private bool TryAcquireAttackTarget()
+    {
+        float range = GetAttackRange();
+        bool valid = WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration);
+        if (Time.time >= _nextAttackTargetSearch || (_attackTargetGeneration != 0 && !valid))
+        {
+            _attackTarget = WeaponTargeting.FindNearest(AttackOrigin, range);
+            _attackTargetIdentity = WeaponTargeting.Identity(_attackTarget);
+            _attackTargetGeneration = _attackTargetIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
+            _nextAttackTargetSearch = Time.time + .08f;
+            valid = WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration);
+        }
+        // 使用敌人碰撞边缘进入范围作为触发，避免大体型敌人必须中心进入才会出手。
+        return valid && ((Vector2)_attackTarget.ClosestPoint(AttackOrigin) - AttackOrigin).sqrMagnitude
+            <= range * range + .00001f;
     }
 
     /// <summary>
@@ -116,8 +187,8 @@ public class WeaponBase : MonoBehaviour
         if (levelData == null) return 0.1f;
 
         float interval = levelData.cooldown * GetCurrentCooldownMultiplier();
-        if (_playerStats != null && _playerStats.UsesBrotatoStats && weaponData.runtimeType == WeaponRuntimeType.Melee)
-            interval *= GetModifiedRange(levelData.meleeRange) / Mathf.Max(.25f, levelData.meleeRange);
+        if (weaponData.runtimeType == WeaponRuntimeType.Melee)
+            interval = MeleeAttackTiming.Interval(levelData, CurrentVisualRange, GetCurrentCooldownMultiplier());
         return Mathf.Max(0.05f, interval);
     }
 
@@ -258,7 +329,8 @@ public class WeaponBase : MonoBehaviour
                     GetProjectileLifetime(levelData),
                     levelData.bounceCount,
                     levelData.bounceMode,
-                    GetCurrentAreaMultiplier(), CreateHitSnapshot());
+                    CurrentVisualRangeRatio, CreateHitSnapshot());
+                projectile.MatchHeldSize(LaunchVisualLength);
             }
         }
     }
@@ -287,12 +359,15 @@ public class WeaponBase : MonoBehaviour
     /// </summary>
     protected Vector3 GetAimDirection()
     {
-        if (_aimController == null)
+        if ((_aimController == null || _aimController.aimMode == AimController.AimMode.NearestEnemy)
+            && WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration))
         {
-            return Vector3.right;
+            Vector3 delta = _attackTargetIdentity.transform.position - (Vector3)AttackOrigin;
+            if (delta.sqrMagnitude > .0001f) return delta.normalized;
         }
+        if (_aimController == null) return Vector3.right;
 
-        Vector2 aim = _aimController.AimDirection;
+        Vector2 aim = _aimController.DirectionFrom(AttackOrigin);
         return aim.sqrMagnitude > 0.0001f
             ? new Vector3(aim.x, aim.y, 0f).normalized
             : Vector3.right;
@@ -312,6 +387,15 @@ public class WeaponBase : MonoBehaviour
     public string InstanceId { get; } = System.Guid.NewGuid().ToString("N");
 
     /// <summary>回合开始重置攻击冷却，避免继承商店或上一回合的计时。</summary>
-    public void ResetRoundCooldown() { _currentCooldown = 0f; }
+    public virtual void ResetRoundCooldown()
+    {
+        _currentCooldown = 0f;
+        _attackTarget = null;
+        _attackTargetIdentity = null;
+        _attackTargetGeneration = 0;
+        _nextAttackTargetSearch = 0f;
+        WeaponHeldView view = GetComponent<WeaponHeldView>();
+        if (view != null) view.ResetView();
+    }
 
 }

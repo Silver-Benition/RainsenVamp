@@ -501,7 +501,9 @@
           "features": [],
           "meleeScaling": 0.8
         }
-      ]
+      ],
+      "visualAngleOffset": -45,
+      "meleePattern": 0
     },
     {
       "id": "02_saw_cleaver",
@@ -614,13 +616,15 @@
           "features": [],
           "meleeScaling": 1.5
         }
-      ]
+      ],
+      "visualAngleOffset": -45,
+      "meleePattern": 0
     },
     {
       "id": "03_tide_spear",
       "name": "潮纹长枪",
       "template": "Umbrella",
-      "description": "长距离窄角扫刺；以攻击节奏换取近战覆盖距离。",
+      "description": "从持武挂点朝敌人交替执行突刺与横扫，每次动作可命中路径上的多个敌人。",
       "price": 20,
       "tiers": [
         {
@@ -727,7 +731,9 @@
           "features": [],
           "meleeScaling": 1.0
         }
-      ]
+      ],
+      "visualAngleOffset": -45,
+      "meleePattern": 2
     },
     {
       "id": "04_briar_bolt",
@@ -840,7 +846,9 @@
           "features": [],
           "rangedScaling": 1
         }
-      ]
+      ],
+      "visualAngleOffset": -45,
+      "meleePattern": 0
     },
     {
       "id": "05_rivet_spike",
@@ -953,13 +961,15 @@
           "features": [],
           "rangedScaling": 0.4
         }
-      ]
+      ],
+      "visualAngleOffset": -20,
+      "meleePattern": 0
     },
     {
       "id": "06_prism_shard",
       "name": "棱晶飞梭",
       "template": "FireBall",
-      "description": "元素晶片命中后追踪弹射；额外弹射随品质为 1/2/3/4。",
+      "description": "命中后弹射并追踪附近未命中的敌人，弹射次数随品质提升。",
       "price": 24,
       "tiers": [
         {
@@ -1066,7 +1076,9 @@
           "features": [],
           "elementalScaling": 0.8
         }
-      ]
+      ],
+      "visualAngleOffset": -45,
+      "meleePattern": 0
     },
     {
       "id": "07_medical_lancet",
@@ -1179,7 +1191,9 @@
           "features": [],
           "rangedScaling": 0.5
         }
-      ]
+      ],
+      "visualAngleOffset": -45,
+      "meleePattern": 0
     },
     {
       "id": "08_ember_censer",
@@ -1300,7 +1314,9 @@
           ],
           "elementalScaling": 0.4
         }
-      ]
+      ],
+      "visualAngleOffset": 0,
+      "meleePattern": 0
     },
     {
       "id": "09_moon_disc",
@@ -1413,7 +1429,9 @@
           "features": [],
           "rangedScaling": 0.6
         }
-      ]
+      ],
+      "visualAngleOffset": 0,
+      "meleePattern": 0
     },
     {
       "id": "10_meteor_hammer",
@@ -1526,7 +1544,9 @@
           "features": [],
           "meleeScaling": 1.3
         }
-      ]
+      ],
+      "visualAngleOffset": 0,
+      "meleePattern": 0
     }
   ]
 }
