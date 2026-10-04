@@ -45,6 +45,7 @@ public sealed class WeaponHeldView : MonoBehaviour
     /// <summary>复制实际攻击世界姿态到持武子节点，父级缩放从世界尺寸中消除。</summary>
     private void CopyAttackPose()
     {
+        _renderer.flipY = _attackVisual.flipY;
         _renderer.transform.position = _attackVisual.transform.position;
         _renderer.transform.rotation = _attackVisual.transform.rotation;
         Vector3 scale = _attackVisual.transform.lossyScale;
@@ -67,20 +68,25 @@ public sealed class WeaponHeldView : MonoBehaviour
             return;
         }
         _attackVisual = null;
-        UpdateRestPose(1f - Mathf.Exp(-25f * Time.deltaTime));
+        // 暂停可能发生在本帧 Update 与 LateUpdate 之间，此时 deltaTime 仍是旧值。
+        if (Time.timeScale > 0f) UpdateRestPose(1f - Mathf.Exp(-25f * Time.deltaTime));
     }
 
     /// <summary>沿瞄准方向摆放素材，使用与实际攻击相同的投影长度，属性在暂停中不推进动画。</summary>
     private void UpdateRestPose(float blend)
     {
+        if (blend <= 0f) return;
         Vector2 direction = _weapon.CurrentAimDirection;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        bool melee = _weapon.weaponData.runtimeType == WeaponRuntimeType.Melee;
+        bool flip = melee && !MeleeAttackMotion.FacesRight(angle);
+        float artAngle = _weapon.weaponData.visualAngleOffset * (flip ? -1f : 1f);
         float size = _weapon.CurrentVisualLength / WeaponVisualGeometry.ProjectedLength(_renderer.sprite, _weapon.weaponData.visualAngleOffset);
-        float offset = _weapon.weaponData.runtimeType == WeaponRuntimeType.Melee ? WeaponVisualGeometry.MeleeCenter(_weapon.CurrentVisualRange) : 0f;
+        float offset = _weapon.weaponData.runtimeType == WeaponRuntimeType.Melee ? _weapon.weaponData.meleeGripOffset + _weapon.CurrentVisualLength * .5f : 0f;
         _renderer.transform.localPosition = Vector3.Lerp(_renderer.transform.localPosition, (Vector3)direction * offset, blend);
         _renderer.transform.rotation = Quaternion.Slerp(_renderer.transform.rotation,
-            Quaternion.Euler(0f, 0f, angle + _weapon.weaponData.visualAngleOffset), blend);
+            Quaternion.Euler(0f, 0f, angle + artAngle), blend);
         _renderer.transform.localScale = Vector3.Lerp(_renderer.transform.localScale, new Vector3(size, size, 1f), blend);
-        _renderer.flipY = false;
+        _renderer.flipY = flip;
     }
 }

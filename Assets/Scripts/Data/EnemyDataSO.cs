@@ -18,6 +18,14 @@ public class EnemyDataSO : ScriptableObject
 
     [Tooltip("关闭后该敌人不会被 Defang，供未来首领或特殊机关使用。")]
     public bool canBeDefanged = true;
+    [Header("逐波成长：第 1 波使用基础值")]
+    [Min(0f), Tooltip("每经过一波增加的生命；生成时截断为整数，再应用关卡倍率。")]
+    public float healthPerWave;
+    [Min(0f)] public float contactDamagePerWave;
+    [Min(0f), Tooltip("远程攻击基础伤害每波增加量，发射时写入弹体。")]
+    public float projectileDamagePerWave;
+    [Min(0f)] public float speedPerWave;
+
     [Header("掉落物")]
     [Tooltip("敌人死亡时从对象池生成的经验球 Prefab。")]
     public GameObject dropExpPrefab;

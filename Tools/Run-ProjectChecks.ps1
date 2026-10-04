@@ -134,8 +134,11 @@ function Invoke-UnityTestRun {
     if ($UseNoGraphics) { $arguments += '-nographics' }
 
     Write-Host "`n[$Platform] 开始运行 Unity 测试..." -ForegroundColor Cyan
-    & $UnityEditorPath @arguments
-    $processExitCode = $LASTEXITCODE
+    # Unity 是图形程序，直接调用可能立即返回；显式等待本次进程，不能把测试时长当作报告落盘超时。
+    $quotedArguments = @($arguments | ForEach-Object { '"' + $_ + '"' })
+    $unityProcess = Start-Process -FilePath $UnityEditorPath -ArgumentList $quotedArguments -PassThru -WindowStyle Hidden
+    $unityProcess.WaitForExit()
+    $processExitCode = $unityProcess.ExitCode
 
     $result = [ordered]@{
         platform = $Platform

@@ -53,17 +53,17 @@ public sealed class EngineeringExpansionTests
         }
         finally{Object.DestroyImmediate(go);Object.DestroyImmediate(character);}
     }
-    /// <summary>攻速缩短整套动作，范围只延长回收；基础冷却不再随范围整体倍乘。</summary>
+    /// <summary>近战详情与运行共享动作后冷却；范围延长主动段，回收只受正攻速影响。</summary>
     [Test] public void MeleeTiming_SpeedRangeAndDisplayedCooldownShareOneContract()
     {
         var level=new WeaponLevelData{activeDuration=.25f,meleeRange=1.5f,cooldown=1f};
-        var baseline=new MeleeAttackTiming(level.activeDuration,1.5f,1f);
-        var fast=new MeleeAttackTiming(level.activeDuration,1.5f,.5f);
-        var wide=new MeleeAttackTiming(level.activeDuration,3f,1f);
+        var baseline=new MeleeAttackTiming(.1f,1.5f,1f);
+        var fast=new MeleeAttackTiming(.1f,1.5f,.5f);
+        var wide=new MeleeAttackTiming(.1f,3f,1f);
         Assert.Less(fast.Windup,baseline.Windup);Assert.Less(fast.Swing,baseline.Swing);Assert.Less(fast.Recovery,baseline.Recovery);
-        Assert.AreEqual(baseline.Swing,wide.Swing);Assert.Greater(wide.Recovery,baseline.Recovery);
-        Assert.That(MeleeAttackTiming.Interval(level,3f,1f),Is.InRange(1f,1.2f));
-        Assert.GreaterOrEqual(MeleeAttackTiming.Interval(level,3f,.01f),new MeleeAttackTiming(.25f,3f,.01f).Total);
+        Assert.Greater(wide.Swing,baseline.Swing);Assert.AreEqual(wide.Recovery,baseline.Recovery);
+        Assert.That(MeleeAttackTiming.Interval(level,3f,1f),Is.EqualTo(1.72142857f).Within(.00001));
+        Assert.GreaterOrEqual(MeleeAttackTiming.Interval(level,3f,.01f),new MeleeAttackTiming(.1f,3f,.01f).Total);
         var data=ScriptableObject.CreateInstance<WeaponDataSO>();
         try
         {

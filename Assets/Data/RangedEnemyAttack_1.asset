@@ -15,6 +15,7 @@ MonoBehaviour:
   maxRange: 8
   firstShotDelay: 0.8
   cooldown: 2
+  warningDuration: 0.55
   baseDamage: 2
   projectileSpeed: 5.5
   projectileLifetime: 6

@@ -13,12 +13,20 @@ MonoBehaviour:
   m_Name: 01_copper_rapier
   m_EditorClassIdentifier:
   weaponID: 01_copper_rapier
+  weaponSets:
+  - {fileID: 11400000, guid: 13db042cb99255eba8b338c64d65a8dc, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.01_copper_rapier.name
   descriptionKey: weapon.01_copper_rapier.description
   weaponDisplayName: "\u94DC\u9488\u7EC6\u5251"
   displayDescription: "\u5feb\u901f\u7a84\u89d2\u6325\u523a\uff1b\u81ea\u5e26\u66b4\u51fb +5%\uff0c\u66b4\u51fb\u4f24\u5bb3\u4e3a 2.5 \u500d\u3002"
   visualAngleOffset: -45
   runtimeType: 4
+  heldSize: 0.88
+  meleeRecoil: 0.25
+  meleeWindup: 0.1
+  meleeHitWidth: 0.176
+  meleeGripOffset: 0.05
   icon: {fileID: 21300000, guid: f8ceb468e8a32a143998ddf4cac82398, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}

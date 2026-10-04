@@ -18,6 +18,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     private HitFlash _hitFlash;
     private EnemySpawnSnapshot _spawnSnapshot;
     private WorldEnemySimulation _worldSimulation;
+    private float _attackWarning;
     private SpriteRenderer[] _spriteRenderers;
     private Color[] _baseRendererColors;
     private Animator[] _animators;
@@ -444,6 +445,7 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
     {
         _spawnSnapshot = EnemySpawnSnapshotFactory.Create(enemyData, 1f, 0f, 1f);
         _currentHealth = _spawnSnapshot.MaxHealth;
+        _attackWarning = 0f;
         ApplyDefangVisual(false);
     }
 
@@ -453,7 +455,17 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
         float baseHealth = enemyData != null ? enemyData.maxHealth : 1f;
         _spawnSnapshot = new EnemySpawnSnapshot(baseHealth, 0f, 0f, 0f, false);
         _currentHealth = _spawnSnapshot.MaxHealth;
+        _attackWarning = 0f;
         ApplyDefangVisual(false);
+    }
+
+    /// <summary>组合发射预警与生成原色；命中闪白仍由独立 Shader 属性叠加，不创建材质。</summary>
+    protected void SetAttackWarning(float amount)
+    {
+        amount = Mathf.Clamp01(amount);
+        if (Mathf.Approximately(_attackWarning, amount)) return;
+        _attackWarning = amount;
+        ApplyDefangVisual(IsDefanged);
     }
 
     /// <summary>应用或清除 Defang 绿色提示，逐个使用实例初始颜色避免污染共享材质。</summary>
@@ -474,7 +486,8 @@ public class EnemyBase : MonoBehaviour, IDamageable, ICombatDamageTarget, IPoola
 
             Color baseColor = _baseRendererColors[index];
             Color defangColor = new Color(0.35f, 1f, 0.42f, baseColor.a);
-            renderer.color = defanged ? Color.Lerp(baseColor, defangColor, 0.65f) : baseColor;
+            Color idle = defanged ? Color.Lerp(baseColor, defangColor, 0.65f) : baseColor;
+            renderer.color = Color.Lerp(idle, new Color(1f, .12f, .12f, baseColor.a), _attackWarning);
         }
     }
 }

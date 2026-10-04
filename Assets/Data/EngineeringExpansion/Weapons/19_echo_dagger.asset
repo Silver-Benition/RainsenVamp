@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 19_echo_dagger
   m_EditorClassIdentifier: 
   weaponID: 19_echo_dagger
+  weaponSets:
+  - {fileID: 11400000, guid: 13db042cb99255eba8b338c64d65a8dc, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.19_echo_dagger.name
   descriptionKey: weapon.19_echo_dagger.description
   weaponDisplayName: "\u53E0\u5F71\u77ED\u5200"
@@ -23,7 +26,11 @@ MonoBehaviour:
   expansionEffectPrefab: {fileID: 5873553303811022679, guid: 365dc8dd784ebb54bbd3d9a63b5facfd, type: 3}
   effectSprite: {fileID: 21300000, guid: 5d57c35e19c12484ea885c9ab9c28ca9, type: 3}
   retiredFromPool: 0
-  heldSize: 0.65
+  heldSize: 0.85
+  meleeRecoil: 0.25
+  meleeWindup: 0.1
+  meleeHitWidth: 0.17
+  meleeGripOffset: 0.05
   visualAngleOffset: 0
   meleePattern: 0
   icon: {fileID: 21300000, guid: 0e0e7fa1417b4024f900f61571d56b94, type: 3}

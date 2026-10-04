@@ -14,7 +14,7 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
 
     [Header("受击保护")]
     [SerializeField, Min(0f)]
-    [Tooltip("一次有效受击后的全局无敌时间。0 表示关闭无敌帧。")]
+    [Tooltip("旧规则一次有效受击后的全局无敌时间；Brotato 模式按实际损血比例采用 0.2–0.4 秒。")]
     private float invulnerabilityDuration = 0.5f;
 
     private float _currentHealth;
@@ -142,7 +142,12 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         {
             if (!RoundController.AllowsCombat) return;
             float dodge = Mathf.Clamp(_playerStats.GetFinalStat(PlayerStatType.Dodge), 0, 60) * .01f;
-            if (UnityEngine.Random.value < dodge) return;
+            if (UnityEngine.Random.value < dodge)
+            {
+                // 先关闭同帧后续伤害入口；闪避不扣血，也不发送实际受伤事件。
+                _nextDamageAllowedTime = Time.time + BrotatoStatRules.DamageProtection(0, maxHealth);
+                return;
+            }
             damageAfterArmor = Mathf.Max(1, Mathf.Floor(Mathf.Floor(damage + .5f) * BrotatoStatRules.ArmorMultiplier(armor) + .5f));
         }
         if (!RoundController.AllowsCombat) return;
@@ -155,7 +160,8 @@ public sealed class PlayerHealth : MonoBehaviour, IDamageable
         }
 
         // 先写入时间门槛再通知外部，确保监听者无法在同一帧绕过保护。
-        _nextDamageAllowedTime = Time.time + Mathf.Max(0f, invulnerabilityDuration);
+        _nextDamageAllowedTime = Time.time + (_playerStats != null && _playerStats.UsesBrotatoStats
+            ? BrotatoStatRules.DamageProtection(appliedDamage, maxHealth) : Mathf.Max(0f, invulnerabilityDuration));
         Damaged?.Invoke(appliedDamage);
         HealthChanged?.Invoke(_currentHealth, maxHealth);
 

@@ -5,7 +5,7 @@ using UnityEngine;
 public sealed class EnemyCombatStatus : MonoBehaviour
 {
     private struct Slow { public Transform Source; public float Strength, Until; }
-    private struct Burn { public Transform Source; public float Damage, Until; public WeaponDataSO Weapon; }
+    private struct Burn { public Transform Source; public float Damage, Until; public WeaponDataSO Weapon; public WeaponHitSnapshot Hit; }
     private readonly List<Slow> _slows = new List<Slow>(8);
     private readonly List<Burn> _burns = new List<Burn>(6);
     private EnemyBase _enemy;
@@ -39,7 +39,7 @@ public sealed class EnemyCombatStatus : MonoBehaviour
                 if (_burns[i].Until + .001f >= _nextBurn && _burns[i].Damage > best.Damage) best = _burns[i];
             _nextBurn += .5f;
             if (best.Damage > 0 && _enemy != null && _enemy.CurrentHealth > 0)
-                CombatDamageResolver.Apply(_enemy, best.Damage, best.Weapon);
+                best.Hit.ApplyDamageOverTime(_enemy, best.Damage, best.Weapon);
         }
         for (int i = _burns.Count - 1; i >= 0; i--)
             if (Time.time > _burns[i].Until) _burns.RemoveAt(i);
@@ -55,10 +55,14 @@ public sealed class EnemyCombatStatus : MonoBehaviour
     }
     /// <summary>同源灼烧保留更强伤害并续期；多把长鞭共用半秒节拍，只结算最强来源。</summary>
     public void ApplyBurn(Transform source, float damage, WeaponDataSO weapon)
+    { ApplyWeaponBurn(source, damage, weapon, default); }
+
+    /// <summary>保存施加灼烧的攻击归属；后续三跳计入原武器实例，并在回池时一并清空。</summary>
+    public void ApplyWeaponBurn(Transform source, float damage, WeaponDataSO weapon, WeaponHitSnapshot hit)
     {
         if (!Alive(source)) return;
         if (_burns.Count == 0) _nextBurn = Time.time + .5f;
-        Burn b = new Burn { Source = source, Damage = damage, Until = Time.time + 1.5f, Weapon = weapon };
+        Burn b = new Burn { Source = source, Damage = damage, Until = Time.time + 1.5f, Weapon = weapon, Hit = hit };
         for (int i = 0; i < _burns.Count; i++) if (_burns[i].Source == source)
         { b.Damage = Mathf.Max(b.Damage, _burns[i].Damage); _burns[i] = b; return; }
         _burns.Add(b);

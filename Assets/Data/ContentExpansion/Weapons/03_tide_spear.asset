@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 03_tide_spear
   m_EditorClassIdentifier:
   weaponID: 03_tide_spear
+  weaponSets:
+  - {fileID: 11400000, guid: 3767169519c95de28b5bd2389b5a4a8f, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.03_tide_spear.name
   descriptionKey: weapon.03_tide_spear.description
   weaponDisplayName: "\u6F6E\u7EB9\u957F\u67AA"
@@ -20,6 +23,11 @@ MonoBehaviour:
   meleePattern: 2
   visualAngleOffset: -45
   runtimeType: 4
+  heldSize: 1.3
+  meleeRecoil: 0.25
+  meleeWindup: 0.1
+  meleeHitWidth: 0.26
+  meleeGripOffset: 0.05
   icon: {fileID: 21300000, guid: 68f2cc8eeb5f54b4c82d39bd98666c3f, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}

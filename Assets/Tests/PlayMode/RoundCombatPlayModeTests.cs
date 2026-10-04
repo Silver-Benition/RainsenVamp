@@ -131,15 +131,16 @@ namespace RainsenVampSur.Tests.PlayMode
                     Assert.AreEqual(level, Get<int>(_rounds, "UpgradeLevel"));
                     IList tiers = Get<IList>(_rounds, "ChoiceTiers");
                     Assert.AreEqual(4, tiers.Count);
-                    if (level % 5 == 0)
+                    int upgrade = level - 1; Assert.AreEqual(upgrade, Get<int>(_rounds, "UpgradeCount"));
+                    if (upgrade % 5 == 0)
                     {
                         for (int reroll = 0; reroll < 4; reroll++)
                         {
-                            foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.AreEqual(level == 5 ? 2 : 3, tier); }
+                            foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.AreEqual(upgrade == 5 ? 2 : 3, tier); }
                             Assert.IsTrue((bool)Call(_rounds, "RerollUpgrade"));
                             Assert.AreEqual(level, Get<int>(_rounds, "UpgradeLevel"));
                         }
-                        foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.AreEqual(level == 5 ? 2 : 3, tier); }
+                        foreach (int tier in tiers) { Assert.AreEqual(tiers[0], tier); Assert.AreEqual(upgrade == 5 ? 2 : 3, tier); }
                     }
                     else foreach (int tier in tiers) mixed |= tier != (int)tiers[0];
                     for (int i = 0; i < 4; i++)
@@ -174,7 +175,9 @@ namespace RainsenVampSur.Tests.PlayMode
             object catalog = config.GetType().GetField("shopCatalog").GetValue(config);
             object item = null, weapon = null;
             foreach (object product in (IList)catalog.GetType().GetField("products").GetValue(catalog))
-                if (Get<bool>(product, "IsWeapon")) weapon = product; else item = product;
+                if (Get<bool>(product, "IsWeapon")) weapon = product;
+                else if (item == null && RuntimeComponentTestUtility.GetFieldValue<int>(
+                    RuntimeComponentTestUtility.GetFieldValue<object>(RuntimeComponentTestUtility.GetFieldValue<object>(product, "content"), "abilityToGrant"), "quality") == 1) item = product;
             IList offers = Get<IList>(shop, "Offers");
             offers[0] = Activator.CreateInstance(TypeOf("RunShopOffer"), weapon, 1, 10);
             offers[1] = Activator.CreateInstance(TypeOf("RunShopOffer"), item, 1, 10);
@@ -310,6 +313,7 @@ namespace RainsenVampSur.Tests.PlayMode
             RuntimeComponentTestUtility.SetField(health, "invulnerabilityDuration", 0f);
             SetCountStat(player, "Armor", 15); Call(health, "TakeDamage", 4f);
             Assert.AreEqual(8f, Get<float>(health, "CurrentHealth"));
+            RuntimeComponentTestUtility.SetField(health, "_nextDamageAllowedTime", Time.time - 1);
             SetCountStat(player, "Armor", -15); Call(health, "TakeDamage", 4f);
             Assert.AreEqual(2f, Get<float>(health, "CurrentHealth"));
             SetCountStat(player, "Harvesting", 20); Call(_rounds, "Tick", 100f);
@@ -686,7 +690,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Transform boardRoot = Get<RectTransform>(board, "BoardRoot"); var pointer = new PointerEventData(EventSystem.current);
             ExecuteEvents.Execute(boardRoot.Find("Rows/Stat2").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
             Transform tooltip = board.transform.Find("StatTooltip"); Assert.IsTrue(tooltip.gameObject.activeSelf);
-            StringAssert.Contains("0.1", Get<string>(tooltip.Find("Description").GetComponent(textType), "text"));
+            StringAssert.Contains("武器生命窃取率", Get<string>(tooltip.Find("Description").GetComponent(textType), "text"));
             ExecuteEvents.Execute(boardRoot.Find("Secondary").gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
             Assert.AreEqual(6, Get<int>(board, "DisplayedStatCount")); Assert.IsFalse(tooltip.gameObject.activeSelf);
             ExecuteEvents.Execute(boardRoot.Find("Rows/Stat0").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
@@ -696,7 +700,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Transform panel = Get<GameObject>(ui, "Panel").transform;
             ExecuteEvents.Execute(panel.Find("StatsBoard/Stat2").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
             Transform shopTip = panel.Find("StatTooltip"); Assert.IsTrue(shopTip.gameObject.activeSelf);
-            StringAssert.Contains("0.1", Get<string>(shopTip.Find("Description").GetComponent(textType), "text"));
+            StringAssert.Contains("武器生命窃取率", Get<string>(shopTip.Find("Description").GetComponent(textType), "text"));
             Assert.IsTrue((bool)Call(health, "SetNextRoundHealth", 3f)); Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
             Assert.AreEqual(3, Get<float>(health, "CurrentHealth")); Assert.IsFalse(shopTip.gameObject.activeSelf);
             Assert.IsFalse((bool)Call(_rounds, "BeginNextRound")); Assert.AreEqual(3, Get<float>(health, "CurrentHealth"));
@@ -843,7 +847,7 @@ namespace RainsenVampSur.Tests.PlayMode
             canvas.enabled = true;
             try
             {
-                foreach (string page in new[] { "combat", "hurt", "pause", "pause-weapon-details", "pause-item-details", "pause-stat-help", "pause-secondary", "passed", "upgrades", "milestone-upgrades", "crate-reward", "crate-hold", "shop", "weapon-details", "item-details", "secondary-stats", "shop-stat-help" })
+                foreach (string page in new[] { "combat", "hurt", "pause", "pause-weapon-details", "pause-item-details", "pause-stat-help", "pause-secondary", "passed", "upgrades", "milestone-upgrades", "crate-reward", "crate-hold", "shop", "shop-set-help", "weapon-details", "item-details", "secondary-stats", "shop-stat-help" })
                 {
                     if (page == "hurt")
                     {
@@ -854,20 +858,23 @@ namespace RainsenVampSur.Tests.PlayMode
                         Transform inventoryTip = ui.transform.Find("PauseInventoryTooltip"); inventoryTip.gameObject.SetActive(false);
                         Component board = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("PlayerStatBoardUI"));
                         if (page == "pause-secondary") Call(board, "SelectPage", true);
-                        Transform row = Get<RectTransform>(board, "BoardRoot").Find(page == "pause-stat-help" ? "Rows/Stat2" : "Rows/Stat0");
+                        Transform row = Get<RectTransform>(board, "BoardRoot").Find(page == "pause-stat-help" ? "Rows/Stat10" : "Rows/Stat0");
                         ExecuteEvents.Execute(row.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
                     }
                     if (page == "pause")
                     {
                         object loadout = Get<object>(_rounds, "Loadout");
                         IList weapons = Get<IList>(loadout, "OwnedWeapons");
-                        object data = weapons[0].GetType().GetField("weaponData").GetValue(weapons[0]);
+                        object data = FindWeaponData("01_copper_rapier");
                         while (weapons.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
                         GrantCatalogItems();
+                        object player = Get<object>(_rounds, "Player");
+                        float armor = (float)Call(player, "GetFinalStat", Enum.Parse(TypeOf("PlayerStatType"), "Armor"));
+                        SetCountStat(player, "Armor", 15 - Mathf.RoundToInt(armor));
                         Call(UnityEngine.Object.FindObjectOfType(TypeOf("GameFlowManager")), "PauseGame");
                     }
                     if (page == "pause-weapon-details")
-                        ExecuteEvents.Execute(ui.transform.Find("PlayerLoadoutDisplay/WeaponSlot_1").gameObject,
+                        ExecuteEvents.Execute(ui.transform.Find("PlayerLoadoutDisplay/WeaponSlot_2").gameObject,
                             new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
                     if (page == "pause-item-details")
                         ExecuteEvents.Execute(ui.transform.Find("PauseItems/Viewport/Content/ItemSlot0").gameObject,
@@ -905,7 +912,7 @@ namespace RainsenVampSur.Tests.PlayMode
                     if (page == "milestone-upgrades")
                     {
                         object player = Get<object>(_rounds, "Player");
-                        RuntimeComponentTestUtility.SetField(player, "currentLevel", 12);
+                        RuntimeComponentTestUtility.SetField(player, "currentLevel", 13);
                         RuntimeComponentTestUtility.SetField(player, "_levelUpQueue", 3);
                         Call(Get<object>(_rounds, "Wallet"), "Credit", 100);
                         Call(_rounds, "RerollUpgrade");
@@ -917,7 +924,7 @@ namespace RainsenVampSur.Tests.PlayMode
                         { Call(_rounds, "Choose", 0); yield return null; }
                         object loadout = Get<object>(_rounds, "Loadout");
                         IList owned = Get<IList>(loadout, "OwnedWeapons");
-                        object data = owned[0].GetType().GetField("weaponData").GetValue(owned[0]);
+                        object data = FindWeaponData("01_copper_rapier");
                         while (owned.Count < 6) Call(loadout, "BuyRoundWeapon", data, 1);
                         GrantCatalogItems();
                         SetCountStat(Get<object>(_rounds, "Player"), "Banish", 2);
@@ -929,8 +936,10 @@ namespace RainsenVampSur.Tests.PlayMode
                         Assert.AreEqual(1, ui.transform.Find("PassOverlay").GetComponent<Image>().color.a, "商店必须完全遮挡竞技场");
                     GameObject layoutPanel = Get<GameObject>(ui, "Panel");
                     var hover = new PointerEventData(EventSystem.current);
+                    if (page == "shop-set-help")
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("Offer0/WeaponTags").gameObject, hover, ExecuteEvents.pointerEnterHandler);
                     if (page == "weapon-details")
-                        ExecuteEvents.Execute(layoutPanel.transform.Find("WeaponsArea/WeaponSlot0").gameObject, hover, ExecuteEvents.pointerEnterHandler);
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("WeaponsArea/WeaponSlot1").gameObject, hover, ExecuteEvents.pointerEnterHandler);
                     if (page == "item-details")
                         ExecuteEvents.Execute(layoutPanel.transform.Find("ItemsArea/Viewport/Content/ItemSlot0").gameObject, hover, ExecuteEvents.pointerEnterHandler);
                     if (page == "secondary-stats")
@@ -941,10 +950,31 @@ namespace RainsenVampSur.Tests.PlayMode
                             new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
                     }
                     if (page == "shop-stat-help")
-                        ExecuteEvents.Execute(layoutPanel.transform.Find("StatsBoard/Stat0").gameObject,
+                    {
+                        RuntimeComponentTestUtility.Invoke(ui, "SelectStats", false);
+                        ExecuteEvents.Execute(layoutPanel.transform.Find("StatsBoard/Stat10").gameObject,
                             new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+                    }
                     Canvas.ForceUpdateCanvases();
                     for (int frame = 0; frame < 4; frame++) yield return null;
+                    if (page == "pause-weapon-details" || page == "weapon-details")
+                    {
+                        Transform tip = page == "pause-weapon-details" ? ui.transform.Find("PauseInventoryTooltip") : Get<GameObject>(ui, "Tooltip").transform;
+                        Type tmp = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+                        Transform side = page == "pause-weapon-details" ? ui.transform.Find("PauseWeaponSide") : layoutPanel.transform.Find("WeaponSide");
+                        Assert.IsTrue(side.gameObject.activeInHierarchy);
+                        string body = Get<string>(side.Find("Sets/Description").GetComponent(tmp), "text");
+                        StringAssert.Contains("刀刃 (5/6)", body); StringAssert.Contains("精准 (5/6)", body);
+                        for (int tier = 2; tier <= 6; tier++) StringAssert.Contains("(" + tier + ")", body);
+                        StringAssert.Contains("上一波", Get<string>(side.Find("WaveDamage/Description").GetComponent(tmp), "text"));
+                        Bounds mainBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(ui.transform, tip);
+                        Bounds sideBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(ui.transform, side);
+                        Assert.Greater(sideBounds.min.x, mainBounds.max.x, "羁绊必须独立放在详情右侧");
+                        Rect screen = ((RectTransform)ui.transform).rect;
+                        Assert.LessOrEqual(sideBounds.max.x, screen.xMax); Assert.GreaterOrEqual(sideBounds.min.y, screen.yMin);
+                        Assert.LessOrEqual(sideBounds.max.y, screen.yMax);
+                        foreach (Component label in side.GetComponentsInChildren(tmp)) Assert.IsFalse(Get<bool>(label, "isTextOverflowing"));
+                    }
                     Assert.AreEqual(width, camera.pixelWidth); Assert.AreEqual(height, camera.pixelHeight);
                     if (page == "passed" || page == "upgrades")
                     {
@@ -1225,6 +1255,307 @@ namespace RainsenVampSur.Tests.PlayMode
                 Assert.GreaterOrEqual(point.sqrMagnitude, 16);
             }
             yield return null;
+        }
+
+        /// <summary>真实经验连续升级：首个奖励为白品质；付费刷新跨奖励页累计，免费次数不抬高价格。</summary>
+        [UnityTest]
+        public IEnumerator OriginalCore_UpgradeProgressAndRerollCostsPersistPerWave()
+        {
+            object player = Get<object>(_rounds, "Player"), wallet = Get<object>(_rounds, "Wallet");
+            // 默认角色被动自带一次免费重投，先经正式入口消耗后再验证付费序列。
+            object state = UnityEngine.Object.FindObjectOfType(TypeOf("RunState"));
+            while (Get<int>(state, "RemainingRerolls") > 0) Assert.IsTrue((bool)Call(state, "TryConsumeReroll"));
+            Call(player, "AddExp", 41f); Call(wallet, "Credit", 100);
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            Assert.AreEqual(2, Get<int>(_rounds, "UpgradeLevel")); Assert.AreEqual(1, Get<int>(_rounds, "UpgradeCount"));
+            foreach (int tier in Get<IList>(_rounds, "ChoiceTiers")) Assert.AreEqual(1, tier);
+            var previous = new System.Collections.Generic.HashSet<object>();
+            foreach (object choice in Get<IList>(_rounds, "Choices")) previous.Add(Get<object>(RuntimeComponentTestUtility.GetFieldValue<object>(choice, "modifier"), "StatType"));
+            int balance = Get<int>(wallet, "Balance");
+            Assert.AreEqual(1, Get<int>(_rounds, "UpgradeRerollPrice")); Assert.IsTrue((bool)Call(_rounds, "RerollUpgrade"));
+            Assert.AreEqual(balance - 1, Get<int>(wallet, "Balance"));
+            foreach (object choice in Get<IList>(_rounds, "Choices")) Assert.IsFalse(previous.Contains(Get<object>(RuntimeComponentTestUtility.GetFieldValue<object>(choice, "modifier"), "StatType")));
+            Assert.IsTrue((bool)Call(_rounds, "Choose", 0));
+            Assert.AreEqual(3, Get<int>(_rounds, "UpgradeLevel")); Assert.AreEqual(2, Get<int>(_rounds, "UpgradeRerollPrice"));
+            SetCountStat(player, "Reroll", 1); Assert.IsTrue((bool)Call(_rounds, "RerollUpgrade"));
+            Assert.AreEqual(balance - 1, Get<int>(wallet, "Balance")); Assert.AreEqual(2, Get<int>(_rounds, "UpgradeRerollPrice"));
+            Assert.IsTrue((bool)Call(_rounds, "RerollUpgrade")); Assert.AreEqual(balance - 3, Get<int>(wallet, "Balance"));
+            Assert.AreEqual(3, Get<int>(_rounds, "UpgradeRerollPrice"));
+            yield return null; // 奖励确认沿用每帧一次保护，下一页必须在下一帧领取。
+            Assert.IsTrue((bool)Call(_rounds, "Choose", 0)); Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+            Assert.AreEqual(2, Get<int>(_rounds, "UpgradeRerollPrice"));
+        }
+
+        /// <summary>真实生命入口验证闪避也关闭受伤窗口，百分之十伤害保护约零点二六七秒且能阻止事件重入。</summary>
+        [UnityTest]
+        public IEnumerator OriginalCore_DodgeAndDamageCloseTheSameWindow()
+        {
+            object player = Get<object>(_rounds, "Player");
+            Component health = ((Component)player).GetComponent("PlayerHealth");
+            SetCountStat(player, "MaxHealth", 90); Call(health, "PrepareRound"); SetCountStat(player, "Dodge", 60);
+            UnityEngine.Random.State saved = UnityEngine.Random.state;
+            try
+            {
+                int seed = 0;
+                for (; seed < 1000; seed++) { UnityEngine.Random.InitState(seed); if (UnityEngine.Random.value < .6f) break; }
+                Assert.Less(seed, 1000); UnityEngine.Random.InitState(seed);
+                Call(health, "TakeDamage", 10f); Assert.AreEqual(100, Get<float>(health, "CurrentHealth"));
+                Assert.That(RuntimeComponentTestUtility.GetFieldValue<float>(health, "_nextDamageAllowedTime") - Time.time, Is.EqualTo(.2f).Within(.001f));
+                SetCountStat(player, "Dodge", 0); Call(health, "TakeDamage", 10f); Assert.AreEqual(100, Get<float>(health, "CurrentHealth"));
+                RuntimeComponentTestUtility.SetField(health, "_nextDamageAllowedTime", Time.time - 1);
+                int calls = 0; Action<float> reentrant = lost => { calls++; Call(health, "TakeDamage", 10f); };
+                EventInfo damaged = health.GetType().GetEvent("Damaged"); damaged.AddEventHandler(health, reentrant);
+                try { Call(health, "TakeDamage", 10f); }
+                finally { damaged.RemoveEventHandler(health, reentrant); }
+                Assert.AreEqual(1, calls); Assert.AreEqual(90, Get<float>(health, "CurrentHealth"));
+                Assert.That(RuntimeComponentTestUtility.GetFieldValue<float>(health, "_nextDamageAllowedTime") - Time.time, Is.EqualTo(.26666667f).Within(.001f));
+            }
+            finally { UnityEngine.Random.state = saved; }
+            yield return null;
+        }
+
+        /// <summary>首波宝箱按白品质筛选，锁定的唯一道具占用名额；不得用红道具绕过缺池补偿。</summary>
+        [UnityTest]
+        public IEnumerator OriginalCore_CrateReservesLockedCapAndNeverUpsamples()
+        {
+            ScriptableObject original = RuntimeComponentTestUtility.GetFieldValue<ScriptableObject>(_rounds, "config");
+            ScriptableObject config = UnityEngine.Object.Instantiate(original);
+            ScriptableObject catalog = UnityEngine.Object.Instantiate(RuntimeComponentTestUtility.GetFieldValue<ScriptableObject>(config, "shopCatalog"));
+            IList products = RuntimeComponentTestUtility.GetFieldValue<IList>(catalog, "products"); object low = null, high = null;
+            foreach (object product in products)
+            {
+                if (Get<bool>(product, "IsWeapon")) continue;
+                object ability = RuntimeComponentTestUtility.GetFieldValue<object>(RuntimeComponentTestUtility.GetFieldValue<object>(product, "content"), "abilityToGrant");
+                int quality = RuntimeComponentTestUtility.GetFieldValue<int>(ability, "quality");
+                if (quality == 1 && low == null) low = product; if (quality == 4) high = product;
+            }
+            Assert.NotNull(low); Assert.NotNull(high);
+            ScriptableObject content = UnityEngine.Object.Instantiate(RuntimeComponentTestUtility.GetFieldValue<ScriptableObject>(low, "content"));
+            ScriptableObject item = UnityEngine.Object.Instantiate(RuntimeComponentTestUtility.GetFieldValue<ScriptableObject>(content, "abilityToGrant"));
+            RuntimeComponentTestUtility.SetField(item, "stackPerCopy", true); RuntimeComponentTestUtility.SetField(item, "maxCopies", 1);
+            RuntimeComponentTestUtility.SetField(content, "abilityToGrant", item);
+            object unique = Activator.CreateInstance(TypeOf("RunShopProduct")); RuntimeComponentTestUtility.SetField(unique, "content", content);
+            products.Clear(); products.Add(unique); products.Add(high);
+            RuntimeComponentTestUtility.SetField(config, "shopCatalog", catalog); RuntimeComponentTestUtility.SetField(_rounds, "config", config);
+            try
+            {
+                // 第一箱没有预留，必须从只有白/红两档的目录选中白色。
+                Assert.IsTrue((bool)Call(_rounds, "QueueCrate")); Assert.IsTrue((bool)Call(_rounds, "QueueCrate"));
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+                Assert.AreSame(unique, Get<object>(Get<object>(_rounds, "CurrentCrate"), "Product"));
+                int refund = Get<int>(Get<object>(_rounds, "CurrentCrate"), "RecycleValue");
+                object shop = Get<object>(_rounds, "Shop"), wallet = Get<object>(_rounds, "Wallet");
+                IList offers = Get<IList>(shop, "Offers"); offers[0] = Activator.CreateInstance(TypeOf("RunShopOffer"), unique, 1, 14);
+                offers[0].GetType().GetProperty("Locked").SetValue(offers[0], true);
+                Assert.AreEqual(1, Call(shop, "LockedItemCount", Get<string>(unique, "Id")));
+                Call(wallet, "Credit", 100); // 只验证预留不会封禁购买，资金不足另由交易用例覆盖。
+                int balance = Get<int>(wallet, "Balance");
+                Assert.IsTrue((bool)Call(_rounds, "ResolveCrate", Enum.Parse(TypeOf("CrateRewardAction"), "Recycle")));
+                Assert.AreEqual(0, Get<int>(_rounds, "PendingCrates")); Assert.AreEqual("Shop", Get<object>(_rounds, "Phase").ToString());
+                Assert.AreEqual(balance + refund + 10, Get<int>(wallet, "Balance"));
+                Assert.IsTrue((bool)Call(shop, "Buy", 0), "宝箱预留过滤不能消耗已锁定道具的购买资格。");
+            }
+            finally
+            {
+                RuntimeComponentTestUtility.SetField(_rounds, "config", original);
+                UnityEngine.Object.Destroy(config); UnityEngine.Object.Destroy(catalog); UnityEngine.Object.Destroy(content); UnityEngine.Object.Destroy(item);
+            }
+        }
+
+
+        /// <summary>真实场景中买入、合成和回收会即时替换双标签加成，事件观察者读到最终属性。</summary>
+        [UnityTest]
+        public IEnumerator TagsEnemy_TradeUpdatesSetsAndCurrentArmorHelp()
+        {
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
+            object loadout = Get<object>(_rounds, "Loadout"), player = Get<object>(_rounds, "Player");
+            object data = FindWeaponData("01_copper_rapier");
+            Array sets = (Array)data.GetType().GetField("weaponSets").GetValue(data);
+            object critStat = Enum.Parse(TypeOf("PlayerStatType"), "CritChance");
+            float before = (float)Call(player, "GetFinalStat", critStat);
+            object a = Call(loadout, "BuyRoundWeapon", data, 1), b = Call(loadout, "BuyRoundWeapon", data, 1);
+            Assert.NotNull(a); Assert.NotNull(b); Assert.AreEqual(2, Call(loadout, "GetWeaponSetCount", sets.GetValue(0)));
+            Assert.AreEqual(before + 3, Call(player, "GetFinalStat", critStat));
+            object shop = Get<object>(_rounds, "Shop");
+            Assert.IsTrue((bool)Call(shop, "Combine", a));
+            Assert.AreEqual(2, Get<int>(a, "CurrentLevel")); Assert.AreEqual(1, Call(loadout, "GetWeaponSetCount", sets.GetValue(1)));
+            Assert.AreEqual(before, Call(player, "GetFinalStat", critStat));
+            Call(loadout, "BuyRoundWeapon", data, 1);
+            Assert.AreEqual(before + 3, Call(player, "GetFinalStat", critStat));
+            Assert.IsTrue((bool)Call(shop, "Recycle", a)); Assert.AreEqual(before, Call(player, "GetFinalStat", critStat));
+            // 标签与伤害系数不同：远程采血针匹配细剑的精准，近战拳套没有共有标签。
+            Assert.IsTrue((bool)CallStatic("WeaponShopPreference", "MatchesOwnedSet", FindWeaponData("07_medical_lancet"), loadout));
+            Assert.IsFalse((bool)CallStatic("WeaponShopPreference", "MatchesOwnedSet", FindWeaponData("11_piston_gauntlet"), loadout));
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            SetCountStat(player, "Armor", 15);
+            Transform panel = Get<GameObject>(ui, "Panel").transform;
+            ExecuteEvents.Execute(panel.Find("StatsBoard/Stat10").gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+            Type textType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+            Component description = panel.Find("StatTooltip/Description").GetComponent(textType);
+            StringAssert.Contains("减少 50%", Get<string>(description, "text"));
+            SetCountStat(player, "Armor", -15);
+            StringAssert.Contains("增加 50%", Get<string>(description, "text"));
+            yield return null;
+        }
+
+        /// <summary>跨真实回合从正式生成器取敌人，验证对象池中的生命及远程伤害采用本波数值。</summary>
+        [UnityTest]
+        public IEnumerator TagsEnemy_ActualSpawnerUsesWaveGrowthAndPoolResets()
+        {
+            Component waves = RuntimeComponentTestUtility.GetFieldValue<Component>(_rounds, "_waves");
+            for (int wave = 1; wave <= 20; wave++)
+            {
+                if (wave == 1 || wave == 5 || wave == 10 || wave == 20)
+                {
+                    object definition = Get<object>(Get<object>(_rounds, "Current"), "Definition");
+                    object spawn = definition.GetType().GetField("spawnConfig").GetValue(definition);
+                    IList rules = (IList)spawn.GetType().GetField("rules").GetValue(spawn);
+                    for (int index = 0; index < rules.Count; index++)
+                    {
+                        var before = new System.Collections.Generic.HashSet<int>();
+                        foreach (Component enemy in UnityEngine.Object.FindObjectsOfType(TypeOf("EnemyBase"))) before.Add(enemy.GetInstanceID());
+                        RuntimeComponentTestUtility.Invoke(waves, "SpawnFromRule", index, rules[index]);
+                        Component found = null;
+                        foreach (Component enemy in UnityEngine.Object.FindObjectsOfType(TypeOf("EnemyBase")))
+                            if (!before.Contains(enemy.GetInstanceID())) { Assert.IsNull(found); found = enemy; }
+                        Assert.NotNull(found, "正式生成器必须产生一个有效敌人");
+                        float hp = index == 0 ? Mathf.Floor(6 + (wave - 1) * 1.5f) : 8 + wave - 1;
+                        Assert.AreEqual(hp, Get<float>(found, "CurrentHealth"));
+                        if (index > 0) Assert.That((float)Call(found, "ResolveOutgoingDamage", 2f), Is.EqualTo(2 + (wave - 1) * .08f).Within(.0001f));
+                    }
+                }
+                if (wave == 20) break;
+                Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+                yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
+                Assert.IsTrue((bool)Call(_rounds, "BeginNextRound")); yield return null;
+            }
+        }
+
+        /// <summary>真实波次边界固定实例账本；UI 回收报价与材料增量一致，商品正文不会触发羁绊。</summary>
+        [UnityTest]
+        public IEnumerator CombatDetails_WaveDamageSidePanelsAndRecycleQuote()
+        {
+            Component loadout = (Component)Get<object>(_rounds, "Loadout"); object data = FindWeaponData("01_copper_rapier");
+            object a = Call(loadout, "BuyRoundWeapon", data, 1); object b = Call(loadout, "BuyRoundWeapon", data, 1);
+            ((Behaviour)a).enabled = false; ((Behaviour)b).enabled = false;
+            object hitA = RuntimeComponentTestUtility.Invoke(a, "CreateHitSnapshot");
+            object hitB = RuntimeComponentTestUtility.Invoke(b, "CreateHitSnapshot");
+            // 关闭随机暴击，给真实池化敌人指定生命；过量伤害按完整命中值记账。
+            SetCountStat(Get<object>(_rounds, "Player"), "CritChance", -100);
+            hitA = RuntimeComponentTestUtility.Invoke(a, "CreateHitSnapshot"); hitB = RuntimeComponentTestUtility.Invoke(b, "CreateHitSnapshot");
+            GameObject enemy = SpawnFixture("Assets/Prefab/Enemy/EnemyWeak_1.prefab", new Vector3(100, 100));
+            Call(hitA, "Apply", enemy.GetComponent("EnemyBase"), 101f, data);
+            Call(hitB, "Apply", enemy.GetComponent("EnemyBase"), 999f, data);
+            enemy = SpawnFixture("Assets/Prefab/Enemy/EnemyWeak_1.prefab", new Vector3(100, 100));
+            Call(hitB, "Apply", enemy.GetComponent("EnemyBase"), 37f, data);
+            Call(_rounds, "Tick", 100f); yield return RuntimeComponentTestUtility.WaitForRoundSettlement(_rounds);
+            yield return RuntimeComponentTestUtility.ResolveRoundRewards(_rounds);
+            Assert.AreEqual(101d, Get<double>(Get<object>(a, "WaveDamage"), "LastWaveDamage"));
+            Assert.AreEqual(37d, Get<double>(Get<object>(b, "WaveDamage"), "LastWaveDamage"));
+            object shop = Get<object>(_rounds, "Shop"); Assert.IsTrue((bool)Call(shop, "Combine", a));
+            Assert.AreEqual(138d, Get<double>(Get<object>(a, "WaveDamage"), "LastWaveDamage"));
+            yield return null;
+            Component ui = (Component)UnityEngine.Object.FindObjectOfType(TypeOf("RoundIntermissionUI"));
+            Transform panel = Get<GameObject>(ui, "Panel").transform;
+            BaseInputModule input = EventSystem.current.currentInputModule; bool wasEnabled = input != null && input.enabled;
+            if (input != null) input.enabled = false;
+            try
+            {
+                var pointer = new PointerEventData(EventSystem.current);
+                ExecuteEvents.Execute(panel.Find("WeaponsArea/WeaponSlot1").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Type tmp = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro", true);
+                StringAssert.Contains("138", Get<string>(panel.Find("WeaponSide/WaveDamage/Description").GetComponent(tmp), "text"));
+                int quote = (int)Call(shop, "RecycleValue", a);
+                StringAssert.Contains("+" + quote, Get<string>(Get<GameObject>(ui, "Tooltip").transform.Find("Recycle/Label").GetComponent(tmp), "text"));
+                int balance = Get<int>(Get<object>(_rounds, "Wallet"), "Balance");
+                ExecuteEvents.Execute(Get<GameObject>(ui, "Tooltip").transform.Find("Recycle").gameObject,
+                    new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+                Assert.AreEqual(balance + quote, Get<int>(Get<object>(_rounds, "Wallet"), "Balance"));
+                Assert.AreEqual(0, Call(shop, "RecycleValue", a)); Assert.IsFalse(panel.Find("WeaponSide").gameObject.activeSelf);
+                SetQualityPreviewOffers(); Call(ui, "Refresh");
+                ExecuteEvents.Execute(panel.Find("Offer0").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.IsFalse(panel.Find("WeaponSide").gameObject.activeSelf);
+                ExecuteEvents.Execute(panel.Find("Offer0/WeaponTags").gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.IsTrue(panel.Find("WeaponSide").gameObject.activeSelf); Assert.IsFalse(Get<GameObject>(ui, "Tooltip").activeSelf);
+                Assert.IsFalse(panel.Find("WeaponSide/WaveDamage").gameObject.activeSelf);
+                ExecuteEvents.Execute(panel.Find("Offer0/WeaponTags").gameObject, pointer, ExecuteEvents.pointerExitHandler);
+                Assert.IsFalse(panel.Find("WeaponSide").gameObject.activeSelf);
+            }
+            finally { if (input != null) input.enabled = wasEnabled; }
+            Assert.IsTrue((bool)Call(_rounds, "BeginNextRound"));
+            object fresh = Call(loadout, "BuyRoundWeapon", data, 1);
+            Assert.AreEqual(0d, Get<double>(Get<object>(fresh, "WaveDamage"), "LastWaveDamage"));
+        }
+
+        /// <summary>正式远程敌人的精灵/材质经过真实计时渐红，再由实际发射恢复；有图形时保存三个状态。</summary>
+        [UnityTest]
+        public IEnumerator CombatDetails_FormalRangedTelegraphFrames()
+        {
+            Component waves = RuntimeComponentTestUtility.GetFieldValue<Component>(_rounds, "_waves");
+            ((Behaviour)waves).enabled = false;
+            foreach (Behaviour weapon in Get<IList>(Get<object>(_rounds, "Loadout"), "OwnedWeapons")) weapon.enabled = false;
+            Component player = (Component)Get<object>(_rounds, "Player");
+            GameObject spawned = SpawnFixture("Assets/Prefab/Enemy/EnemyRanged_1.prefab", player.transform.position + Vector3.right * 5);
+            Component enemy = spawned.GetComponent(TypeOf("RangedEnemyController"));
+            RuntimeComponentTestUtility.Invoke(enemy, "BindWorldSimulation", RuntimeComponentTestUtility.GetFieldValue<Component>(waves, "enemySimulation"));
+            RuntimeComponentTestUtility.Invoke(enemy, "ResetAttackCycle");
+            SpriteRenderer sprite = enemy.GetComponent<SpriteRenderer>(); Color normal = sprite.color;
+            var cameraObject = new GameObject("TelegraphCaptureCamera"); Camera camera = cameraObject.AddComponent<Camera>();
+            camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 1.4f;
+            camera.transform.position = enemy.transform.position + Vector3.back * 10;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.black;
+            camera.cullingMask = ~(1 << LayerMask.NameToLayer("UI"));
+            try
+            {
+                CaptureCombatDetail(camera, "enemy-normal");
+                float deadline = Time.realtimeSinceStartup + 2;
+                while (Get<float>(enemy, "WarningProgress") < .75f && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.GreaterOrEqual(Get<float>(enemy, "WarningProgress"), .75f);
+                Assert.Less(sprite.color.g, normal.g); Assert.AreEqual(normal.a, sprite.color.a);
+                CaptureCombatDetail(camera, "enemy-warning");
+                while (Get<float>(enemy, "WarningProgress") > 0 && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.AreEqual(normal, sprite.color);
+                Assert.Greater(Get<float>(enemy, "AttackTimer"), 1f, "必须由成功发射重置攻击周期");
+                CaptureCombatDetail(camera, "enemy-fired");
+            }
+            finally { UnityEngine.Object.Destroy(cameraObject); }
+        }
+
+        /// <summary>图形运行额外保存正式敌人的近景；无图形门禁继续验证同一运行状态而跳过像素读取。</summary>
+        private static void CaptureCombatDetail(Camera camera, string name)
+        {
+            string[] args = Environment.GetCommandLineArgs(); int flag = Array.IndexOf(args, "-session23Screenshots");
+            if (flag < 0 || flag + 1 >= args.Length) return;
+            Assert.AreNotEqual(UnityEngine.Rendering.GraphicsDeviceType.Null, SystemInfo.graphicsDeviceType);
+            string directory = args[flag + 1]; System.IO.Directory.CreateDirectory(directory);
+            var target = new RenderTexture(512, 512, 24); var pixels = new Texture2D(512, 512, TextureFormat.RGB24, false);
+            RenderTexture previous = RenderTexture.active;
+            try
+            {
+                camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+                pixels.ReadPixels(new Rect(0, 0, 512, 512), 0, 0); pixels.Apply();
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(directory, name + ".png"), pixels.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previous; camera.targetTexture = null;
+                target.Release(); UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(pixels);
+            }
+        }
+
+        /// <summary>从正式商店目录按稳定武器 ID 取测试对象，不依赖显示名或列表顺序。</summary>
+        private object FindWeaponData(string id)
+        {
+            object config = RuntimeComponentTestUtility.GetFieldValue<object>(_rounds, "config");
+            object catalog = config.GetType().GetField("shopCatalog").GetValue(config);
+            foreach (object product in (IList)catalog.GetType().GetField("products").GetValue(catalog))
+            {
+                if (!Get<bool>(product, "IsWeapon")) continue;
+                object data = RuntimeComponentTestUtility.GetFieldValue<object>(RuntimeComponentTestUtility.GetFieldValue<object>(product, "content"), "weaponToGrant");
+                if (RuntimeComponentTestUtility.GetFieldValue<string>(data, "weaponID") == id) return data;
+            }
+            throw new InvalidOperationException("武器不在正式目录：" + id);
         }
 
         /// <summary>严格取得运行时类型，避免默认程序集依赖导致测试无法编译。</summary>

@@ -19,8 +19,8 @@ public sealed class MeleeWeapon : WeaponBase
         }
     }
 
-    /// <summary>所有动作使用完整基础距离索敌，挥击位置与武器长度分别计算。</summary>
-    protected override float GetAttackRange() => CurrentVisualRange;
+    /// <summary>自动近战以挂点到目标中心判断，保留原作 50 范围点的开火余量。</summary>
+    protected override float GetAttackRange() => CurrentVisualRange + .5f;
 
     /// <summary>新回合清理未完成动作，再从突刺开始。</summary>
     public override void ResetRoundCooldown() { ClearSwings(); base.ResetRoundCooldown(); _nextThrust = true; }
@@ -36,13 +36,14 @@ public sealed class MeleeWeapon : WeaponBase
         _swings.Clear();
     }
 
-    /// <summary>冷却完成时快照瞄准方向；仅生成成功后推进交替序号，多发共享本次动作类型。</summary>
+    /// <summary>捕获本次目标后生成局部近战动作；仅成功生成才推进交替序号，多发共享动作类型。</summary>
     protected override void Attack()
     {
         if (weaponData == null || weaponData.projectilePrefab == null || PoolManager.Instance == null) return;
         WeaponLevelData level = GetCurrentLevelData();
         if (level == null) return;
         if (!CanStartAttack) return;
+        Collider2D target = CaptureMeleeTarget();
         bool thrust = NextAttackIsThrust;
         Vector3 direction = GetAimDirection();
         int count = GetCurrentProjectileCount();
@@ -56,7 +57,7 @@ public sealed class MeleeWeapon : WeaponBase
             {
                 hitbox.InitializeDirected(weaponData, transform, CalculateSpreadDirection(direction, i, count, level.spreadAngle),
                     thrust, GetCurrentDamage(), GetModifiedRange(level.meleeRange), level.meleeArc, duration, CreateHitSnapshot());
-                hitbox.ConfigureTargeted(GetMeleeTargetPoint(direction), CurrentMeleeTiming);
+                hitbox.ConfigureMotion(this, target, UsesAutomaticMeleeAim);
                 _swings.Add(hitbox);
                 if (!generated && view != null) hitbox.BeginFromHeld(view);
                 generated = true;

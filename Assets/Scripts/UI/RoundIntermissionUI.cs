@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -42,6 +42,10 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private Button _refresh, _skip, _next, _mainTab, _otherTab;
     private bool _secondaryStats, _layoutDirty = true;
     private StatTooltipView _statTooltip;
+    private PlayerStats _statSource;
+    private WeaponDetailSideView _sideView;
+    private RectTransform _setOwner;
+    private readonly TMP_Text[] _cardTags = new TMP_Text[4];
 
     private RectTransform _tooltip, _tooltipOwner;
     private TMP_Text _tooltipName, _tooltipKind, _tooltipBody;
@@ -96,6 +100,9 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             _cardTypes[i] = Text("Kind", card, "", .35f, .773f, .96f, .838f, 19);
             _cardTexts[i] = Text("Description", card, "", .065f, .23f, .935f, .735f, 23);
             _cardTexts[i].alignment = TextAlignmentOptions.TopLeft;
+            _cardTags[i] = Text("WeaponTags", card, "", .065f, .664f, .935f, .735f, 22);
+            _cardTags[i].color = new Color32(232, 222, 176, 255); _cardTags[i].raycastTarget = true;
+            _cardTags[i].gameObject.AddComponent<RoundHoverTarget>().Bind(() => ShowOfferSets(card, index), () => HideOfferSets(card));
             _actions[i] = Button("Action", card, "", .22f, .05f, .78f, .175f, () => Act(index));
             _secondary[i] = Button("Secondary", card, "", .0f, -.102f, 1f, -.02f, () => Secondary(index));
             _banish[i] = Button("Banish", card, "", .51f, -.102f, 1f, -.02f, () => Banish(index));
@@ -106,6 +113,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         BuildInventory(panel);
         BuildCrate(panel);
         BuildTooltip(panel);
+        _sideView = new WeaponDetailSideView(panel, font, "WeaponSide");
         _next = Button("Next", panel, "", .785f, .055f, .965f, .135f, Next);
         _next.image.color = new Color32(65, 91, 49, 255);
         _status = Text("Status", panel, "", .035f, .012f, .75f, .045f, 19);
@@ -288,12 +296,13 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     }
 
     /// <summary>组件停用时收起属性说明。</summary>
-    private void OnDisable() { _statTooltip?.Hide(); }
+    private void OnDisable() { _statTooltip?.Hide(); HideTooltip(); }
 
     /// <summary>解除事件，场景重开后不留下旧视图引用。</summary>
     private void OnDestroy()
     {
         _statTooltip?.Dispose();
+        if (_statSource != null) _statSource.StatsChanged -= RefreshStats;
         if (_rounds == null) return;
         _rounds.Changed -= Refresh; _rounds.Wallet.Changed -= Refresh;
     }
@@ -376,6 +385,13 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     {
         _statTooltip?.Hide();
         if (_rounds == null || _rounds.Shop == null) return;
+        // 回合依赖在首个 Update 就绪；在这里订阅，避免 UI 的 Start 早于玩家绑定。
+        if (_statSource != _rounds.Player)
+        {
+            if (_statSource != null) _statSource.StatsChanged -= RefreshStats;
+            _statSource = _rounds.Player;
+            if (_statSource != null) _statSource.StatsChanged += RefreshStats;
+        }
         bool upgrades = _rounds.Phase == RoundPhase.Upgrades, shop = _rounds.Phase == RoundPhase.Shop;
         bool crates = _rounds.Phase == RoundPhase.Crates, settling = _rounds.Phase == RoundPhase.Settling;
         foreach (CanvasGroup group in _combatHud)
@@ -462,6 +478,10 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     private void RefreshCard(int i, bool upgrades)
     {
         RunShopOffer offer = _rounds.Shop.Offers[i];
+        bool tagged = !upgrades && offer != null && offer.Product.IsWeapon;
+        _cardTags[i].text = tagged ? WeaponSetPresentation.Names(offer.Product.content.weaponToGrant) : "";
+        _cardTags[i].gameObject.SetActive(tagged);
+        SetAnchors(_cardTexts[i].rectTransform, .065f, .23f, .935f, tagged ? .651f : .735f);
         RoundStatUpgrade stat = upgrades && i < _rounds.Choices.Count ? _rounds.Choices[i] : null;
         bool has = upgrades ? stat != null : offer != null;
         int tier = stat != null ? _rounds.ChoiceTiers[i] : offer?.Tier ?? 1;
@@ -487,7 +507,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         }
         else if (offer != null)
         {
-            if (offer.Product.IsWeapon) _cardTexts[i].text = RoundShopPresentation.WeaponDetails(offer.Product.content.weaponToGrant, offer.Tier, _rounds.Player, true);
+            if (offer.Product.IsWeapon) _cardTexts[i].text = RoundShopPresentation.WeaponOfferDetails(offer.Product.content.weaponToGrant, offer.Tier, _rounds.Player, true);
             else
             {
                 AbilityDataSO data = offer.Product.content.abilityToGrant;
@@ -546,6 +566,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>显示角色最终属性；资源栏显示剩余次数而非已消耗前的容量。</summary>
     private void RefreshStats()
     {
+        _statTooltip?.Refresh();
         if (_rounds?.Player == null) return;
         _mainTab.image.color = _secondaryStats ? Surface : new Color32(64, 74, 51, 255);
         _otherTab.image.color = _secondaryStats ? new Color32(64, 74, 51, 255) : Surface;
@@ -557,7 +578,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
             if (i >= stats.Length) continue;
             PlayerStatType stat = stats[i];
             RectTransform row = (RectTransform)_statRows[i].transform;
-            row.GetComponent<RoundHoverTarget>().Bind(() => _statTooltip.Show(row, stat), () => _statTooltip.HideFrom(row));
+            row.GetComponent<RoundHoverTarget>().Bind(() => _statTooltip.Show(row, stat, _rounds.Player), () => _statTooltip.HideFrom(row));
             _statNames[i].text = PlayerStatPresentation.GetDisplayName(stat);
             float value = _rounds.Player.GetFinalStat(stat);
             if (stat == PlayerStatType.Revival) value = RunState.Instance.RemainingRevivals;
@@ -572,6 +593,21 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         }
     }
 
+    /// <summary>仅武器标签接收此悬停；全档羁绊显示在所属商品右侧，不打开库存操作窗。</summary>
+    private void ShowOfferSets(RectTransform owner, int index)
+    {
+        if (_rounds == null || _rounds.Phase != RoundPhase.Shop || _pinned) return;
+        RunShopOffer offer = _rounds.Shop.Offers[index];
+        if (offer == null || !offer.Product.IsWeapon) return;
+        WeaponDataSO data = offer.Product.content.weaponToGrant;
+        HideTooltip(); _setOwner = owner;
+        _sideView.Show(owner, data, _rounds.Loadout);
+    }
+
+    /// <summary>只关闭对应标签的窗，避免相邻商品的迟到退出事件误关新提示。</summary>
+    private void HideOfferSets(RectTransform owner)
+    { if (_setOwner == owner) { _sideView.Hide(); _setOwner = null; } }
+
     /// <summary>武器详情绑定实例，库存变动后的按钮永远重新走服务校验。</summary>
     private void ShowWeapon(RectTransform owner, WeaponBase weapon, bool pin)
     {
@@ -580,6 +616,8 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         _inspectedWeapon = weapon; _pinned = pin; ShowTooltip(owner, weapon.weaponData.icon,
             weapon.weaponData.GetDisplayName(), RoundShopPresentation.Tier(weapon.CurrentLevel),
             RoundShopPresentation.WeaponDetails(weapon.weaponData, weapon.CurrentLevel, _rounds.Player, true));
+        _sideView.Show(_tooltip, weapon.weaponData, _rounds.Loadout, weapon);
+        Label(_tooltipRecycle, string.Format(T("weaponRecycleValue", "回收 (+{0})"), _rounds.Shop.RecycleValue(weapon)));
         _tooltipCombine.gameObject.SetActive(true); _tooltipRecycle.gameObject.SetActive(true);
         bool shop = _rounds.Phase == RoundPhase.Shop;
         bool pair = false;
@@ -617,6 +655,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>详情窗放在源图标上方并约束在屏幕安全区；保持静止便于进入按钮区域。</summary>
     private void ShowTooltip(RectTransform owner, Sprite icon, string name, string kind, string body)
     {
+        _sideView.Hide(); _setOwner = null;
         _tooltipOwner = owner; _hideAt = -1;
         _tooltipName.text = name; _tooltipKind.text = kind; _tooltipBody.text = body;
         _tooltipIcon.sprite = icon; _tooltipIcon.enabled = icon != null;
@@ -626,7 +665,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         Vector2 top = panel.InverseTransformPoint(corners[1]);
         bool weapon = _inspectedWeapon != null;
         float bodyHeight = _tooltipBody.GetPreferredValues(body, panel.rect.width * .31f * .87f, float.PositiveInfinity).y;
-        float height = Mathf.Clamp(bodyHeight + 114 + (weapon ? 95 : 20), 220, panel.rect.height * .62f);
+        float height = Mathf.Clamp(bodyHeight + 114 + (weapon ? 95 : 20), 220, panel.rect.height * .82f);
         float normalizedHeight = height / panel.rect.height;
         float x = Mathf.Clamp((top.x - panel.rect.xMin) / panel.rect.width, .025f, .655f);
         float y = Mathf.Clamp((top.y - panel.rect.yMin) / panel.rect.height + .014f, .035f, .97f - normalizedHeight);
@@ -659,6 +698,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
     /// <summary>关闭时把焦点从不可见详情按钮送回源图标。</summary>
     private void HideTooltip()
     {
+        _sideView?.Hide(); _setOwner = null;
         if (_tooltip == null) return;
         bool restore = EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null
             && EventSystem.current.currentSelectedGameObject.transform.IsChildOf(_tooltip);
@@ -668,7 +708,7 @@ public sealed class RoundIntermissionUI : MonoBehaviour
         {
             EventSystem.current.SetSelectedGameObject(owner.gameObject);
             // OnSelect 可再次打开详情；显式关闭请求最终保持隐藏。
-            _tooltip.gameObject.SetActive(false); _tooltipOwner = null;
+            _tooltip.gameObject.SetActive(false); _tooltipOwner = null; _sideView?.Hide();
         }
     }
 

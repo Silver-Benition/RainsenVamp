@@ -1,36 +1,59 @@
-/// <summary>暂停与商店共用的属性说明，描述项目实际消费规则并通过稳定键预留本地化。</summary>
+using UnityEngine;
+
+/// <summary>暂停与商店共用的当前属性效果；使用可翻译模板，避免展示计算过程。</summary>
 public static class PlayerStatDescriptions
 {
-    /// <summary>取得属性用途、负值效果与必要上限；未开放属性不给予虚构的游戏效果。</summary>
-    public static string Get(PlayerStatType stat)
+    /// <summary>读取悬停时的最终属性，负值与封顶使用实际战斗规则，不改变玩家状态。</summary>
+    public static string Get(PlayerStatType stat, PlayerStats player = null)
     {
-        string value;
+        float value = player != null ? player.GetFinalStat(stat) : 0;
+        string number = value.ToString("0.#"), signed = value.ToString("+0.#;-0.#;0");
+        string key = "stat.current." + stat, template;
         switch (stat)
         {
-            case PlayerStatType.MaxHealth: value = "决定生命上限，最低为 1。每次升级增加 1 点上限，并恢复 1 点生命。新回合默认回满，特殊条件可指定开局生命。"; break;
-            case PlayerStatType.HpRegeneration: value = "战斗中定期恢复 1 点生命。正值越高，恢复越快；零或负值不恢复。每次恢复间隔为 11.25 /（属性 + 1.25）秒。"; break;
-            case PlayerStatType.LifeSteal: value = "有效命中时有概率恢复 1 点生命。与该武器自带的生命窃取相加，负值会抵消武器自带概率。最终概率为 0% 至 100%；所有武器共用 0.1 秒恢复间隔。"; break;
-            case PlayerStatType.DamagePercent: value = "按百分比影响武器最终伤害。先计算基础伤害和近战、远程、元素、工程学附加伤害，再应用伤害加成；负值降低伤害，最终命中伤害最低为 1。"; break;
-            case PlayerStatType.MeleeDamage: value = "按武器标注的近战系数增加伤害。100% 系数时，每点增加 1 点基础计算伤害；负值会抵消伤害。只影响带近战系数的武器。"; break;
-            case PlayerStatType.RangedDamage: value = "按武器标注的远程系数增加伤害。100% 系数时，每点增加 1 点基础计算伤害；负值会抵消伤害。只影响带远程系数的武器。"; break;
-            case PlayerStatType.ElementalDamage: value = "按武器标注的元素系数增加伤害。100% 系数时，每点增加 1 点基础计算伤害；负值会抵消伤害。只影响带元素系数的武器。"; break;
-            case PlayerStatType.Engineering: value = "按标注系数增加工程武器或构筑物伤害，负值会抵消收益。独立构筑物不继承玩家普通伤害、攻速、范围、暴击或吸血；混合武器仍遵守武器属性规则。"; break;
-            case PlayerStatType.AttackSpeed: value = "与武器自带攻速相加。正值缩短攻击间隔，负值延长间隔；也影响光环伤害间隔和环绕转速。近战攻击间隔还会随实际范围变化。"; break;
-            case PlayerStatType.CritChance: value = "与武器自带暴击率相加，负值会抵消武器概率，最终概率为 0% 至 100%。暴击伤害倍率由每把武器自身决定。"; break;
-            case PlayerStatType.Range: value = "与武器自带范围相加，100 点对应 1 世界单位。近战只获得一半范围增量；负值缩短范围。光环和环绕也受影响，最终范围最低为 25 点。"; break;
-            case PlayerStatType.Armor: value = "正护甲降低受到的伤害，负护甲增加受到的伤害。例如 15 护甲减伤 50%，-15 护甲使伤害增加 50%。有效受击最低扣除 1 点生命。"; break;
-            case PlayerStatType.Dodge: value = "有概率完全避开一次攻击。有效闪避率最高为 60%；零或负值不提供闪避。成功闪避不扣血，也不产生受伤数字。"; break;
-            case PlayerStatType.SpeedPercent: value = "按百分比改变角色基础移动速度。正值加速，负值减速；不会变为负速度。"; break;
-            case PlayerStatType.LuckPoints: value = "提高升级与商店高品质出现机会，以及掉落概率。负值降低这些机会；高品质仍受波次或等级门槛限制，不保证每次获得高品质。"; break;
-            case PlayerStatType.Harvesting: value = "成功完成一波时获得等量材料和经验。正收获每波增长 5% 并向上取整；负收获扣除材料与当前经验，但不会掉级。"; break;
-            case PlayerStatType.ExperienceGain: value = "按百分比影响获得的经验。正值增加经验，负值减少经验，最终获得量最低为零。"; break;
-            case PlayerStatType.PickupRange: value = "按百分比改变自动拾取触发范围。正值扩大、负值缩小，最低为零；不改变必须近身触碰的特殊拾取物规则。"; break;
-            case PlayerStatType.Revival: value = "显示本局剩余复活次数。死亡后确认复活时消耗一次；回合开始回血不会代替复活。"; break;
-            case PlayerStatType.Reroll: value = "显示本局剩余免费重投次数，用于重新抽取升级候选。免费次数耗尽后按界面报价消耗材料；商店刷新另行计价。"; break;
-            case PlayerStatType.Skip: value = "显示本局剩余跳过次数。消耗一次可以放弃当前升级选择。"; break;
-            case PlayerStatType.Banish: value = "显示本局剩余放逐次数，用于禁用本局后续的对应候选。仅影响当前局，与局外封印设置分别管理。"; break;
-            default: value = "旧体系保留属性；正式新体系不提供该属性的成长入口。"; break;
+            case PlayerStatType.MaxHealth: template = "你的生命上限为 {0}。"; break;
+            case PlayerStatType.Armor:
+                float difference = (1 - BrotatoStatRules.ArmorMultiplier(value)) * 100;
+                number = Mathf.Abs(difference).ToString("0.#");
+                bool reduced = difference >= 0; key += reduced ? ".reduced" : ".increased";
+                template = reduced ? "你受到的伤害减少 {0}%。" : "你受到的伤害增加 {0}%。"; break;
+            case PlayerStatType.HpRegeneration:
+                float interval = BrotatoStatRules.RegenerationInterval(value);
+                if (float.IsPositiveInfinity(interval)) { key += ".inactive"; template = "当前无法自动恢复生命。"; }
+                else { number = interval.ToString("0.##"); template = "每 {0} 秒恢复 1 点生命。"; }
+                break;
+            case PlayerStatType.Dodge: number = Mathf.Clamp(value, 0, 60).ToString("0.#"); template = "有 {0}% 概率避开攻击。"; break;
+            case PlayerStatType.LifeSteal: number = signed; template = "武器生命窃取率 {0} 个百分点。"; break;
+            case PlayerStatType.CritChance: number = signed; template = "武器暴击率 {0} 个百分点。"; break;
+            case PlayerStatType.DamagePercent: number = signed; template = "武器伤害加成 {0}%。"; break;
+            case PlayerStatType.MeleeDamage: number = signed; template = "近战伤害 {0}，按武器系数生效。"; break;
+            case PlayerStatType.RangedDamage: number = signed; template = "远程伤害 {0}，按武器系数生效。"; break;
+            case PlayerStatType.ElementalDamage: number = signed; template = "元素伤害 {0}，按武器系数生效。"; break;
+            case PlayerStatType.Engineering: number = signed; template = "工程伤害 {0}，按工程系数生效。"; break;
+            case PlayerStatType.AttackSpeed: number = signed; template = "武器攻击速度加成 {0}%。"; break;
+            case PlayerStatType.Range: number = signed; template = "武器范围 {0}，近战获得一半增量。"; break;
+            case PlayerStatType.SpeedPercent: number = signed; template = "移动速度加成 {0}%。"; break;
+            case PlayerStatType.LuckPoints: template = "幸运 {0}，影响高品质与掉落机会。"; break;
+            case PlayerStatType.Harvesting: number = signed; template = "每波结束时材料和经验各 {0}。"; break;
+            case PlayerStatType.ExperienceGain: number = signed; template = "经验获取加成 {0}%。"; break;
+            case PlayerStatType.PickupRange: number = signed; template = "自动拾取范围加成 {0}%。"; break;
+            case PlayerStatType.Revival: number = Resource(stat, value); template = "本局剩余 {0} 次复活。"; break;
+            case PlayerStatType.Reroll: number = Resource(stat, value); template = "本局剩余 {0} 次免费升级重投。"; break;
+            case PlayerStatType.Skip: number = Resource(stat, value); template = "本局剩余 {0} 次跳过升级。"; break;
+            case PlayerStatType.Banish: number = Resource(stat, value); template = "本局剩余 {0} 次放逐。"; break;
+            default: template = "当前数值为 {0}。"; break;
         }
-        return RoundShopPresentation.Text("stat.description." + stat, value);
+        return string.Format(RoundShopPresentation.Text(key, template), number);
+    }
+
+    /// <summary>资源只读当前剩余次数；未建立局内状态时以属性容量回退。</summary>
+    private static string Resource(PlayerStatType stat, float fallback)
+    {
+        RunState state = RunState.Instance;
+        if (state == null) return Mathf.Max(0, Mathf.FloorToInt(fallback)).ToString();
+        int count = stat == PlayerStatType.Revival ? state.RemainingRevivals
+            : stat == PlayerStatType.Reroll ? state.RemainingRerolls
+            : stat == PlayerStatType.Skip ? state.RemainingSkips : state.RemainingBanishes;
+        return count.ToString();
     }
 }

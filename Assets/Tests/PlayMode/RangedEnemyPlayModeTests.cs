@@ -159,6 +159,66 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.IsNotNull(playerHealth);
         }
 
+        /// <summary>真实物理中敌弹穿过玩家攻击 Trigger 后仍命中玩家，攻击区域也保持活动。</summary>
+        [UnityTest]
+        public IEnumerator EnemyProjectile_PlayerAttackTriggers_DoNotCancel()
+        {
+            GameObject player = CreatePlayer(new Vector3(3f, 0, 0), out Component health);
+            CreatePoolManager(); GameObject template = CreateProjectileTemplate();
+            Component simulation = CreateWorldSimulation(player, template);
+            RuntimeComponentTestUtility.Invoke(simulation, "SetWorldActive", true);
+            GameObject attack = CreateTrackedGameObject("PlayerAttackTrigger", false);
+            attack.layer = RequireLayer("Default"); attack.transform.position = Vector3.zero;
+            attack.AddComponent<BoxCollider2D>().isTrigger = true;
+            attack.AddComponent<Rigidbody2D>().bodyType = RigidbodyType2D.Kinematic;
+            Component playerProjectile = RuntimeComponentTestUtility.AddRuntimeComponent(attack, "ProjectileBase");
+            attack.SetActive(true);
+            // 固定攻击区便于验证真实碰撞；禁用运动脚本不关闭 Collider 或碰撞回调。
+            ((Behaviour)playerProjectile).enabled = false;
+            ExpectRuntimePrefabWarning();
+            GameObject bullet = (GameObject)RuntimeComponentTestUtility.Invoke(simulation, "SpawnProjectile", template,
+                new Vector3(-2, 0, 0), Quaternion.identity, Vector2.right * 5.5f, 12f, null, 6f);
+            yield return WaitUntil(() => bullet.transform.position.x > .8f || !bullet.activeSelf, 1.5f);
+            Assert.IsTrue(bullet.activeSelf, "穿过攻击区后敌弹不能消失"); Assert.IsTrue(attack.activeSelf);
+            yield return WaitUntil(() => !bullet.activeSelf, 1.5f);
+            Assert.AreEqual(88f, RuntimeComponentTestUtility.GetProperty<float>(health, "CurrentHealth"));
+        }
+
+        /// <summary>预警渐变在暂停与敌方冻结时保持，发射后和对象池复用时恢复原色。</summary>
+        [UnityTest]
+        public IEnumerator RangedEnemy_TelegraphPausesFiresAndResets()
+        {
+            GameObject player = CreatePlayer(new Vector3(6, 0, 0), out _); player.GetComponent<Collider2D>().enabled = false;
+            Component pool = CreatePoolManager(); GameObject projectile = CreateProjectileTemplate();
+            GameObject template = CreateRangedEnemyTemplate(projectile);
+            Color original = new Color(.8f, .9f, .7f, .8f); template.GetComponent<SpriteRenderer>().color = original;
+            Component simulation = CreateWorldSimulation(player, template);
+            RuntimeComponentTestUtility.Invoke(simulation, "SetWorldActive", true);
+            Component owner = CreateWorldWaveOwner("TelegraphOwner"); ExpectRuntimePrefabWarning();
+            GameObject enemy = SpawnEnemy(simulation, template, owner, Vector3.zero, CreateEnemySnapshot(30, 0, 0, 1, false));
+            Component controller = enemy.GetComponent(RuntimeComponentTestUtility.RequireRuntimeType("RangedEnemyController"));
+            SpriteRenderer body = enemy.GetComponent<SpriteRenderer>();
+            yield return new WaitForSeconds(.45f);
+            float progress = RuntimeComponentTestUtility.GetProperty<float>(controller, "WarningProgress");
+            Assert.That(progress, Is.InRange(.1f, .85f)); Assert.Less(body.color.g, original.g); Assert.Greater(body.color.r, original.r);
+            Color warning = body.color; Time.timeScale = 0; yield return new WaitForSecondsRealtime(.15f);
+            Assert.AreEqual(warning, body.color); Time.timeScale = 1;
+            Component freeze = RuntimeComponentTestUtility.AddRuntimeComponent(CreateTrackedGameObject("TelegraphFreeze"), "WorldFreezeController");
+            Assert.IsTrue((bool)RuntimeComponentTestUtility.Invoke(freeze, "TryFreeze", 1f));
+            yield return new WaitForSeconds(.15f); Assert.AreEqual(warning, body.color);
+            RuntimeComponentTestUtility.Invoke(freeze, "CancelFreeze");
+            ExpectRuntimePrefabWarning();
+            yield return WaitUntil(() => RuntimeComponentTestUtility.GetProperty<int>(simulation, "ActiveProjectileCount") > 0, 1f);
+            Assert.AreEqual(original, body.color); Assert.AreEqual(0f, RuntimeComponentTestUtility.GetProperty<float>(controller, "WarningProgress"));
+            yield return new WaitForSeconds(1.7f); Assert.Less(body.color.g, original.g);
+            RuntimeComponentTestUtility.Invoke(pool, "Release", template, enemy); Assert.AreEqual(original, body.color);
+            ExpectRuntimePrefabWarning();
+            GameObject reused = SpawnEnemy(simulation, template, owner, Vector3.zero, CreateEnemySnapshot(30, 0, 0, 1, false));
+            Assert.AreSame(enemy, reused); Assert.AreEqual(original, body.color);
+            player.transform.position = new Vector3(20, 0, 0); yield return new WaitForSeconds(1f);
+            Assert.AreEqual(0f, RuntimeComponentTestUtility.GetProperty<float>(controller, "WarningProgress"));
+        }
+
         /// <summary>武装来源发射的弹体应命中玩家，造成十二点伤害并回到共享对象池。</summary>
         [UnityTest]
         public IEnumerator EnemyProjectile_武装来源_命中玩家并回池()

@@ -64,11 +64,11 @@ namespace RainsenVampSur.Tests
         {
             _items.GrantOrUpgrade(Item("emergency_candy"));
             _health.TakeDamage(75); Assert.AreEqual(40, _health.CurrentHealth);
-            _health.TakeDamage(20); Assert.AreEqual(20, _health.CurrentHealth);
+            ExpireProtection(); _health.TakeDamage(20); Assert.AreEqual(20, _health.CurrentHealth);
             _health.Heal(1); Assert.AreEqual(21, _health.CurrentHealth);
             _health.PrepareRound(); SetRound(2, RoundPhase.Combat); NotifyRound();
             _health.TakeDamage(75); Assert.AreEqual(40, _health.CurrentHealth);
-            _health.TakeDamage(100); Assert.IsTrue(_health.IsDead); Assert.AreEqual(0, _health.CurrentHealth);
+            ExpireProtection(); _health.TakeDamage(100); Assert.IsTrue(_health.IsDead); Assert.AreEqual(0, _health.CurrentHealth);
         }
 
         /// <summary>沙漏在 15 秒启用，局间清除，新波重新计时；销毁能力组件不残留来源。</summary>
@@ -96,7 +96,15 @@ namespace RainsenVampSur.Tests
                 catalog.products.Add(new RunShopProduct { content = product, basePrice = 56 });
                 var wallet = new RunMaterialWallet(); wallet.Credit(1000);
                 var shop = new RunShopService(catalog, wallet, null, _items, _stats, () => true);
-                shop.Enter(1); Assert.AreEqual(2, shop.Offers[0].Tier); Assert.AreEqual(58, shop.Offers[0].Price);
+                shop.Enter(1); foreach (var offer in shop.Offers) Assert.IsNull(offer, "首波不能绕过道具品质门槛。");
+                var saved = Random.state;
+                try
+                {
+                    Random.InitState(2703);
+                    for (int i = 0; i < 64 && shop.Offers[0] == null; i++) shop.Enter(20);
+                    Assert.NotNull(shop.Offers[0]); Assert.AreEqual(2, shop.Offers[0].Tier); Assert.AreEqual(188, shop.Offers[0].Price);
+                }
+                finally { Random.state = saved; }
                 shop.ToggleLock(0); _items.GrantOrUpgrade(product.abilityToGrant); shop.Enter(2);
                 Assert.IsNull(shop.Offers[0]); Assert.AreEqual(1000, wallet.Balance); Assert.IsFalse(shop.Buy(0));
             }
@@ -131,6 +139,8 @@ namespace RainsenVampSur.Tests
             }
         }
 
+        /// <summary>模拟保护期已经经过，使道具用例中的两次攻击属于独立有效受伤。</summary>
+        private void ExpireProtection() => typeof(PlayerHealth).GetField("_nextDamageAllowedTime", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(_health, Time.time - 1);
         /// <summary>读取正式道具配置。</summary>
         private static AbilityDataSO Item(string id) => AssetDatabase.LoadAssetAtPath<AbilityDataSO>(ContentExpansionSetup.Root + "/Items/" + id + ".asset");
         /// <summary>测试显式替换回合代次，不运行场景初始化。</summary>

@@ -41,20 +41,20 @@ public static class BrotatoStatRules
 
     /// <summary>正负护甲分别减伤和增伤，负护甲不使用正护甲公式避免奇点。</summary>
     public static float ArmorMultiplier(float armor)
-    { return armor >= 0 ? 15f / (15f + armor) : (15f - 2f * armor) / (15f - armor); }
+    { armor = (int)armor; return armor >= 0 ? 15f / (15f + armor) : (15f - 2f * armor) / (15f - armor); }
 
     /// <summary>生命再生每次恢复一点的间隔；零和负值禁用再生但保留原始属性。</summary>
     public static float RegenerationInterval(float points)
-    { return points > 0 ? 11.25f / (points + 1.25f) : float.PositiveInfinity; }
+    { points = (int)points; return points > 0 ? 11.25f / (points + 1.25f) : float.PositiveInfinity; }
 
     /// <summary>项目连续时间攻速适配：正值缩短间隔，负值延长间隔，最低间隔在武器消费端限定。</summary>
     public static float AttackIntervalMultiplier(float points)
     { return points >= 0 ? 1f / (1f + points * .01f) : 1f - points * .01f; }
 
-    /// <summary>按波次或等级计算累计品质阈值；负幸运可降至零，高档从同一随机样本优先判定。</summary>
+    /// <summary>按波次或等级计算累计品质阈值；负幸运按倒数衰减，高档从同一随机样本优先判定。</summary>
     public static int RollTier(int progress, float luckPoints, float sample)
     {
-        float factor = Mathf.Max(0, (100 + luckPoints) * .01f);
+        float factor = luckPoints >= 0 ? 1f + luckPoints * .01f : 1f / (1f - luckPoints * .01f);
         if (sample < Mathf.Min(.08f, Mathf.Max(0, progress - 7) * .0023f * factor)) return 4;
         if (sample < Mathf.Min(.25f, Mathf.Max(0, progress - 3) * .02f * factor)) return 3;
         return sample < Mathf.Min(.60f, Mathf.Max(0, progress - 1) * .06f * factor) ? 2 : 1;
@@ -72,15 +72,26 @@ public static class BrotatoStatRules
     public static float EngineeringPower(float baseValue, float coefficient, float engineering)
     { return Mathf.Max(1, Mathf.Floor(baseValue + coefficient * engineering)); }
 
-    /// <summary>统一向下取整直接伤害且至少一点；保留负值抵消到最终消费点。</summary>
+    /// <summary>平伤缩放先截断，再应用伤害百分比并四舍五入；保留负值抵消到各阶段消费点。</summary>
     public static float Damage(WeaponLevelData weapon, PlayerStats player)
     {
         float flat = weapon.damage + weapon.meleeScaling * player.GetFinalStat(PlayerStatType.MeleeDamage)
             + weapon.rangedScaling * player.GetFinalStat(PlayerStatType.RangedDamage)
             + weapon.elementalScaling * player.GetFinalStat(PlayerStatType.ElementalDamage)
             + weapon.engineeringScaling * player.GetFinalStat(PlayerStatType.Engineering);
-        return Mathf.Max(1, Mathf.Floor(Mathf.Max(0, flat) * Mathf.Max(0, (100 + weapon.damagePercent + player.GetFinalStat(PlayerStatType.DamagePercent)) * .01f)));
+        return ScaleDamage(flat, weapon.damagePercent + player.GetFinalStat(PlayerStatType.DamagePercent));
     }
+
+    /// <summary>平伤阶段保底一并截断，百分比阶段单独四舍五入；派生基础伤害与面板共用此规则。</summary>
+    public static float ScaleDamage(float flat, float percent)
+    { return RoundDamage(Mathf.Floor(Mathf.Max(1f, flat)) * (1f + percent * .01f)); }
+
+    /// <summary>原作正伤害四舍五入，避免 Unity 银行家舍入在半整数时改变结果。</summary>
+    public static float RoundDamage(float damage) { return Mathf.Max(1f, Mathf.Floor(damage + .5f)); }
+
+    /// <summary>普通二十波受击保护按实际损血比例计算；闪避零损血也获得最短 0.2 秒保护。</summary>
+    public static float DamageProtection(float lostHealth, float maximumHealth)
+    { return Mathf.Clamp(lostHealth / Mathf.Max(1f, maximumHealth) * .4f / .15f, .2f, .4f); }
 
     /// <summary>范围点转换为世界单位，近战只接受一半增量，最低距离 25 点。</summary>
     public static float WeaponRange(float baseline, float weaponPoints, float playerPoints, bool melee)

@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 05_rivet_spike
   m_EditorClassIdentifier:
   weaponID: 05_rivet_spike
+  weaponSets:
+  - {fileID: 11400000, guid: f09f7b3462265442835b623274242c81, type: 2}
+  - {fileID: 11400000, guid: fcb033db8d77584d8f2c1da8b503e202, type: 2}
   weaponNameKey: weapon.05_rivet_spike.name
   descriptionKey: weapon.05_rivet_spike.description
   weaponDisplayName: "\u94C6\u9489\u67AA"

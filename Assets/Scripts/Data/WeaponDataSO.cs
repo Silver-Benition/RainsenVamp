@@ -81,6 +81,7 @@ public sealed class WeaponLevelData
 
     [Header("通用数值")]
     [Min(0f)] public float damage = 10f;
+    [Tooltip("近战为完整动作结束后的基础冷却秒数；其他武器沿用出手间隔。")]
     [Min(0.05f)] public float cooldown = 1f;
     [Min(1)] public int projectileCount = 1;
 
@@ -111,7 +112,9 @@ public sealed class WeaponLevelData
 
     [Header("近战挥击")]
     [Min(0.05f)] public float meleeRange = 1.5f;
+    [Tooltip("保留的历史/派生效果扇角；正式近战横挥使用固定 324 度局部运动。")]
     [Range(1f, 360f)] public float meleeArc = 90f;
+    [Tooltip("保留的历史动作时长；正式近战主动段由范围与攻速计算。")]
     [Min(0.02f)] public float activeDuration = 0.18f;
 
     [Header("功能标签")]
@@ -128,6 +131,8 @@ public sealed class WeaponDataSO : ScriptableObject
     [Tooltip("稳定且唯一的逻辑 ID，不使用本地化显示名。")]
     public string weaponID;
     public string weaponNameKey;
+    [Tooltip("武器分类标签；与伤害缩放类型无关，可同时贡献多个羁绊。")]
+    public WeaponSetSO[] weaponSets = System.Array.Empty<WeaponSetSO>();
     [TextArea] public string descriptionKey;
     [Tooltip("本地化系统接入前使用的直接显示名称；为空时回退到资产名。")]
     public string weaponDisplayName;
@@ -143,6 +148,16 @@ public sealed class WeaponDataSO : ScriptableObject
     [Min(.1f)] public float heldSize = .65f;
     public float visualAngleOffset;
     public MeleeAttackPattern meleePattern = MeleeAttackPattern.Sweep;
+
+    [Header("近战动作与固定几何")]
+    [Tooltip("世界单位后坐距离；正攻速缩短，范围属性不改变此值。")]
+    [Min(0f)] public float meleeRecoil = .25f;
+    [Tooltip("基础前摇秒数；主动段与回收按近战计时规则计算。")]
+    [Min(.001f)] public float meleeWindup = .1f;
+    [Tooltip("固定碰撞宽度，独立于攻击范围；长度使用 heldSize。")]
+    [Min(.01f)] public float meleeHitWidth = .16f;
+    [Tooltip("握柄到刀身起点的局部距离，不随范围属性缩放。")]
+    [Min(0f)] public float meleeGripOffset = .05f;
 
     [Header("UI 表现")]
     [Tooltip("武器在升级候选和右上角持有栏中使用的统一图标。")]

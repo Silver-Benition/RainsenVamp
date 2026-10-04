@@ -343,6 +343,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
 
         _valuesText.text = valuesBuilder.ToString();
         if (_playerStats.UsesBrotatoStats) RefreshModern();
+        _statTooltip?.Refresh();
     }
 
     /// <summary>切换暂停属性分页；不改变角色属性和特殊资源。</summary>
@@ -394,7 +395,7 @@ public sealed class PlayerStatBoardUI : MonoBehaviour
             }
             _values[i].text = PlayerStatPresentation.FormatFinalValue(stat, value);
             if (i > 0) values.Append('\n'); values.Append(_values[i].text);
-            row.GetComponent<RoundHoverTarget>().Bind(() => _statTooltip.Show(row, stat), () => _statTooltip.HideFrom(row));
+            row.GetComponent<RoundHoverTarget>().Bind(() => _statTooltip.Show(row, stat, _playerStats), () => _statTooltip.HideFrom(row));
         }
         _currentModernValues = values.ToString();
     }

@@ -53,6 +53,7 @@ public class LevelUpManager : MonoBehaviour
 
     private Transform playerTransform;
     private PlayerStats _playerStats;
+    private readonly WeaponSetBonuses _weaponSetBonuses = new WeaponSetBonuses();
     private AbilityManager _abilityManager;
     private RunState _runState;
     private LevelUpActionBarUI _actionBar;
@@ -76,6 +77,9 @@ public class LevelUpManager : MonoBehaviour
 
     /// <summary>按首次获得顺序排列的只读武器列表。</summary>
     public IReadOnlyList<WeaponBase> OwnedWeapons => _ownedWeaponOrder;
+
+    /// <summary>返回当前装备为指定标签贡献的副本数，供商店和只读详情复用。</summary>
+    public int GetWeaponSetCount(WeaponSetSO set) => _weaponSetBonuses.Count(set);
 
     /// <summary>玩家当前持有的不同武器种类数。</summary>
     public int OwnedWeaponCount => _ownedWeaponOrder.Count;
@@ -130,6 +134,7 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>销毁时释放单例引用，避免场景重载后其他系统取得失效管理器。</summary>
     private void OnDestroy()
     {
+        _weaponSetBonuses.Clear();
         if (_runState != null)
         {
             _runState.StateChanged -= RefreshActionBar;
@@ -693,6 +698,7 @@ public class LevelUpManager : MonoBehaviour
     /// <summary>集中发布武器清单变化，避免表现层轮询运行时组件。</summary>
     private void NotifyOwnedWeaponsChanged()
     {
+        _weaponSetBonuses.Rebuild(_ownedWeaponOrder, _playerStats);
         if (playerTransform != null)
         {
             WeaponMountLayout layout = playerTransform.GetComponent<WeaponMountLayout>();
@@ -953,6 +959,7 @@ public class LevelUpManager : MonoBehaviour
         if (weapon == null || !_ownedWeaponOrder.Contains(weapon) || weapon.CurrentLevel >= 4) return false;
         WeaponBase other = FindRoundMatch(weapon.weaponData, weapon.CurrentLevel, weapon);
         if (other == null || !weapon.TryLevelUp()) return false;
+        weapon.WaveDamage.MergePrevious(other.WaveDamage);
         RemoveRoundWeapon(other);
         NotifyOwnedWeaponsChanged();
         return true;

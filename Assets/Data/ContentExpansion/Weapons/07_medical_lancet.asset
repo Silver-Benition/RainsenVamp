@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 07_medical_lancet
   m_EditorClassIdentifier:
   weaponID: 07_medical_lancet
+  weaponSets:
+  - {fileID: 11400000, guid: 5491a1bc857958278efa3fde7e6230fb, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.07_medical_lancet.name
   descriptionKey: weapon.07_medical_lancet.description
   weaponDisplayName: "\u91C7\u8840\u9488"

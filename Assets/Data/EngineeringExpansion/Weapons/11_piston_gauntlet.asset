@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 11_piston_gauntlet
   m_EditorClassIdentifier: 
   weaponID: 11_piston_gauntlet
+  weaponSets:
+  - {fileID: 11400000, guid: fcb033db8d77584d8f2c1da8b503e202, type: 2}
+  - {fileID: 11400000, guid: f1346257048b5b4b9f258c22a4bcde6b, type: 2}
   weaponNameKey: weapon.11_piston_gauntlet.name
   descriptionKey: weapon.11_piston_gauntlet.description
   weaponDisplayName: "\u6D3B\u585E\u62F3\u5957"
@@ -22,7 +25,11 @@ MonoBehaviour:
   expansionEffectPrefab: {fileID: 5873553303811022679, guid: 365dc8dd784ebb54bbd3d9a63b5facfd, type: 3}
   effectSprite: {fileID: 21300000, guid: 5d57c35e19c12484ea885c9ab9c28ca9, type: 3}
   retiredFromPool: 0
-  heldSize: 0.65
+  heldSize: 0.82
+  meleeRecoil: 0.25
+  meleeWindup: 0.1
+  meleeHitWidth: 0.164
+  meleeGripOffset: 0.05
   visualAngleOffset: 0
   meleePattern: 1
   icon: {fileID: 21300000, guid: 6ceacbd0c14f7f3498c5ee774534a694, type: 3}

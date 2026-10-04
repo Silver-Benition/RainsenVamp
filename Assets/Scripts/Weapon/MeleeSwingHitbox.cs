@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 池化近战挥击实体。正式动作先移至锁定目标旁，沿固定枢轴横挥，然后回到持武挂点。
+/// 池化近战实体。正式动作以挂点为参考，叠加瞄准旋转、局部平移与刀身旋转，并补采伤害路径。
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D), typeof(CapsuleCollider2D))]
 public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
@@ -43,10 +43,17 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
     private bool _targeted;
     private WeaponBase _sourceWeapon;
     private MeleeAttackTiming _timing;
-    private Vector3 _attackPivot, _launchPosition;
+    private float _motionDistance, _motionRecoil, _trackingRadius, _aimOffset;
+    private bool _facesRightAtStart;
+    private MeleeMotionPose _initialPose;
+    private Vector3 _previousMountPosition;
+    private float _previousAimAngle;
+    private Collider2D _trackedTarget;
+    private Component _trackedIdentity;
+    private uint _trackedGeneration;
     private readonly List<Collider2D> _overlaps = new List<Collider2D>(64);
     public bool IsStriking => _targeted && _elapsedTime >= _timing.Windup && _elapsedTime <= _timing.Windup + _timing.Swing;
-    public Vector3 AttackPivot => _attackPivot;
+    public Vector3 AttackPivot => _owner != null ? _owner.position : transform.position;
     private float _thrustTravel;
     private Vector2 _restColliderOffset;
     private Vector3 _restVisualPosition;
@@ -91,7 +98,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
 
     /// <summary>绑定本次扩展近战来源；保存原始位置供残影使用，不读取后续攻击的可变序号。</summary>
     public void ConfigureExpansion(ExpansionWeapon source, bool empowered, float burnDamage)
-    { ExpansionOwner = source; _empowered = empowered; _burnDamage = burnDamage; _expansionOrigin = _targeted ? (Vector2)_attackPivot : (Vector2)transform.position; }
+    { ExpansionOwner = source; _empowered = empowered; _burnDamage = burnDamage; _expansionOrigin = _owner != null ? (Vector2)_owner.position : (Vector2)transform.position; }
 
 
     /// <summary>对象池回收时清除旧武器来源、玩家跟随和本次命中集合。</summary>
@@ -102,6 +109,9 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         _blendFromHeld = false;
         _targeted = false;
         _sourceWeapon = null;
+        _trackedTarget = null; _trackedIdentity = null; _trackedGeneration = 0;
+        _initialPose = default;
+        if (spriteRenderer != null) spriteRenderer.flipY = false;
         _overlaps.Clear();
         _hitSnapshot = default;
         ExpansionOwner = null; _empowered = false; _burnDamage = 0;
@@ -179,54 +189,56 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         transform.rotation = Quaternion.Euler(0f, 0f, _startAngle);
     }
 
-    /// <summary>从武器挂点向指定世界方向执行挥击或突刺，方向在动作开始时固定。</summary>
+    /// <summary>准备池化近战；刀身长度/宽度来自固定配置，范围仅保存在动作行程中。</summary>
     public void InitializeDirected(WeaponDataSO data, Transform mount, Vector2 direction,
         bool thrust, float damage, float range, float arc, float duration, WeaponHitSnapshot snapshot)
     {
-        Initialize(data, mount, direction.x >= 0, damage, range, arc, duration, 0f, snapshot);
+        Initialize(data, mount, direction.x > 0f, damage, range, arc, duration, 0f, snapshot);
         _thrust = thrust;
         _directed = true;
         _centerAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        float halfArc = Mathf.Clamp(arc, 1f, 360f) * .5f;
-        _startAngle = thrust ? _centerAngle : _centerAngle + halfArc;
-        _endAngle = thrust ? _centerAngle : _centerAngle - halfArc;
-        // 两种动作使用相同剑身；只有突刺额外前伸，横挥固定握持半径。
-        _thrustTravel = Mathf.Max(.05f, range) * .4f;
-        RefreshGeometry(Mathf.Max(.05f, range) * .6f);
-        if (spriteRenderer != null && data != null && data.icon != null)
+        _motionDistance = range;
+        // 攻击实体不成为玩家的子对象，避免改动对象池所有权；每帧显式组合世界姿势。
+        transform.localScale = Vector3.one;
+        float length = Mathf.Max(.05f, data.heldSize);
+        _restVisualPosition = Vector3.right * (data.meleeGripOffset + length * .5f);
+        _restColliderOffset = _restVisualPosition;
+        _hitCollider.size = new Vector2(length, Mathf.Clamp(data.meleeHitWidth, .01f, length));
+        _hitCollider.offset = _restColliderOffset;
+        _hitCollider.enabled = false;
+        if (spriteRenderer != null && data.icon != null) spriteRenderer.sprite = data.icon;
+        if (visualRoot != null)
         {
-            spriteRenderer.sprite = data.icon;
-            float size = WeaponVisualGeometry.MeleeLength(range) / WeaponVisualGeometry.ProjectedLength(data.icon, data.visualAngleOffset);
+            float size = length / WeaponVisualGeometry.ProjectedLength(spriteRenderer.sprite, data.visualAngleOffset);
             visualRoot.localScale = new Vector3(size, size, 1f);
-            visualRoot.localPosition = Vector3.right * WeaponVisualGeometry.MeleeCenter(range);
-            visualRoot.localRotation = Quaternion.Euler(0f, 0f, data.visualAngleOffset);
+            visualRoot.localPosition = _restVisualPosition;
         }
-        _restColliderOffset = _hitCollider.offset;
-        _restVisualPosition = visualRoot != null ? visualRoot.localPosition : Vector3.zero;
         transform.rotation = Quaternion.Euler(0f, 0f, _centerAngle);
+        ApplyMirror();
     }
 
-    /// <summary>快照落点和时序。枢轴沿攻击方向退回到目标靠近玩家的一侧，横挥与突刺都保留瞄准轴。</summary>
-    public void ConfigureTargeted(Vector2 target, MeleeAttackTiming timing)
+    /// <summary>捕获一次自动目标身份与行程；自动模式只跟踪此目标，手动模式固定出手方向。</summary>
+    public void ConfigureMotion(WeaponBase source, Collider2D target, bool automatic)
     {
         _targeted = true;
-        _sourceWeapon = _owner.GetComponent<WeaponBase>();
-        _timing = timing;
-        _duration = timing.Total;
-        _launchPosition = _owner.position;
-        float radius = _restVisualPosition.x;
-        Vector2 forward = Quaternion.Euler(0, 0, _centerAngle) * Vector2.right;
-        // 基准点必须在目标朝向玩家的一侧；世界右侧和固定 180 度会让不同方位的挥击都横着朝左。
-        // 保留 InitializeDirected 快照的攻击方向及扇形角度，刀身中点在中段经过锁定目标，握柄朝内。
-        // 突刺和横挥共享这条局部 +X 攻击轴，素材校正角只在视觉子节点上使用一次。
-        _attackPivot = (Vector3)(target - forward * radius);
-        // 以素材实际长度作为碰撞长度；前摇和回收禁用接触伤害，由主动段的胶囊采样结算。
-        float length = visualRoot != null && spriteRenderer.sprite != null
-            ? WeaponVisualGeometry.ProjectedLength(spriteRenderer.sprite, _weaponData.visualAngleOffset) * visualRoot.localScale.x
-            : radius * 2f;
-        _hitCollider.size = new Vector2(length, Mathf.Max(.08f, length * .2f));
-        _hitCollider.offset = _restColliderOffset = (Vector2)_restVisualPosition;
-        _hitCollider.enabled = false;
+        _sourceWeapon = source;
+        _trackedTarget = automatic ? target : null;
+        _trackedIdentity = WeaponTargeting.Identity(_trackedTarget);
+        _trackedGeneration = _trackedIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
+        float targetDistance = _trackedIdentity != null
+            ? Vector2.Distance(_owner.position, _trackedIdentity.transform.position) : source.CurrentVisualRange;
+        _motionDistance = MeleeAttackMotion.Distance(_thrust, source.CurrentVisualRange, targetDistance);
+        _motionRecoil = source.CurrentMeleeRecoil;
+        _timing = source.GetMeleeTiming(_motionDistance);
+        _duration = _timing.Total;
+        _facesRightAtStart = MeleeAttackMotion.FacesRight(_centerAngle);
+        _trackingRadius = source.CurrentVisualRange + 2f;
+        Vector2 baseDirection = source.CurrentAimDirection;
+        _aimOffset = Mathf.DeltaAngle(Mathf.Atan2(baseDirection.y, baseDirection.x) * Mathf.Rad2Deg, _centerAngle);
+        _previousAimAngle = _centerAngle;
+        _previousMountPosition = _owner.position;
+        _initialPose = default;
+        ApplyMotionPose(0f, _previousMountPosition, _centerAngle);
     }
 
     /// <summary>来源校验必须包含活跃状态，避免武器保留的池引用取消其他装备的动作。</summary>
@@ -235,48 +247,26 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
     /// <summary>来源移除或换波时只回收，不触发余波、残影等正常完成效果。</summary>
     public void Cancel() { ReleaseToPool(); }
 
-    /// <summary>目标锁定后的三段动作：前摇移动、圆弧/直线伤害段、无伤害回收。目标移动不牵引挥击。</summary>
+    /// <summary>推进局部动作并补采有效伤害窗口；失效目标不重选，回收段不造成直接伤害。</summary>
     private void UpdateTargeted(float previousTime)
     {
-        float activeStart = _timing.Windup;
-        float activeEnd = activeStart + _timing.Swing;
-        if (_elapsedTime >= activeStart && previousTime <= activeEnd)
+        Vector3 mount = _owner.position;
+        // 地图/回合正常迁移会先取消动作；额外大幅位置跳变也取消，避免在瞬移连线上制造伤害。
+        float discontinuity = Mathf.Max(4f, _motionDistance * 2f);
+        if ((mount - _previousMountPosition).sqrMagnitude > discontinuity * discontinuity)
         {
-            float from = Mathf.Clamp01((previousTime - activeStart) / _timing.Swing);
-            float to = Mathf.Clamp01((_elapsedTime - activeStart) / _timing.Swing);
-            // 补采两帧之间的动作路径，高攻速或卡帧跨过整个主动段时也不会漏伤害。
-            // 按刀身宽度限制采样间隔，缓存列表可扩容，密集敌群不会被固定数组截断。
-            float distance = _thrust ? _thrustTravel : Mathf.Abs(_endAngle - _startAngle) * Mathf.Deg2Rad * _restVisualPosition.x;
-            int steps = Mathf.Max(1, Mathf.CeilToInt(distance * (to - from) / Mathf.Max(.025f, (_blendFromHeld ? _targetColliderSize.y : _hitCollider.size.y) * .4f)));
-            for (int i = 0; i <= steps; i++) SampleStrike(Mathf.Lerp(from, to, i / (float)steps));
+            if (_heldView != null) _heldView.ResetView();
+            Cancel();
+            return;
         }
-        if (_elapsedTime < activeStart)
-        {
-            float blend = Mathf.SmoothStep(0, 1, _elapsedTime / activeStart);
-            transform.position = Vector3.Lerp(_launchPosition, _attackPivot, blend);
-            transform.rotation = Quaternion.Euler(0, 0, Mathf.LerpAngle(_blendFromHeld ? _initialAngle : _centerAngle, _startAngle, blend));
-            if (visualRoot != null)
-            {
-                Vector3 start = _blendFromHeld ? _initialVisualPosition : _restVisualPosition;
-                Vector3 end = _restVisualPosition - (_thrust ? Vector3.right * _thrustTravel : Vector3.zero);
-                visualRoot.localPosition = Vector3.Lerp(start, end, blend);
-                if (_blendFromHeld) visualRoot.localScale = Vector3.Lerp(_initialVisualScale, _targetVisualScale, blend);
-            }
-        }
-        else if (_elapsedTime <= activeEnd) ApplyStrikePose((_elapsedTime - activeStart) / _timing.Swing);
-        else
-        {
-            float blend = Mathf.SmoothStep(0, 1, (_elapsedTime - activeEnd) / _timing.Recovery);
-            float restAngle = _centerAngle;
-            if (_sourceWeapon != null)
-            {
-                Vector2 aim = _sourceWeapon.CurrentAimDirection;
-                restAngle = Mathf.Atan2(aim.y, aim.x) * Mathf.Rad2Deg;
-            }
-            transform.position = Vector3.Lerp(_attackPivot, _owner.position, blend);
-            transform.rotation = Quaternion.Euler(0, 0, Mathf.LerpAngle(_endAngle, restAngle, blend));
-            if (visualRoot != null) visualRoot.localPosition = _restVisualPosition;
-        }
+        UpdateTrackedAim(mount);
+        float from = Mathf.Max(previousTime, _timing.Windup);
+        float to = Mathf.Min(_elapsedTime, _timing.Windup + _timing.Swing);
+        if (to >= from && _elapsedTime >= _timing.Windup && previousTime <= _timing.Windup + _timing.Swing)
+            SampleMotion(from, to, previousTime, mount);
+        ApplyMotionPose(_elapsedTime, mount, _centerAngle);
+        _previousMountPosition = mount;
+        _previousAimAngle = _centerAngle;
         if (_elapsedTime >= _duration)
         {
             if (ExpansionOwner != null)
@@ -286,33 +276,80 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         }
     }
 
-    /// <summary>仅计算主动段表现姿态；横挥半径固定，突刺沿锁定方向前伸，不叠加椭圆缩放。</summary>
-    private void ApplyStrikePose(float progress)
+    /// <summary>自动攻击持续朝向原目标；死亡、回池或离开检测圈后永久释放引用，保留最后角度。</summary>
+    private void UpdateTrackedAim(Vector3 mount)
     {
-        transform.position = _attackPivot;
-        if (_blendFromHeld) _hitCollider.size = _targetColliderSize;
-        float angle = _thrust ? _centerAngle : Mathf.Lerp(_startAngle, _endAngle, progress);
-        transform.rotation = Quaternion.Euler(0, 0, angle);
-        Vector3 offset = _restVisualPosition - (_thrust ? Vector3.right * _thrustTravel * (1f - progress) : Vector3.zero);
-        _hitCollider.offset = (Vector2)offset;
-        if (visualRoot != null)
+        if (_trackedTarget == null) return;
+        if (!WeaponTargeting.IsValidCached(_trackedTarget, _trackedIdentity, _trackedGeneration)
+            || ((Vector2)_trackedIdentity.transform.position - (Vector2)mount).sqrMagnitude > _trackingRadius * _trackingRadius)
         {
-            visualRoot.localPosition = offset;
-            if (_blendFromHeld) visualRoot.localScale = _targetVisualScale;
+            _trackedTarget = null; _trackedIdentity = null; _trackedGeneration = 0;
+            return;
         }
+        Vector2 direction = _trackedIdentity.transform.position - mount;
+        if (direction.sqrMagnitude > .000001f)
+            _centerAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg + _aimOffset;
     }
 
-    /// <summary>按当前胶囊几何查询敌人，不启用回程碰撞；共享本次生命代次集合保证每个目标只受击一次。</summary>
-    private void SampleStrike(float progress)
+    /// <summary>把局部握柄姿势组合为世界位置/旋转，碰撞和表现消费同一结果。</summary>
+    private void EvaluateWorldPose(float time, Vector3 mount, float aim, out Vector3 position, out float angle)
     {
-        ApplyStrikePose(progress);
+        MeleeMotionPose pose = MeleeAttackMotion.Evaluate(_thrust, _facesRightAtStart, _motionDistance,
+            _motionRecoil, _timing, time, _initialPose);
+        position = mount + Quaternion.Euler(0f, 0f, aim) * (Vector3)pose.Position;
+        angle = aim + pose.Angle;
+    }
+
+    /// <summary>只更新最终可见姿势，不在补采中反复改 Transform，减少密集战斗的变换同步开销。</summary>
+    private void ApplyMotionPose(float time, Vector3 mount, float aim)
+    {
+        EvaluateWorldPose(time, mount, aim, out Vector3 position, out float angle);
+        transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 0f, angle));
+        if (visualRoot != null) visualRoot.localPosition = _restVisualPosition;
+        ApplyMirror();
+    }
+
+    /// <summary>镜像只改变贴图；校正角随镜像反号，使斜向素材也绕攻击轴镜像，不反转碰撞偏移。</summary>
+    private void ApplyMirror()
+    {
+        bool flip = !MeleeAttackMotion.FacesRight(_centerAngle);
+        if (spriteRenderer != null) spriteRenderer.flipY = flip;
+        if (visualRoot != null && _weaponData != null)
+            visualRoot.localRotation = Quaternion.Euler(0f, 0f, _weaponData.visualAngleOffset * (flip ? -1f : 1f));
+    }
+
+    /// <summary>
+    /// 根据位移/角速度上界决定采样密度，覆盖主动段两条折线、突刺缓出及玩家移动/瞄准变化。
+    /// 只查询本帧有效时间窗；复用结果列表及生命代次字典，无逐帧数组分配。
+    /// </summary>
+    private void SampleMotion(float from, float to, float previousTime, Vector3 mount)
+    {
+        float frameSpan = Mathf.Max(.000001f, _elapsedTime - previousTime);
+        float activeFraction = Mathf.Clamp01((to - from) / _timing.Swing);
+        float radius = _restColliderOffset.x + _hitCollider.size.x * .5f;
+        // Expo Out 最大导数为 10*ln(2)；横挥两半段长度相同，旋转总量为 324 度。
+        float pathBound = _thrust ? 6.932f * (_motionDistance + _motionRecoil)
+            : 2f * new Vector2(.75f * _motionDistance + _motionRecoil, .5f * _motionDistance).magnitude
+                + 2f * MeleeAttackMotion.SweepHalfAngle * Mathf.Deg2Rad * radius;
+        float frameFraction = Mathf.Clamp01((to - from) / frameSpan);
+        pathBound = pathBound * activeFraction + Vector3.Distance(mount, _previousMountPosition) * frameFraction
+            + Mathf.Abs(Mathf.DeltaAngle(_previousAimAngle, _centerAngle)) * Mathf.Deg2Rad
+                * (_motionDistance + _motionRecoil + radius) * frameFraction;
+        int steps = Mathf.Max(1, Mathf.CeilToInt(pathBound / Mathf.Max(.005f, _hitCollider.size.y * .4f)));
         var filter = new ContactFilter2D { useTriggers = true };
         filter.SetLayerMask(DamageTargetFilter.EnemyLayerMask);
-        _overlaps.Clear();
-        Vector2 size = Vector2.Scale(_blendFromHeld ? _targetColliderSize : _hitCollider.size, (Vector2)transform.lossyScale);
-        Physics2D.OverlapCapsule(transform.TransformPoint(_hitCollider.offset), size, CapsuleDirection2D.Horizontal,
-            transform.eulerAngles.z, filter, _overlaps);
-        for (int i = 0; i < _overlaps.Count; i++) OnTriggerEnter2D(_overlaps[i]);
+        for (int i = 0; i <= steps; i++)
+        {
+            float time = Mathf.Lerp(from, to, i / (float)steps);
+            float blend = Mathf.Clamp01((time - previousTime) / frameSpan);
+            Vector3 atMount = Vector3.Lerp(_previousMountPosition, mount, blend);
+            float atAim = Mathf.LerpAngle(_previousAimAngle, _centerAngle, blend);
+            EvaluateWorldPose(time, atMount, atAim, out Vector3 position, out float angle);
+            Vector2 center = position + Quaternion.Euler(0f, 0f, angle) * (Vector3)_restColliderOffset;
+            _overlaps.Clear();
+            Physics2D.OverlapCapsule(center, _hitCollider.size, CapsuleDirection2D.Horizontal, angle, filter, _overlaps);
+            for (int j = 0; j < _overlaps.Count; j++) OnTriggerEnter2D(_overlaps[j]);
+        }
     }
 
     /// <summary>主动作从当前持武姿势起步，范围刚改变时也连续过渡；额外多发保留各自散射方向。</summary>
@@ -323,6 +360,18 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         // 攻击与持武沿用同一排序，移动到怪物旁边后也不会因为模板层级突然被遮住。
         spriteRenderer.sortingLayerID = view.Renderer.sortingLayerID;
         spriteRenderer.sortingOrder = view.Renderer.sortingOrder;
+        if (_targeted)
+        {
+            // 从实际持武刀身中心反推出握柄世界位置，再转换到本次瞄准的局部坐标。
+            float correction = _weaponData.visualAngleOffset * (view.Renderer.flipY ? -1f : 1f);
+            float heldAngle = view.Renderer.transform.eulerAngles.z - correction;
+            Vector3 grip = view.Renderer.transform.position - Quaternion.Euler(0f, 0f, heldAngle) * _restVisualPosition;
+            Vector2 offset = Quaternion.Euler(0f, 0f, -_centerAngle) * (grip - _owner.position);
+            _initialPose = new MeleeMotionPose(offset, Mathf.DeltaAngle(_centerAngle, heldAngle));
+            ApplyMotionPose(0f, _owner.position, _centerAngle);
+            view.FollowAttack(spriteRenderer);
+            return;
+        }
         _blendFromHeld = true;
         _targetVisualScale = visualRoot.localScale;
         _initialVisualScale = view.Renderer.transform.lossyScale / Mathf.Max(.001f, transform.lossyScale.x);
@@ -398,7 +447,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
             if (RoundController.Enabled && RoundController.Instance.Phase != RoundPhase.Combat) ReleaseToPool();
             return;
         }
-        if (_targeted && Time.deltaTime <= 0f) return;
+        if (_targeted && (Time.timeScale <= 0f || Time.deltaTime <= 0f)) return;
         float previousTime = _elapsedTime;
         _elapsedTime += Time.deltaTime;
         if (_targeted) { UpdateTargeted(previousTime); return; }
@@ -463,7 +512,7 @@ public sealed class MeleeSwingHitbox : MonoBehaviour, IPoolable
         CombatDamageResult result = _hitSnapshot.Apply(damageable, _damage, _weaponData);
         if (result.Accepted && ExpansionOwner != null && _weaponData.expansionKind == ExpansionWeaponKind.Whip
             && identity is EnemyBase enemy && enemy.CurrentHealth > 0 && enemy.LifeGeneration == generation)
-            enemy.CombatStatus.ApplyBurn(ExpansionOwner.transform, _burnDamage, _weaponData);
+            enemy.CombatStatus.ApplyWeaponBurn(ExpansionOwner.transform, _burnDamage, _weaponData, _hitSnapshot);
     }
 
     /// <summary>

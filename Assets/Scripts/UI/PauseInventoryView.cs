@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,6 +17,7 @@ public sealed class PauseInventoryView
     private TMP_FontAsset _font;
     private RectTransform _owner;
     private bool _visible;
+    private readonly WeaponDetailSideView _sideView;
 
     /// <summary>道具槽按持有数量增长后复用，隐藏期间不重建。</summary>
     private sealed class ItemCell
@@ -49,6 +50,7 @@ public sealed class PauseInventoryView
         _scroll.onValueChanged.AddListener(OnScroll);
         _tooltip = Box("PauseInventoryTooltip", canvas, 0, 0, 0, 0, new Color32(22, 25, 21, 255));
         _tooltip.GetComponent<Image>().raycastTarget = false;
+        _sideView = new WeaponDetailSideView(canvas, _font, "PauseWeaponSide");
         _title = Label("Name", _tooltip, "", .05f, .80f, .95f, .96f, 27);
         _body = Label("Description", _tooltip, "", .05f, .05f, .95f, .77f, 23);
         _body.alignment = TextAlignmentOptions.TopLeft;
@@ -131,6 +133,7 @@ public sealed class PauseInventoryView
         if (weapon == null || weapon.weaponData == null) return;
         Show(owner, weapon.weaponData.GetDisplayName() + " · " + RoundShopPresentation.Tier(weapon.CurrentLevel),
             RoundShopPresentation.WeaponDetails(weapon.weaponData, weapon.CurrentLevel, _player, true));
+        _sideView.Show(_tooltip, weapon.weaponData, _loadout, weapon);
     }
 
     /// <summary>显示所悬停道具当前叠加等级的累计收益。</summary>
@@ -146,11 +149,12 @@ public sealed class PauseInventoryView
     /// <summary>把详情放在源图标上方；由 Canvas 坐标约束四边，适配相机与覆盖层 Canvas。</summary>
     private void Show(RectTransform owner, string title, string body)
     {
+        _sideView.Hide();
         _owner = owner; _title.text = title; _body.text = body;
         Canvas.ForceUpdateCanvases();
         float width = Mathf.Min(460, _canvas.rect.width * .34f);
         float bodyHeight = _body.GetPreferredValues(body, width * .9f, float.PositiveInfinity).y;
-        float height = Mathf.Clamp(bodyHeight + 76, 160, _canvas.rect.height * .72f);
+        float height = Mathf.Clamp(bodyHeight + 76, 160, _canvas.rect.height * .86f);
         var corners = new Vector3[4]; owner.GetWorldCorners(corners);
         Vector3 top = _canvas.InverseTransformPoint(corners[1]);
         // 左下原点下定位，保证详情不因武器位于屏幕右边而超出窗口。
@@ -171,12 +175,13 @@ public sealed class PauseInventoryView
     /// <summary>只允许当前悬停源关闭提示，避免相邻槽位事件顺序导致误关。</summary>
     private void HideFrom(RectTransform owner) { if (_owner == owner) Hide(); }
     /// <summary>隐藏详情并释放当前源引用。</summary>
-    private void Hide() { _owner = null; if (_tooltip != null) _tooltip.gameObject.SetActive(false); }
+    private void Hide() { _sideView?.Hide(); _owner = null; if (_tooltip != null) _tooltip.gameObject.SetActive(false); }
 
     /// <summary>组件单独销毁时移除它创建的同级 UI；场景销毁时失效引用可安全跳过。</summary>
     public void Dispose()
     {
         _visible = false;
+        _sideView.Dispose();
         if (_scroll != null) _scroll.onValueChanged.RemoveListener(OnScroll);
         if (_items != null) Object.Destroy(_items.gameObject);
         if (_tooltip != null) Object.Destroy(_tooltip.gameObject);

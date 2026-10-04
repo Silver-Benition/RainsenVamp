@@ -10,7 +10,7 @@ public static class EngineeringExpansionSetup
 {
     public const string Root="Assets/Data/EngineeringExpansion",Art="Assets/Art/EngineeringExpansion",Prefabs="Assets/Prefab/EngineeringExpansion";
     [Serializable] public sealed class Definition { public Weapon[] weapons; public Item[] items; }
-    [Serializable] public sealed class Weapon { public string id,name,description;public int kind,runtime,price;public bool retired;public List<WeaponLevelData> tiers; }
+    [Serializable] public sealed class Weapon { public string id,name,description;public string[] sets;public int kind,runtime,price;public bool retired;public List<WeaponLevelData> tiers; }
     [Serializable] public sealed class Item { public string id,name,description;public int kind,quality,price,maxCopies;public float damage,scaling,interval,range,speed;public List<PlayerStatModifier> modifiers; }
 
     /// <summary>先建立项目资产，再注册正式目录、商店、收藏与场景升级池；重复导入保留 GUID。</summary>
@@ -34,7 +34,14 @@ public static class EngineeringExpansionSetup
             WeaponDataSO data=Asset<WeaponDataSO>(Root+"/Weapons/"+w.id+".asset");
             data.weaponID=w.id;data.weaponDisplayName=w.name;data.weaponNameKey="weapon."+w.id+".name";data.descriptionKey="weapon."+w.id+".description";data.displayDescription=w.description;
             data.expansionKind=(ExpansionWeaponKind)w.kind;data.runtimeType=(WeaponRuntimeType)w.runtime;data.icon=Icon(w.id);data.visualAngleOffset=0;data.heldSize=.65f;data.retiredFromPool=w.retired;
+            data.weaponSets=WeaponSetAuthoring.Resolve(w.sets);
             data.roundTierConfigs=w.tiers;data.levelConfigs=JsonUtility.FromJson<Weapon>(JsonUtility.ToJson(w)).tiers;
+            if (data.runtimeType == WeaponRuntimeType.Melee)
+            {
+                data.heldSize = WeaponVisualGeometry.MeleeLength(data.roundTierConfigs[0].meleeRange);
+                data.meleeHitWidth = Mathf.Max(.08f, data.heldSize * .2f);
+                data.meleeRecoil = .25f; data.meleeWindup = .1f; data.meleeGripOffset = .05f;
+            }
             data.expansionEffectPrefab=effects;data.effectSprite=w.kind==4?mine:w.kind==8?data.icon:bolt;
             data.meleePattern=w.kind==1?MeleeAttackPattern.Thrust:MeleeAttackPattern.Sweep;
             data.projectilePrefab=w.runtime==(int)WeaponRuntimeType.Melee?MeleePrefab(data):effects;
@@ -107,6 +114,9 @@ public static class EngineeringExpansionSetup
         UpgradeDataSO upgrade=Asset<UpgradeDataSO>(Root+"/Upgrades/"+id+".asset");upgrade.upgradeID="upgrade."+id;upgrade.upgradeName=name;upgrade.description=description;
         upgrade.upgradeNameKey=upgrade.upgradeID+".name";upgrade.descriptionKey=upgrade.upgradeID+".description";upgrade.icon=icon;upgrade.abilityToGrant=item;upgrade.weaponToGrant=weapon;EditorUtility.SetDirty(upgrade);
         RunShopProduct product=shop.products.Find(p=>p!=null&&p.Id==upgrade.upgradeID);if(product==null){product=new RunShopProduct();shop.products.Add(product);}product.content=upgrade;product.basePrice=price;
+        // 已有四档价格保留策划覆写，仅为首次生成的武器补齐默认表。
+        if (weapon != null && (product.weaponTierPrices == null || product.weaponTierPrices.Length != 4))
+            product.weaponTierPrices = new[] { price, price * 2, price * 3, price * 4 };
         if(!loadout.allAvailableUpgrades.Contains(upgrade))loadout.allAvailableUpgrades.Add(upgrade);Reference(catalog.FindProperty("upgrades"),upgrade);
     }
     /// <summary>保存目录引用时保持原序并拒绝重复。</summary>

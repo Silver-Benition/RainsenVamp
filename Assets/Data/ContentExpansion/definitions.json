@@ -392,6 +392,7 @@
   "weapons": [
     {
       "id": "01_copper_rapier",
+      "sets": ["blade", "precise"],
       "name": "铜针细剑",
       "template": "Umbrella",
       "description": "快速窄角挥刺；自带暴击 +5%，暴击伤害为 2.5 倍。",
@@ -507,6 +508,7 @@
     },
     {
       "id": "02_saw_cleaver",
+      "sets": ["blade", "heavy"],
       "name": "锯齿砍刀",
       "template": "Umbrella",
       "description": "慢速广角挥击；高近战缩放，适合一次命中多个目标。",
@@ -622,6 +624,7 @@
     },
     {
       "id": "03_tide_spear",
+      "sets": ["primitive", "precise"],
       "name": "潮纹长枪",
       "template": "Umbrella",
       "description": "从持武挂点朝敌人交替执行突刺与横扫，每次动作可命中路径上的多个敌人。",
@@ -737,6 +740,7 @@
     },
     {
       "id": "04_briar_bolt",
+      "sets": ["primitive", "precise"],
       "name": "荆棘弩矢",
       "template": "FireBall",
       "description": "向当前瞄准方向发射穿透弩矢；额外穿透随品质为 2/3/4/5。",
@@ -852,6 +856,7 @@
     },
     {
       "id": "05_rivet_spike",
+      "sets": ["gun", "tool"],
       "name": "铆钉枪",
       "template": "FireBall",
       "description": "短射程扇形齐射 3 枚铆钉；每枚独立命中，同一目标可承受多枚。",
@@ -967,6 +972,7 @@
     },
     {
       "id": "06_prism_shard",
+      "sets": ["elemental", "precise"],
       "name": "棱晶飞梭",
       "template": "FireBall",
       "description": "命中后弹射并追踪附近未命中的敌人，弹射次数随品质提升。",
@@ -1082,6 +1088,7 @@
     },
     {
       "id": "07_medical_lancet",
+      "sets": ["medical", "precise"],
       "name": "采血针",
       "template": "FireBall",
       "description": "低伤快速针弹；武器自带生命窃取 +10%/+15%/+20%/+25%，继承全局窃取节流。",
@@ -1197,6 +1204,7 @@
     },
     {
       "id": "08_ember_censer",
+      "sets": ["elemental"],
       "name": "余火香炉",
       "template": "Aura",
       "description": "持续火色光环，每 0.8 秒伤害一次；范围内全部敌人受击，无燃烧叠层。",
@@ -1320,6 +1328,7 @@
     },
     {
       "id": "09_moon_disc",
+      "sets": ["blade"],
       "name": "月牙轮",
       "template": "Knife",
       "description": "持续环绕的月牙刃；数量随品质为 1/1/2/2，进入碰撞范围时造成伤害。",
@@ -1435,6 +1444,7 @@
     },
     {
       "id": "10_meteor_hammer",
+      "sets": ["primitive", "heavy"],
       "name": "陨铁锤",
       "template": "Axe",
       "description": "向上抛出旋转重锤，沿抛物线落下；额外穿透 1/2/3/4，无爆炸效果。",

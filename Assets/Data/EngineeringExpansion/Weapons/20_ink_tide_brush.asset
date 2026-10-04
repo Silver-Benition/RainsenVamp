@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 20_ink_tide_brush
   m_EditorClassIdentifier: 
   weaponID: 20_ink_tide_brush
+  weaponSets:
+  - {fileID: 11400000, guid: 03ec5124ed5e58378509b7c2640124ff, type: 2}
+  - {fileID: 11400000, guid: fcb033db8d77584d8f2c1da8b503e202, type: 2}
   weaponNameKey: weapon.20_ink_tide_brush.name
   descriptionKey: weapon.20_ink_tide_brush.description
   weaponDisplayName: "\u58A8\u6F6E\u7B14"

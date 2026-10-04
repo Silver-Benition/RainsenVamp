@@ -12,6 +12,12 @@ public sealed class RangedEnemyAttackDataSO : ScriptableObject
     [SerializeField, Min(0f)] private float cooldown = 2f;
     [SerializeField, Min(0f)] private float baseDamage = 12f;
 
+    [Tooltip("发射前身体渐红的预警时长；在既有冷却末尾推进。") ]
+    [SerializeField, Min(0.05f)] private float warningDuration = .55f;
+
+    /// <summary>最少保留可见预警，零冷却配置也不能跳过预警。</summary>
+    public float WarningDuration => Mathf.Max(.05f, warningDuration);
+
     [Header("Projectile")]
     [SerializeField, Min(0f)] private float projectileSpeed = 5.5f;
     [SerializeField, Min(0f)] private float projectileLifetime = 6f;

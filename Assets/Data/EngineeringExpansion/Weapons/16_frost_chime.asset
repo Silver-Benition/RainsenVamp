@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: 16_frost_chime
   m_EditorClassIdentifier: 
   weaponID: 16_frost_chime
+  weaponSets:
+  - {fileID: 11400000, guid: 03ec5124ed5e58378509b7c2640124ff, type: 2}
   weaponNameKey: weapon.16_frost_chime.name
   descriptionKey: weapon.16_frost_chime.description
   weaponDisplayName: "\u971C\u9E23\u94C3"

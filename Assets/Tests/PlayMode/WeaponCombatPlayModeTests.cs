@@ -136,20 +136,22 @@ namespace RainsenVampSur.Tests.PlayMode
             Component second=Equip("03_tide_spear"); ((Behaviour)second).enabled=false;
             object aim=_player.GetComponent(T("AimController")); Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual")); Call(aim,"SetManualDirection",Vector2.up);
             yield return new WaitForSeconds(.4f);
-            Component victim=Enemy(_player.transform.position+Vector3.up*.9f);
+            // 横挥在中段伸出再转刃，旧的贴脸位置不属于新刀身路径；使用两种动作都会经过的刀身中心。
+            float sharedReach=.75f*(float)Property(spear,"CurrentVisualRange")+.05f+.5f*(float)Property(spear,"CurrentVisualLength");
+            Component victim=Enemy(spear.transform.position+Vector3.up*sharedReach);Physics2D.SyncTransforms();
             for(int i=0;i<3;i++)
             {
                 Set(victim,"_currentHealth",100f);
                 Assert.AreEqual(i%2==0,Property(spear,"NextAttackIsThrust"));
                 Call(spear,"Attack"); Component hit=FindAttack("MeleeSwingHitbox",_data["03_tide_spear"]);
-                Assert.NotNull(hit); Assert.AreEqual(spear.transform.position,hit.transform.position);
+                Assert.NotNull(hit); Assert.Less(Vector3.Distance(spear.transform.position,hit.transform.position),.001f);
                 Assert.AreEqual(i%2==0,Field(hit,"_thrust"));
                 if(i%2==0) Assert.That(Vector3.Dot(hit.transform.right,Vector3.up),Is.GreaterThan(.99));
                 yield return new WaitForSeconds(.045f);
                 yield return Capture(i%2==0?"spear-thrust-"+i:"spear-sweep");
                 yield return new WaitForSeconds((float)Field(hit,"_duration"));
                 float damage=(float)Call(spear,"GetCurrentDamage");
-                Assert.That((float)Property(victim,"CurrentHealth"),Is.EqualTo(100f-damage).Within(.001),"每次动作应准确命中一次");
+                Assert.That((float)Property(victim,"CurrentHealth"),Is.EqualTo(100f-damage).Within(.001),"动作 "+i+" 应准确命中一次");
             }
             Assert.IsTrue((bool)Property(second,"NextAttackIsThrust"));
             Call(spear,"ResetRoundCooldown"); Assert.IsTrue((bool)Property(spear,"NextAttackIsThrust"));
@@ -194,7 +196,7 @@ namespace RainsenVampSur.Tests.PlayMode
         }
 
         /// <summary>通过 F9 实际修改射程，验证持武、突刺、横扫、回收及飞行素材使用同一尺寸。</summary>
-        [UnityTest] public IEnumerator F9_RangeChanges_HeldAndAttackShareContinuousSize()
+        [UnityTest] public IEnumerator F9_RangeChanges_KeepMeleeSizeAndExtendTravel()
         {
             Component spear=Equip("03_tide_spear");
             // 保持持武启用，但禁用自动冷却推进；手动调用正式攻击入口。
@@ -212,7 +214,7 @@ namespace RainsenVampSur.Tests.PlayMode
             Time.timeScale=1f;
             yield return new WaitForSeconds(.4f);
             float enlarged=held.transform.lossyScale.x;
-            Assert.Greater(enlarged,original*1.2f);
+            Assert.That(enlarged,Is.EqualTo(original).Within(.001),"范围只改变旅程，不能拉长刀身");
             yield return Capture("revision-spear-held-range");
             for(int i=0;i<2;i++)
             {
@@ -301,36 +303,39 @@ namespace RainsenVampSur.Tests.PlayMode
             Assert.NotNull(FindAttack("OrbitingProjectile",_data["09_moon_disc"]));
         }
 
-        /// <summary>三件近战在主动横挥阶段保持固定半径，前摇移动与回收不纳入圆弧约束。</summary>
-        [UnityTest] public IEnumerator MeleeSweeps_TraceCircularArcsWithoutRadialPumping()
+        /// <summary>左右完整主动段采用镜像平移和 324 度局部旋转，不能退回固定圆心模型。</summary>
+        [UnityTest] public IEnumerator MeleeSweeps_FullTrajectoriesMirrorAroundMount()
         {
-            object aim=_player.GetComponent(T("AimController"));Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));Call(aim,"SetManualDirection",Vector2.right);
-            foreach(string id in new[]{"01_copper_rapier","02_saw_cleaver","03_tide_spear"})
+            object aim=_player.GetComponent(T("AimController"));Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));
+            Vector3[] right=new Vector3[41];
+            foreach(int side in new[]{1,-1})
             {
-                Component weapon=Equip(id);Set(weapon,"_currentCooldown",100f);
+                Call(aim,"SetManualDirection",Vector2.right*side);
+                Component weapon=Equip("02_saw_cleaver");Set(weapon,"_currentCooldown",99f);
                 yield return new WaitForSeconds(.3f);
-                if((bool)Property(weapon,"NextAttackIsThrust"))
+                Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);
+                object timing=Field(hit,"_timing");float windup=(float)Field(timing,"Windup"),swing=(float)Field(timing,"Swing");
+                float distance=(float)Field(hit,"_motionDistance");
+                Vector3 mount=weapon.transform.position;
+                Time.timeScale=0;
+                for(int i=0;i<=40;i++)
                 {
-                    Call(weapon,"Attack");Component thrust=FindAttack("MeleeSwingHitbox",_data[id]);
-                    Call(_pool,"Release",Field(_data[id],"projectilePrefab"),thrust.gameObject);
+                    float time=windup+swing*i/40f;
+                    Call(hit,"ApplyMotionPose",time,mount,side==1?0f:180f);
+                    Vector3 grip=hit.transform.position-mount;
+                    var visual=(SpriteRenderer)Property(hit,"VisualRenderer");
+                    Assert.AreEqual(side<0,visual.flipY);
+                    if(side==1)right[i]=grip;
+                    else
+                    {
+                        Assert.That(grip.x,Is.EqualTo(-right[i].x).Within(.0001));
+                        Assert.That(grip.y,Is.EqualTo(right[i].y).Within(.0001));
+                    }
+                    if(i==0)Assert.That(grip.y,Is.EqualTo(distance*.5f).Within(.0001));
+                    if(i==20)Assert.That(grip.x*side,Is.EqualTo(distance*.75f).Within(.0001));
+                    if(i==40)Assert.That(grip.y,Is.EqualTo(-distance*.5f).Within(.0001));
                 }
-                Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data[id]);
-                Assert.IsFalse((bool)Field(hit,"_thrust"));
-                var visual=(SpriteRenderer)Property(hit,"VisualRenderer");
-                float radius=0f;
-                Vector3 pivot=(Vector3)Property(hit,"AttackPivot");
-                float minAngle=999f,maxAngle=-999f;int samples=0;
-                while(hit.gameObject.activeInHierarchy)
-                {
-                    if (!(bool)Property(hit,"IsStriking")) { yield return null; continue; }
-                    Vector3 delta=visual.transform.position-pivot;
-                    if(radius==0f) radius=delta.magnitude;
-                    Assert.That(hit.transform.position,Is.EqualTo(pivot));
-                    Assert.That(delta.magnitude,Is.EqualTo(radius).Within(.002),id+" 主动横挥不能同时前后伸缩");
-                    float angle=Mathf.Atan2(delta.y,delta.x)*Mathf.Rad2Deg;minAngle=Mathf.Min(minAngle,angle);maxAngle=Mathf.Max(maxAngle,angle);samples++;
-                    yield return null;
-                }
-                Assert.Greater(samples,1);Assert.Greater(maxAngle-minAngle,10f);
+                Call(hit,"Cancel");Time.timeScale=1;
                 Call(_loadout,"RemoveRoundWeapon",weapon);
             }
         }
@@ -345,7 +350,8 @@ namespace RainsenVampSur.Tests.PlayMode
                 Component weapon=Equip(id); float range=(float)Property(weapon,"CurrentAttackRange");
                 Assert.That(range,Is.GreaterThan(1f),id+" 无范围加成仍有基础距离");
                 Vector3 origin=(Vector2)Property(weapon,"AttackOrigin");
-                Component target=Enemy(origin+direction*(range+.1f));Physics2D.SyncTransforms();
+                Property(_round,"Current").GetType().GetProperty("Elapsed").SetValue(Property(_round,"Current"),0f);
+                Component target=Enemy(origin+direction*(float)Property(weapon,"CurrentVisualRange")*.95f);Physics2D.SyncTransforms();
                 yield return new WaitForSeconds(.06f);
                 Component hit=FindAttack("MeleeSwingHitbox",_data[id]);Assert.NotNull(hit,id);
                 Set(weapon,"_currentCooldown",99f);
@@ -355,32 +361,37 @@ namespace RainsenVampSur.Tests.PlayMode
             }
         }
 
-        /// <summary>锁定后目标移动不牵引圆弧；回收阶段无伤害，且连续回到移动后的持武挂点。</summary>
-        [UnityTest] public IEnumerator Melee_TargetSnapshotAndRecovery_DoNotChaseOrDamageOnReturn()
+        /// <summary>自动动作跟踪原目标且随玩家移动；回收禁伤，目标退出后不换敌。</summary>
+        [UnityTest] public IEnumerator Melee_AutoTrackingAndMovingMount_RecoveryDoesNotDamage()
         {
             Component weapon=Equip("02_saw_cleaver");Set(weapon,"_currentCooldown",99f);
-            var held=(SpriteRenderer)Property(weapon.GetComponent(T("WeaponHeldView")),"Renderer");
-            Vector3 targetPoint=_player.transform.position+Vector3.up*1.2f;
-            Component target=Enemy(targetPoint);Physics2D.SyncTransforms();yield return new WaitForSeconds(.2f);
+            Vector3 mount=weapon.transform.position;
+            Component target=Enemy(mount+Vector3.right*1.2f);Physics2D.SyncTransforms();
+            yield return new WaitForSeconds(.2f);
             Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);
-            Vector3 pivot=(Vector3)Property(hit,"AttackPivot");Assert.Less(pivot.y,targetPoint.y);Assert.That(pivot.x,Is.EqualTo(targetPoint.x).Within(.001));
+            var held=(SpriteRenderer)Property(weapon.GetComponent(T("WeaponHeldView")),"Renderer");
             Assert.That(Vector3.Distance(held.transform.position,((SpriteRenderer)Property(hit,"VisualRenderer")).transform.position),Is.LessThan(.001));
-            yield return Capture("melee-target-windup");
-            target.transform.position+=Vector3.up*5;Physics2D.SyncTransforms();
-            yield return new WaitForSeconds(.08f);Assert.AreEqual(pivot,Property(hit,"AttackPivot"));
-            yield return Capture("melee-target-swing");
-            // 跨越主动段后把敌人移入回收路径；之后不得补伤害。
-            object timing=Property(weapon,"CurrentMeleeTiming");
+            target.transform.position=weapon.transform.position+new Vector3(.8f,.8f);
+            _player.transform.position+=Vector3.left*.3f;Physics2D.SyncTransforms();
+            yield return null;yield return null;
+            Vector2 delta=target.transform.position-weapon.transform.position;
+            float expected=Mathf.Atan2(delta.y,delta.x)*Mathf.Rad2Deg;
+            Assert.That(Mathf.DeltaAngle((float)Field(hit,"_centerAngle"),expected),Is.EqualTo(0).Within(.01));
+            Assert.AreEqual(weapon.transform.position,Property(hit,"AttackPivot"));
+            target.transform.position=weapon.transform.position+Vector3.up*20;Physics2D.SyncTransforms();
+            yield return null;yield return null;
+            float frozen=(float)Field(hit,"_centerAngle");
+            target.transform.position=weapon.transform.position+Vector3.left;Physics2D.SyncTransforms();
+            yield return null;
+            Assert.AreEqual(frozen,Field(hit,"_centerAngle"),"退出检测范围后本击不得重新绑定目标");
+            object timing=Field(hit,"_timing");
             float activeEnd=(float)Field(timing,"Windup")+(float)Field(timing,"Swing");
-            while(hit.gameObject.activeInHierarchy && (float)Field(hit,"_elapsedTime")<=activeEnd)yield return null;
+            while(hit.gameObject.activeInHierarchy&&(float)Field(hit,"_elapsedTime")<=activeEnd)yield return null;
             Assert.IsTrue(hit.gameObject.activeInHierarchy);
-            var visual=(SpriteRenderer)Property(hit,"VisualRenderer");target.transform.position=visual.transform.position;
-            _player.transform.position+=Vector3.right*.4f;Physics2D.SyncTransforms();
-            yield return Capture("melee-target-recovery");
-            yield return new WaitForSeconds((float)Field(timing,"Recovery")+.1f);
+            Set(target,"_currentHealth",100f);
+            target.transform.position=((SpriteRenderer)Property(hit,"VisualRenderer")).transform.position;Physics2D.SyncTransforms();
+            yield return new WaitForSeconds((float)Field(timing,"Recovery")+.05f);
             Assert.AreEqual(100f,Property(target,"CurrentHealth"));Assert.IsTrue(held.enabled);
-            Assert.That(Vector3.Distance(held.transform.position,weapon.transform.position),Is.LessThan(1.2f));
-            yield return Capture("melee-target-held");
         }
 
         /// <summary>高攻速跨帧扫过目标仍准确命中一次；重置装备取消动作且不会产生延迟攻击。</summary>
@@ -399,6 +410,94 @@ namespace RainsenVampSur.Tests.PlayMode
             Call(_loadout,"RemoveRoundWeapon",weapon);yield return null;Assert.IsFalse(hit.gameObject.activeInHierarchy);
         }
 
+        /// <summary>实际自动攻击中冻结冷却，完整动作结束之后才等待已抽样的下一击冷却。</summary>
+        [UnityTest] public IEnumerator Melee_CooldownStartsAfterRecovery_NotAtLaunch()
+        {
+            Component weapon=Equip("02_saw_cleaver");
+            Component target=Enemy(weapon.transform.position+Vector3.right*1.2f);Set(target,"_currentHealth",1000f);
+            Physics2D.SyncTransforms();
+            Component hit=null;
+            for(int i=0;i<40&&hit==null;i++){yield return null;hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);}
+            Assert.NotNull(hit);
+            float pending=(float)Field(weapon,"_currentCooldown");
+            Assert.Greater(pending,0f);
+            yield return new WaitForSeconds(.2f);
+            Assert.IsTrue(hit.gameObject.activeInHierarchy);
+            Assert.AreEqual(pending,Field(weapon,"_currentCooldown"),"动作期间冷却不能偷跑");
+            while(hit.gameObject.activeInHierarchy)yield return null;
+            float finished=Time.time;
+            Assert.That((float)Field(weapon,"_currentCooldown"),Is.GreaterThan(pending-.05f));
+            yield return new WaitForSeconds(Mathf.Max(.01f,pending-.1f));
+            Assert.IsNull(FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]));
+            float timeout=Time.time+1f;
+            while(FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"])==null&&Time.time<timeout)yield return null;
+            Assert.NotNull(FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]));
+            Assert.That(Time.time-finished,Is.InRange(pending-.05f,pending+.1f));
+        }
+
+        /// <summary>手动模式允许空场出手，动作中方向冻结；自动目标跨生命代次后不再追踪复用对象。</summary>
+        [UnityTest] public IEnumerator Melee_ManualDirectionAndPooledTargetIdentity_AreStable()
+        {
+            object aim=_player.GetComponent(T("AimController"));
+            Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));Call(aim,"SetManualDirection",Vector2.right);
+            Component weapon=Equip("02_saw_cleaver");
+            yield return new WaitForSeconds(.04f);
+            Component hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);Assert.NotNull(hit,"手动空场仍可出手");
+            Set(weapon,"_currentCooldown",99f);
+            Call(aim,"SetManualDirection",Vector2.left);yield return null;
+            Assert.That((float)Field(hit,"_centerAngle"),Is.EqualTo(0).Within(.001));
+            Call(hit,"Cancel");
+            Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"NearestEnemy"));
+            Component target=Enemy(weapon.transform.position+Vector3.right*1.1f);Physics2D.SyncTransforms();
+            Call(weapon,"Attack");hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);
+            uint generation=(uint)Property(target,"LifeGeneration");
+            target.gameObject.SetActive(false);target.transform.position=weapon.transform.position+Vector3.up;
+            target.gameObject.SetActive(true);Set(target,"_currentHealth",100f);Physics2D.SyncTransforms();
+            Assert.AreNotEqual(generation,Property(target,"LifeGeneration"));
+            yield return null;yield return null;
+            Assert.That((float)Field(hit,"_centerAngle"),Is.EqualTo(0).Within(.001),"复用目标不能牵引上一生命的攻击");
+        }
+
+        /// <summary>暂停时空闲持武图也冻结镜像和位置；恢复后再接收新手动方向。</summary>
+        [UnityTest] public IEnumerator Melee_IdlePause_FreezesMirrorAndPose()
+        {
+            object aim=_player.GetComponent(T("AimController"));
+            Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));Call(aim,"SetManualDirection",Vector2.right);
+            Component weapon=Equip("02_saw_cleaver");Set(weapon,"_currentCooldown",99f);
+            yield return new WaitForSeconds(.2f);
+            var held=(SpriteRenderer)Property(weapon.GetComponent(T("WeaponHeldView")),"Renderer");
+            Vector3 position=held.transform.position;Quaternion rotation=held.transform.rotation;
+            Time.timeScale=0;Call(aim,"SetManualDirection",Vector2.left);
+            Call(weapon.GetComponent(T("WeaponHeldView")),"LateUpdate");
+            yield return null;yield return null;
+            Assert.IsFalse(held.flipY);Assert.AreEqual(position,held.transform.position);Assert.AreEqual(rotation,held.transform.rotation);
+            Time.timeScale=1;yield return null;yield return null;
+            Assert.IsTrue(held.flipY);
+        }
+
+        /// <summary>补采包含挂点移动；大幅瞬移取消攻击，不在玩家移动连线上误伤。</summary>
+        [UnityTest] public IEnumerator Melee_MovingMountSweepsDamage_AndTeleportCancels()
+        {
+            object aim=_player.GetComponent(T("AimController"));
+            Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));Call(aim,"SetManualDirection",Vector2.right);
+            Component weapon=Equip("02_saw_cleaver");Set(weapon,"_currentCooldown",99f);
+            yield return new WaitForSeconds(.2f);
+            Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);
+            object timing=Field(hit,"_timing");float windup=(float)Field(timing,"Windup"),swing=(float)Field(timing,"Swing");
+            float at=windup+swing*.5f;Set(hit,"_elapsedTime",at);Call(hit,"UpdateTargeted",0f);
+            var collider=hit.GetComponent<CapsuleCollider2D>();
+            Vector3 center=hit.transform.TransformPoint(collider.offset);
+            Component target=Enemy(center+Vector3.up*.5f);Physics2D.SyncTransforms();
+            _player.transform.position+=Vector3.up;Physics2D.SyncTransforms();
+            Set(hit,"_elapsedTime",at+swing*.01f);Call(hit,"UpdateTargeted",at);
+            Assert.That((float)Property(target,"CurrentHealth"),Is.EqualTo(100f-(float)Call(weapon,"GetCurrentDamage")).Within(.001));
+            Component untouched=Enemy(center+Vector3.right*5);
+            _player.transform.position+=Vector3.right*10;Physics2D.SyncTransforms();
+            Set(hit,"_elapsedTime",at+swing*.02f);Call(hit,"UpdateTargeted",at+swing*.01f);
+            Assert.IsFalse(hit.gameObject.activeInHierarchy);Assert.AreEqual(100f,Property(untouched,"CurrentHealth"));
+            yield return null;
+        }
+
         /// <summary>鞭子保留资产但正式购买与调试授予拒绝创建，避免僵硬素材重新进入局内。</summary>
         [UnityTest] public IEnumerator Whip_IsUnavailableUntilAnimationExists()
         {
@@ -413,44 +512,38 @@ namespace RainsenVampSur.Tests.PlayMode
             yield return null;
         }
 
-        /// <summary>五类近战覆盖八方向：中段刀尖朝外、握柄朝内、刀身中点经过目标，不能退化成固定朝左。</summary>
-        [UnityTest] public IEnumerator Melee_EightDirections_GripAndTipStayRelativeToPlayer()
+        /// <summary>所有近战八方向采用同一局部 +X 攻击轴；刀身镜像与碰撞中心在完整动作中对应。</summary>
+        [UnityTest] public IEnumerator Melee_EightDirections_LocalMotionAndBladeRemainAligned()
         {
             object aim=_player.GetComponent(T("AimController"));Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));
             foreach(string id in new[]{"01_copper_rapier","02_saw_cleaver","03_tide_spear","11_piston_gauntlet","19_echo_dagger"})
             for(int i=0;i<8;i++)
             {
-                // 每组方位独立计时，避免四十次动作触发第一波结束而取消后续攻击。
-                object roundRuntime=Property(_round,"Current");
-                roundRuntime.GetType().GetProperty("Elapsed").SetValue(roundRuntime,0f);
+                object runtime=Property(_round,"Current");runtime.GetType().GetProperty("Elapsed").SetValue(runtime,0f);
                 Vector3 direction=Quaternion.Euler(0,0,i*45f)*Vector3.right;
                 Call(aim,"SetManualDirection",(Vector2)direction);
                 Component weapon=Equip(id);Set(weapon,"_currentCooldown",99f);
                 if(id=="03_tide_spear")Set(weapon,"_nextThrust",false);
-                Vector3 origin=(Vector2)Property(weapon,"AttackOrigin");
-                Vector3 point=origin+direction*(float)Property(weapon,"CurrentAttackRange")*.85f;
-                Component target=Enemy(point);Physics2D.SyncTransforms();
-                yield return new WaitForSeconds(.15f);
+                Vector3 origin=weapon.transform.position;
+                Component target=Enemy(origin+direction*(float)Property(weapon,"CurrentVisualRange")*.85f);
+                Physics2D.SyncTransforms();yield return new WaitForSeconds(.15f);
                 Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data[id]);Assert.NotNull(hit);
-                Vector3 pivot=(Vector3)Property(hit,"AttackPivot");
-                Assert.That(Vector3.Dot((point-pivot).normalized,direction),Is.GreaterThan(.999f),id+" 握柄必须在目标朝向玩家的一侧");
-                bool thrust=(bool)Field(hit,"_thrust");float progress=thrust?1f:.5f;
-                // 冻结时间后摆到几何中段，断言与截图使用同一个真实池化攻击实体。
-                Time.timeScale=0;Call(hit,"ApplyStrikePose",progress);
+                bool thrust=(bool)Field(hit,"_thrust");object timing=Field(hit,"_timing");
+                float at=(float)Field(timing,"Windup")+(float)Field(timing,"Swing")*(thrust?1f:.5f);
+                Time.timeScale=0;Call(hit,"ApplyMotionPose",at,origin,(float)Field(hit,"_centerAngle"));
                 var visual=(SpriteRenderer)Property(hit,"VisualRenderer");
-                float correction=(float)Field(_data[id],"visualAngleOffset");
-                Vector3 tipAxis=visual.transform.TransformDirection(Quaternion.Euler(0,0,-correction)*Vector3.right).normalized;
-                Assert.That(Vector3.Dot(tipAxis,direction),Is.GreaterThan(.999f),id+" 素材长轴必须随攻击方向旋转");
-                Assert.That(Vector3.Distance(visual.transform.position,point),Is.LessThan(.002f),id+" 中段经过锁定目标");
-                float length=(float)Property(weapon,"CurrentVisualLength");
-                Vector3 grip=visual.transform.position-tipAxis*length*.5f,tip=visual.transform.position+tipAxis*length*.5f;
-                Assert.Less(Vector3.Distance(origin,grip),Vector3.Distance(origin,tip));
+                float correction=(float)Field(_data[id],"visualAngleOffset")*(visual.flipY?-1f:1f);
+                Vector3 axis=visual.transform.TransformDirection(Quaternion.Euler(0,0,-correction)*Vector3.right).normalized;
+                Assert.That(Vector3.Dot(axis,direction),Is.GreaterThan(.999f),id);
+                float travel=(float)Field(hit,"_motionDistance")*(thrust?1f:.75f);
+                Assert.That(Vector3.Dot(hit.transform.position-origin,direction),Is.EqualTo(travel).Within(.001));
                 var collider=hit.GetComponent<CapsuleCollider2D>();
-                Assert.That(Vector3.Distance(hit.transform.TransformPoint(collider.offset),visual.transform.position),Is.LessThan(.002f));
+                Assert.That(Vector3.Distance(hit.transform.TransformPoint(collider.offset),visual.transform.position),Is.LessThan(.002));
                 if(id=="03_tide_spear")yield return Capture("direction-spear-"+i);
+                // 恢复真实时钟并从此前初始时间连续推进，以实际命中验证整个路径。
                 Time.timeScale=1;
                 yield return new WaitForSeconds((float)Field(hit,"_duration")+.03f);
-                Assert.Less((float)Property(target,"CurrentHealth"),100f,id+" 实际路径必须命中目标");
+                Assert.Less((float)Property(target,"CurrentHealth"),100f,id+" 实际路径必须命中");
                 target.gameObject.SetActive(false);Call(_loadout,"RemoveRoundWeapon",weapon);
             }
         }
@@ -467,8 +560,8 @@ namespace RainsenVampSur.Tests.PlayMode
             Call(stats,"SetModifiers","melee.revision.test",modifiers);
             object changed=Property(weapon,"CurrentMeleeTiming");
             Assert.That((float)Property(weapon,"CurrentAttackRange"),Is.EqualTo(range+1f).Within(.001));
-            Assert.That((float)Field(changed,"Swing"),Is.EqualTo((float)Field(baseline,"Swing")*.5f).Within(.001));
-            Assert.That((float)Field(changed,"Recovery"),Is.GreaterThan((float)Field(baseline,"Recovery")*.5f));
+            Assert.That((float)Field(changed,"Swing"),Is.EqualTo(.238839286f).Within(.00001));
+            Assert.That((float)Field(changed,"Recovery"),Is.EqualTo(.05f).Within(.00001));
             float interval=(float)Call(weapon,"GetCurrentCooldown");
             string details=(string)T("RoundShopPresentation").GetMethod("WeaponDetails").Invoke(null,new[]{_data["02_saw_cleaver"],(object)1,stats,false});
             StringAssert.Contains(interval.ToString("0.##")+"秒",details);
@@ -489,6 +582,7 @@ namespace RainsenVampSur.Tests.PlayMode
             yield return null;
             object flow=UnityEngine.Object.FindObjectOfType(T("GameFlowManager"));
             float elapsed=(float)Field(hit,"_elapsedTime");Vector3 position=hit.transform.position;
+            Time.timeScale=0;Call(hit,"Update");Assert.AreEqual(elapsed,Field(hit,"_elapsedTime"),"暂停当帧不能消费旧 deltaTime");Time.timeScale=1;
             Call(flow,"PauseGame");
             try
             {
@@ -505,29 +599,45 @@ namespace RainsenVampSur.Tests.PlayMode
             yield return null;yield return null;Assert.IsFalse(hit.gameObject.activeInHierarchy);Assert.AreEqual(health,Property(target,"CurrentHealth"));
         }
 
-        /// <summary>记录真实三段动作连续帧，彩色假人只作为可见测试目标，不改变生产美术。</summary>
-        [UnityTest] public IEnumerator Melee_VisibleSequence_RecordsApproachArcAndReturn()
+        /// <summary>以真实时间推进左右完整动作，记录连续画面与逐帧姿势，不用单个中点代替视觉证据。</summary>
+        [UnityTest] public IEnumerator Melee_VisibleSequence_RecordsBothSidesAndHandoff()
         {
-            Component weapon=Equip("02_saw_cleaver");Set(weapon,"_currentCooldown",99f);
-            Component target=Enemy(_player.transform.position+Vector3.up*1.25f);
-            SpriteRenderer targetView=target.gameObject.AddComponent<SpriteRenderer>();
-            SpriteRenderer playerView=_player.GetComponentInChildren<SpriteRenderer>();
-            targetView.sprite=playerView.sprite;targetView.color=new Color(1f,.35f,.35f);targetView.sortingLayerID=playerView.sortingLayerID;targetView.sortingOrder=playerView.sortingOrder;
-            targetView.transform.localScale=Vector3.one*.5f;Physics2D.SyncTransforms();
-            yield return new WaitForSeconds(.3f);yield return Capture("melee-visible-00-held");
-            Time.timeScale=.2f;Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);
-            float total=(float)Field(hit,"_duration");
-            for(int i=1;i<=12;i++)
+            object aim=_player.GetComponent(T("AimController"));
+            Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));
+            foreach(int side in new[]{1,-1})
             {
-                float at=total*i/12f;
-                while(hit.gameObject.activeInHierarchy&&(float)Field(hit,"_elapsedTime")<at)yield return null;
+                object runtime=Property(_round,"Current");runtime.GetType().GetProperty("Elapsed").SetValue(runtime,0f);
+                Call(aim,"SetManualDirection",Vector2.right*side);
+                Component weapon=Equip("02_saw_cleaver");Set(weapon,"_currentCooldown",99f);
+                Component target=Enemy(weapon.transform.position+Vector3.right*(1.25f*side));
+                SpriteRenderer targetView=target.gameObject.AddComponent<SpriteRenderer>();
+                SpriteRenderer playerView=_player.GetComponentInChildren<SpriteRenderer>();
+                targetView.sprite=playerView.sprite;targetView.color=new Color(1f,.35f,.35f);
+                targetView.sortingLayerID=playerView.sortingLayerID;targetView.sortingOrder=playerView.sortingOrder;
+                targetView.transform.localScale=Vector3.one*.5f;Physics2D.SyncTransforms();
+                string label=side>0?"right":"left";
+                yield return new WaitForSeconds(.3f);yield return Capture("sequence-"+label+"-00-held");
+                Time.timeScale=.2f;Call(weapon,"Attack");Component hit=FindAttack("MeleeSwingHitbox",_data["02_saw_cleaver"]);
+                float total=(float)Field(hit,"_duration");
+                string folder=Path.GetFullPath("Logs/Session27/OriginalMelee");Directory.CreateDirectory(folder);
+                var poses=new System.Text.StringBuilder("elapsed,gripX,gripY,rotation,flipY,held,active\n");
                 var view=(SpriteRenderer)Property(weapon.GetComponent(T("WeaponHeldView")),"Renderer");
                 var attack=(SpriteRenderer)Property(hit,"VisualRenderer");
-                string folder=Path.GetFullPath("Logs/Session26/MeleeDirectionFix");Directory.CreateDirectory(folder);
-                File.AppendAllText(Path.Combine(folder,"poses.txt"),i+" elapsed="+Field(hit,"_elapsedTime")+" active="+hit.gameObject.activeInHierarchy+" held="+view.enabled+" heldPos="+view.transform.position+" heldScale="+view.transform.lossyScale+" visual="+attack.enabled+" pos="+attack.transform.position+" scale="+attack.transform.lossyScale+" pivot="+Property(hit,"AttackPivot")+"\n");
-                yield return Capture("melee-visible-"+i.ToString("00"));
+                for(int sample=1;sample<=18;sample++)
+                {
+                    float at=total*sample/18f;
+                    while(hit.gameObject.activeInHierarchy&&(float)Field(hit,"_elapsedTime")<at)
+                    {
+                        poses.AppendLine(Field(hit,"_elapsedTime")+","+hit.transform.position.x+","+hit.transform.position.y+","+hit.transform.eulerAngles.z+","+attack.flipY+","+view.enabled+","+Property(hit,"IsStriking"));
+                        yield return null;
+                    }
+                    yield return Capture("sequence-"+label+"-"+sample.ToString("00"));
+                }
+                File.WriteAllText(Path.Combine(folder,"trajectory-"+label+".csv"),poses.ToString());
+                Assert.Less((float)Property(target,"CurrentHealth"),100f);
+                Assert.IsTrue(view.enabled,"回收完成必须交还持武图");
+                Time.timeScale=1f;target.gameObject.SetActive(false);Call(_loadout,"RemoveRoundWeapon",weapon);
             }
-            Assert.Less((float)Property(target,"CurrentHealth"),100f);Time.timeScale=1f;
         }
 
         /// <summary>比较恢复后的真实视野与上一版近景，确保镜头拉远且角色世界尺寸不变。</summary>
@@ -600,7 +710,7 @@ namespace RainsenVampSur.Tests.PlayMode
         {
             if(SystemInfo.graphicsDeviceType==UnityEngine.Rendering.GraphicsDeviceType.Null) yield break;
             yield return null;
-            string directory=Path.GetFullPath("Logs/Session26/MeleeDirectionFix/graphics"); Directory.CreateDirectory(directory);
+            string directory=Path.GetFullPath("Logs/Session27/OriginalMelee/graphics"); Directory.CreateDirectory(directory);
             Camera camera=Camera.main; var target=new RenderTexture(1280,720,24); var old=camera.targetTexture; var active=RenderTexture.active;
             var pixels=new Texture2D(1280,720,TextureFormat.RGB24,false);
             try {camera.targetTexture=target;camera.Render();RenderTexture.active=target;pixels.ReadPixels(new Rect(0,0,1280,720),0,0);pixels.Apply();File.WriteAllBytes(Path.Combine(directory,name+".png"),pixels.EncodeToPNG());}

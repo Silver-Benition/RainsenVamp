@@ -37,7 +37,7 @@ public static class WeaponTargeting
     }
 
     /// <summary>查找半径内最近有效敌人。列表自动扩容，不截断密集敌群；稳态不分配数组。</summary>
-    public static Collider2D FindNearest(Vector2 origin, float radius, HashSet<Component> excluded = null)
+    public static Collider2D FindNearest(Vector2 origin, float radius, HashSet<Component> excluded = null, bool centersWithinRadius = false)
     {
         var filter = new ContactFilter2D { useTriggers = true };
         filter.SetLayerMask(DamageTargetFilter.EnemyLayerMask);
@@ -53,6 +53,7 @@ public static class WeaponTargeting
             if (!IsValidCached(candidate, identity, 0)) continue;
             if (excluded != null && excluded.Contains(identity)) continue;
             float distance = ((Vector2)identity.transform.position - origin).sqrMagnitude;
+            if (centersWithinRadius && distance > radius * radius) continue;
             int id = identity.GetInstanceID();
             // 平距使用稳定实例 ID，避免物理查询顺序引起每次选敌抖动。
             if (distance < bestDistance || (Mathf.Approximately(distance, bestDistance) && id < bestId))

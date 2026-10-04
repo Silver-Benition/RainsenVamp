@@ -13,9 +13,13 @@ MonoBehaviour:
   m_Name: RangedEnemy_1
   m_EditorClassIdentifier:
   enemyNameKey: 1
-  maxHealth: 30
-  moveSpeed: 1.6
+  maxHealth: 8
+  moveSpeed: 1.5
   collisionDamage: 1
   canBeDefanged: 1
+  healthPerWave: 1
+  contactDamagePerWave: 0.05
+  projectileDamagePerWave: 0.08
+  speedPerWave: 0
   dropExpPrefab: {fileID: 4754037072693363561, guid: d13aa15b6d2a3b5429389ce6fc3a2bf2, type: 3}
   dropTable: {fileID: 11400000, guid: 29bf1cf2037c4703a94dcf9f31463ef2, type: 2}

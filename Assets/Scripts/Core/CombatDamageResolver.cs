@@ -75,6 +75,13 @@ public static class CombatDamageResolver
         bool isCritical = false,
         RunTelemetry telemetry = null)
     {
+        return ApplyAttributed(target, damage, weaponData, isCritical, telemetry, null, 0);
+    }
+
+    /// <summary>带武器实例归属的结算；必须先记账再处理 Boss 死亡出口，避免最后一击遗漏。</summary>
+    public static CombatDamageResult ApplyAttributed(IDamageable target, float damage, WeaponDataSO weaponData,
+        bool isCritical, RunTelemetry telemetry, WeaponWaveDamage waveDamage, int waveToken)
+    {
         float safeDamage = RunResultValueSanitizer.SanitizeNonNegative(damage);
         if (target == null || safeDamage <= 0f)
         {
@@ -104,6 +111,7 @@ public static class CombatDamageResolver
                 result = new CombatDamageResult(safeDamage, safeDamage, safeDamage, true, false);
             }
 
+            waveDamage?.Record(waveToken, result);
             if (result.AppliedDamage > 0f && weaponData != null)
             {
                 RunTelemetry targetTelemetry = telemetry ?? RunTelemetry.Active;

@@ -25,13 +25,16 @@ public sealed class RunShopService
     private readonly Func<bool> _canTrade;
     private readonly List<RunShopProduct> _eligible = new List<RunShopProduct>();
     private readonly RunShopOffer[] _offers = new RunShopOffer[4];
+    private readonly HashSet<string> _previousIds = new HashSet<string>(StringComparer.Ordinal);
+    private readonly HashSet<string> _ownedWeaponIds = new HashSet<string>(StringComparer.Ordinal);
+    private readonly HashSet<string> _tagWeaponIds = new HashSet<string>(StringComparer.Ordinal);
     private bool _busy;
     private int _wave;
     private int _rerolls;
     public bool IsBusy => _busy;
     public IReadOnlyList<RunShopOffer> Offers => _offers;
     /// <summary>全部报价为空时免费补货；存在任何商品（含锁定商品）时按本波付费刷新档位报价。</summary>
-    public int RefreshPrice => IsEmpty ? 0 : (int)Math.Min(int.MaxValue, (long)_catalog.initialRerollPrice + _wave + (long)_rerolls * _catalog.rerollPriceStep);
+    public int RefreshPrice => IsEmpty ? 0 : RunEconomyRules.RerollPrice(_wave, _rerolls);
 
     /// <summary>空店按四格报价的实际状态判断，购买或禁用清空均适用，无需额外标记。</summary>
     private bool IsEmpty
@@ -52,7 +55,7 @@ public sealed class RunShopService
     public void Enter(int completedWave)
     { if (_busy) return; _wave = completedWave; _rerolls = 0; FillUnlocked(); }
 
-    /// <summary>按下一回合可出现档位和 Luck 抽取品质，早期保留基础装备。</summary>
+    /// <summary>按刚完成波次的档位和 Luck 抽取品质，早期保留基础装备。</summary>
     private int RollTier()
     {
         if (_stats != null && _stats.UsesBrotatoStats)
@@ -64,43 +67,75 @@ public sealed class RunShopService
         return _wave >= 2 && roll < Mathf.Min(0.7f, 0.3f * luck) ? 2 : 1;
     }
 
-    /// <summary>过滤封印、本局放逐道具、已满道具与锁定内容；候选不足时保留空位。</summary>
+    /// <summary>记录旧页并按类型、品质、构筑偏好随机补货；锁定报价保持原价格，且计入前五波武器保底。</summary>
     private void FillUnlocked()
     {
-        _eligible.Clear();
-        // 宝箱阶段也能禁用道具；进入商店时连同上波锁定报价一起清除。
+        _eligible.Clear(); _previousIds.Clear(); _ownedWeaponIds.Clear(); _tagWeaponIds.Clear();
+        int weapons = 0;
         for (int i = 0; i < _offers.Length; i++)
-            if (_offers[i] != null && !_offers[i].Product.IsWeapon && (RunState.GetOrCreate(_stats).IsBanished(_offers[i].Product.Id) ||
-                !CanGrantItem(_offers[i].Product)))
-                _offers[i] = null;
+        {
+            RunShopOffer offer = _offers[i];
+            if (offer == null) continue;
+            _previousIds.Add(offer.Product.Id);
+            if (!IsEligible(offer.Product)) { _offers[i] = null; continue; }
+            if (offer.Locked && offer.Product.IsWeapon) weapons++;
+        }
         foreach (RunShopProduct product in _catalog.products)
         {
-            if (product.IsWeapon && product.content.weaponToGrant.retiredFromPool) continue;
-            if (_stats != null && _stats.UsesBrotatoStats && !product.IsWeapon &&
-                !product.content.abilityToGrant.IsAvailableInBrotato()) continue;
-            if (AccountProgressService.Current.IsUpgradeSealed(product.Id)) continue;
-            if (!product.IsWeapon && RunState.GetOrCreate(_stats).IsBanished(product.Id)) continue;
+            if (!IsEligible(product)) continue;
             bool locked = false;
             foreach (RunShopOffer offer in _offers)
-                if (offer != null && offer.Locked && offer.Product.Id == product.Id) locked = true;
-            if (locked || (!product.IsWeapon && !CanGrantItem(product))) continue;
+                if (offer != null && offer.Locked && offer.Product.Id == product.Id) { locked = true; break; }
+            if (locked) continue;
             _eligible.Add(product);
+            if (product.IsWeapon && WeaponShopPreference.MatchesOwnedSet(product.content.weaponToGrant, _loadout))
+                _tagWeaponIds.Add(product.Id);
+            if (product.IsWeapon && _loadout != null)
+                foreach (WeaponBase owned in _loadout.OwnedWeapons)
+                    if (owned != null && owned.weaponData == product.content.weaponToGrant)
+                    { _ownedWeaponIds.Add(product.Id); break; }
         }
+        int guaranteed = _wave <= 2 ? 2 : _wave <= 5 ? 1 : 0;
         for (int i = 0; i < _offers.Length; i++)
         {
             if (_offers[i] != null && _offers[i].Locked) continue;
             _offers[i] = null;
-            if (_eligible.Count == 0) continue;
-            int index = UnityEngine.Random.Range(0, _eligible.Count);
-            // 前两回合先给出武器选择，避免唯一开局武器后长期没有装备成长。
-            if (_wave <= 2 && i < 2)
-                for (int j = 0; j < _eligible.Count; j++) if (_eligible[j].IsWeapon) { index = j; break; }
-            RunShopProduct product = _eligible[index];
-            int tier = product.IsWeapon ? RollTier() : product.content.abilityToGrant.quality;
-            int price = (int)Math.Min(int.MaxValue, (long)product.basePrice * (product.IsWeapon ? tier : 1) + _wave * 2L);
-            _offers[i] = new RunShopOffer(product, tier, price);
-            _eligible.RemoveAt(index);
+            bool weapon = weapons < guaranteed || (_wave > 2 && UnityEngine.Random.value < .35f);
+            int tier = RollTier();
+            // 同武器与同标签共用一次抽签；无候选时由统一选择器放宽软偏好，硬过滤保持有效。
+            WeaponPreference preference = WeaponShopPreference.Roll(_wave, UnityEngine.Random.value);
+            HashSet<string> preferred = preference == WeaponPreference.SameWeapon ? _ownedWeaponIds
+                : preference == WeaponPreference.SharedSet ? _tagWeaponIds : null;
+            RunShopProduct product = RunRewardSelection.Pick(_eligible, weapon, tier, _previousIds,
+                weapon ? preferred : null, UnityEngine.Random.value);
+            // 项目小目录的类型回退仍遵守品质与硬过滤，首两波不会用第三把武器填充缺失道具。
+            if (product == null && (weapon || _wave > 2 || weapons < guaranteed))
+                product = RunRewardSelection.Pick(_eligible, !weapon, tier, _previousIds,
+                    !weapon ? preferred : null, UnityEngine.Random.value);
+            if (product == null) continue;
+            if (product.IsWeapon) weapons++;
+            int actualTier = product.IsWeapon ? tier : product.content.abilityToGrant.quality;
+            _offers[i] = new RunShopOffer(product, actualTier, RunEconomyRules.Price(product.BasePriceAtTier(actualTier), _wave));
+            _eligible.Remove(product);
         }
+    }
+
+    /// <summary>所有随机回退共用硬性准入条件；封印、放逐、退池和持有上限不可被备用池绕过。</summary>
+    private bool IsEligible(RunShopProduct product)
+    {
+        if (product == null || product.content == null || !product.content.HasExactlyOneReward()
+            || AccountProgressService.Current.IsUpgradeSealed(product.Id)) return false;
+        return product.IsWeapon ? !product.content.weaponToGrant.retiredFromPool
+            : !RunState.GetOrCreate(_stats).IsBanished(product.Id) && CanGrantItem(product);
+    }
+
+    /// <summary>宝箱候选计算计入已锁定道具的预留份数；读取不产生购买或解锁副作用。</summary>
+    public int LockedItemCount(string id)
+    {
+        int count = 0;
+        foreach (RunShopOffer offer in _offers)
+            if (offer != null && offer.Locked && !offer.Product.IsWeapon && offer.Product.Id == id) count++;
+        return count;
     }
 
     /// <summary>检查道具的独立配置上限；回合模式不采用六种能力容量。</summary>
@@ -187,13 +222,23 @@ public sealed class RunShopService
         finally { _busy = false; }
     }
 
+    /// <summary>为持有实例提供只读回收报价；UI 与实际交易共用此入口，失效实例返回零。</summary>
+    public int RecycleValue(WeaponBase weapon)
+    {
+        if (weapon == null) return 0;
+        bool owned = false;
+        foreach (WeaponBase candidate in _loadout.OwnedWeapons) if (candidate == weapon) { owned = true; break; }
+        if (!owned) return 0;
+        RunShopProduct product = _catalog.products.Find(p => p.IsWeapon && p.content.weaponToGrant == weapon.weaponData);
+        return product != null ? RunEconomyRules.Recycle(product.BasePriceAtTier(weapon.CurrentLevel), _wave, _catalog.recycleRatio) : 0;
+    }
+
     /// <summary>回收指定武器实例；价值由当前品质和目录配置确定，不发经验。</summary>
     public bool Recycle(WeaponBase weapon)
     {
         if (_busy || !_canTrade() || weapon == null) return false;
-        RunShopProduct product = _catalog.products.Find(p => p.IsWeapon && p.content.weaponToGrant == weapon.weaponData);
-        if (product == null) return false;
-        int amount = Mathf.FloorToInt((product.basePrice * weapon.CurrentLevel + _wave * 2) * _catalog.recycleRatio);
+        int amount = RecycleValue(weapon);
+        if (amount <= 0) return false;
         _busy = true;
         try
         {

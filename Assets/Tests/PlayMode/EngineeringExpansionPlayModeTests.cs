@@ -69,13 +69,16 @@ namespace RainsenVampSur.Tests.PlayMode
         {
             Component weapon=Equip("11_piston_gauntlet");Set(weapon,"_currentCooldown",99f);yield return null;
             object aim=_player.GetComponent(T("AimController"));Call(aim,"SetMode",Enum.Parse(T("AimController+AimMode"),"Manual"));Call(aim,"SetManualDirection",Vector2.right);
-            var near=Enemy(weapon.transform.position+Vector3.right*.7f);var far=Enemy(weapon.transform.position+Vector3.right*2f);Physics2D.SyncTransforms();
-            for(int i=0;i<3;i++){Call(weapon,"Attack");yield return new WaitForSeconds(.65f);Assert.AreEqual(i<2?100f:96f,Property(far,"CurrentHealth"));}
+            // 余波比拳套判定宽：侧向夹具避开完整突刺行程，只让第三拳余波命中。
+            var near=Enemy(weapon.transform.position+Vector3.right*.7f);var far=Enemy(weapon.transform.position+new Vector3(1.5f,.4f));Physics2D.SyncTransforms();
+            float actionDuration=(float)Property(Property(weapon,"CurrentMeleeTiming"),"Total");
+            for(int i=0;i<3;i++){Call(weapon,"Attack");yield return new WaitForSeconds(actionDuration+.35f);Assert.AreEqual(i<2?100f:96f,Property(far,"CurrentHealth"));}
             Assert.AreEqual(76f,Property(near,"CurrentHealth"));Call(_loadout,"RemoveRoundWeapon",weapon);near.gameObject.SetActive(false);far.gameObject.SetActive(false);
             weapon=Equip("19_echo_dagger");Set(weapon,"_currentCooldown",99f);yield return null;
-            var target=Enemy(weapon.transform.position+Vector3.right*.65f);Physics2D.SyncTransforms();Call(weapon,"Attack");
-            yield return new WaitForSeconds(.25f);Assert.AreEqual(95f,Property(target,"CurrentHealth"));
-            _player.transform.position+=Vector3.up*2;yield return new WaitForSeconds(.45f);Assert.AreEqual(92f,Property(target,"CurrentHealth"));
+            var target=Enemy(weapon.transform.position+Vector3.right*1.2f);Physics2D.SyncTransforms();Call(weapon,"Attack");
+            actionDuration=(float)Property(Property(weapon,"CurrentMeleeTiming"),"Total");
+            yield return new WaitForSeconds(actionDuration+.05f);Assert.AreEqual(95f,Property(target,"CurrentHealth"));
+            _player.transform.position+=Vector3.up*2;yield return new WaitForSeconds(.35f);Assert.AreEqual(92f,Property(target,"CurrentHealth"));
         }
 
         /// <summary>炮台从正式道具出手，独立工程伤害和冷却不受普通战斗增益影响。</summary>

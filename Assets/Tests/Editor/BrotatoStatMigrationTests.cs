@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -98,7 +98,7 @@ namespace RainsenVampSur.Tests
         {
             PlayerStats stats = Player(); Set(stats, PlayerStatType.RangedDamage, 8); Set(stats, PlayerStatType.DamagePercent, 25); Set(stats, PlayerStatType.CritChance, -20);
             var weapon = new WeaponLevelData { damage = 10, rangedScaling = .5f, critChance = 30 };
-            Assert.That(BrotatoStatRules.Damage(weapon, stats), Is.EqualTo(17));
+            Assert.That(BrotatoStatRules.Damage(weapon, stats), Is.EqualTo(18));
             Assert.That(new WeaponHitSnapshot(stats, null, weapon).CriticalChance, Is.EqualTo(.1f).Within(.0001f));
             Set(stats, PlayerStatType.RangedDamage, -100); Assert.That(BrotatoStatRules.Damage(weapon, stats), Is.EqualTo(1));
         }
@@ -157,11 +157,11 @@ namespace RainsenVampSur.Tests
         [Test] public void CriticalSnapshot_OnlyAcceptedHitsProduceDamage()
         {
             PlayerStats stats = Player(); Set(stats, PlayerStatType.CritChance, -20);
-            var weapon = new WeaponLevelData { critChance = 120, critMultiplier = 2 };
+            var weapon = new WeaponLevelData { critChance = 120, critMultiplier = 1.5f };
             var target = new ReceiptTarget();
             var snapshot = new WeaponHitSnapshot(stats, null, weapon);
             CombatDamageResult result = snapshot.Apply(target, 7, null);
-            Assert.That(result.AppliedDamage, Is.EqualTo(14)); Assert.IsTrue(target.Critical);
+            Assert.That(result.AppliedDamage, Is.EqualTo(11)); Assert.IsTrue(target.Critical);
             target.Accept = false; Assert.IsFalse(snapshot.Apply(target, 7, null).Accepted);
         }
         /// <summary>无场景副作用的目标收据夹具。</summary>
@@ -181,8 +181,8 @@ namespace RainsenVampSur.Tests
         {
             Assert.That(BrotatoStatRules.RollTier(1, 1000, 0), Is.EqualTo(1));
             Assert.That(BrotatoStatRules.RollTier(2, 0, .059f), Is.EqualTo(2));
-            Assert.That(BrotatoStatRules.RollTier(2, -50, .04f), Is.EqualTo(1));
-            Assert.That(BrotatoStatRules.RollTier(20, -100, 0), Is.EqualTo(1));
+            Assert.That(BrotatoStatRules.RollTier(2, -50, .041f), Is.EqualTo(1));
+            Assert.That(BrotatoStatRules.RollTier(20, -100, 0), Is.EqualTo(4));
             Assert.That(BrotatoStatRules.RollTier(100, 10000, .081f), Is.EqualTo(3));
             Assert.That(BrotatoStatRules.GuaranteedUpgradeTier(5), Is.EqualTo(2));
             Assert.That(BrotatoStatRules.GuaranteedUpgradeTier(15), Is.EqualTo(3));

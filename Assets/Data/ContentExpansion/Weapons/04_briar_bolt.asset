@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 04_briar_bolt
   m_EditorClassIdentifier:
   weaponID: 04_briar_bolt
+  weaponSets:
+  - {fileID: 11400000, guid: 3767169519c95de28b5bd2389b5a4a8f, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.04_briar_bolt.name
   descriptionKey: weapon.04_briar_bolt.description
   weaponDisplayName: "\u8346\u68D8\u5F29\u77E2"

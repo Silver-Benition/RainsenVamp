@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: 08_ember_censer
   m_EditorClassIdentifier:
   weaponID: 08_ember_censer
+  weaponSets:
+  - {fileID: 11400000, guid: 03ec5124ed5e58378509b7c2640124ff, type: 2}
   weaponNameKey: weapon.08_ember_censer.name
   descriptionKey: weapon.08_ember_censer.description
   weaponDisplayName: "\u4F59\u706B\u9999\u7089"

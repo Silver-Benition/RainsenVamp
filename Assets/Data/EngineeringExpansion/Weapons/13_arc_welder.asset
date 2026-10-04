@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 13_arc_welder
   m_EditorClassIdentifier: 
   weaponID: 13_arc_welder
+  weaponSets:
+  - {fileID: 11400000, guid: fcb033db8d77584d8f2c1da8b503e202, type: 2}
+  - {fileID: 11400000, guid: 03ec5124ed5e58378509b7c2640124ff, type: 2}
   weaponNameKey: weapon.13_arc_welder.name
   descriptionKey: weapon.13_arc_welder.description
   weaponDisplayName: "\u7535\u5F27\u710A\u67AA"

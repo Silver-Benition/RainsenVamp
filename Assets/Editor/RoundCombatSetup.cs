@@ -28,7 +28,8 @@ public static class RoundCombatSetup
         {
             if (upgrade == null || !upgrade.HasExactlyOneReward()) continue;
             if (upgrade.weaponToGrant != null && upgrade.weaponToGrant.retiredFromPool) continue;
-            shop.products.Add(new RunShopProduct { content = upgrade, basePrice = upgrade.weaponToGrant != null ? 12 : 18 });
+            shop.products.Add(new RunShopProduct { content = upgrade, basePrice = upgrade.weaponToGrant != null ? 12 : 18,
+                weaponTierPrices = upgrade.weaponToGrant != null ? new[] { 12, 24, 36, 48 } : null });
             if (upgrade.weaponToGrant == null) continue;
             WeaponDataSO weapon = upgrade.weaponToGrant;
             if (weapon.roundTierConfigs.Count != 4)
@@ -76,7 +77,7 @@ public static class RoundCombatSetup
             }
             EditorUtility.SetDirty(spawn);
             config.rounds.Add(new RoundDefinition { survivalSeconds = wave == 20 ? 90 : Mathf.Min(60, 15 + wave * 5),
-                spawnConfig = spawn, enemyHealthMultiplier = 1 + (wave - 1) * .15f, enemyDamageMultiplier = 1 + (wave - 1) * .05f, spawnBoss = wave == 20, allowEarlyBossVictory = wave == 20 });
+                spawnConfig = spawn, enemyHealthMultiplier = 1, enemyDamageMultiplier = 1, spawnBoss = wave == 20, allowEarlyBossVictory = wave == 20 });
         }
         EditorUtility.SetDirty(config);
         RunDirector director = UnityEngine.Object.FindObjectOfType<RunDirector>();

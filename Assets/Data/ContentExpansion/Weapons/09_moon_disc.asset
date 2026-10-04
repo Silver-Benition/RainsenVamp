@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: 09_moon_disc
   m_EditorClassIdentifier:
   weaponID: 09_moon_disc
+  weaponSets:
+  - {fileID: 11400000, guid: 13db042cb99255eba8b338c64d65a8dc, type: 2}
   weaponNameKey: weapon.09_moon_disc.name
   descriptionKey: weapon.09_moon_disc.description
   weaponDisplayName: "\u6708\u7259\u8F6E"

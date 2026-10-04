@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: FireBall
   m_EditorClassIdentifier:
   weaponID: fireball
+  weaponSets:
+  - {fileID: 11400000, guid: 03ec5124ed5e58378509b7c2640124ff, type: 2}
   weaponNameKey: weapon.fireball.name
   descriptionKey: weapon.fireball.description
   weaponDisplayName: "\u706B\u7403\u672F"

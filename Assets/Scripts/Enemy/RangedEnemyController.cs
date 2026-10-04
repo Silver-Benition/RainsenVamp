@@ -12,7 +12,10 @@ public sealed class RangedEnemyController : EnemyBase
     [SerializeField] private RangedEnemyAttackDataSO attackData;
 
     private WorldEnemySimulation _worldSimulation;
-    private float _attackTimer;
+    private float _attackTimer, _warningElapsed;
+
+    /// <summary>当前发射预警进度；只读用于表现验收。</summary>
+    public float WarningProgress => attackData != null ? Mathf.Clamp01(_warningElapsed / attackData.WarningDuration) : 0f;
 
     /// <summary>当前远程攻击配置。</summary>
     public RangedEnemyAttackDataSO AttackData => attackData;
@@ -46,7 +49,8 @@ public sealed class RangedEnemyController : EnemyBase
     /// </summary>
     protected override void OnDisable()
     {
-        _attackTimer = 0f;
+        _attackTimer = _warningElapsed = 0f;
+        SetAttackWarning(0f);
         _worldSimulation = null;
         base.OnDisable();
     }
@@ -108,25 +112,35 @@ public sealed class RangedEnemyController : EnemyBase
         ResolvePlayerTarget();
         if (attackData == null || attackData.ProjectilePrefab == null || PlayerTransform == null)
         {
+            _warningElapsed = 0f;
+            SetAttackWarning(0f);
             return;
         }
 
-        if (_attackTimer > 0f)
-        {
-            _attackTimer = Mathf.Max(0f, _attackTimer - Time.deltaTime);
-            return;
-        }
+        float delta = Time.deltaTime;
+        _attackTimer = Mathf.Max(0f, _attackTimer - delta);
 
         Vector2 aimOffset = PlayerTransform.position - transform.position;
         if (aimOffset.sqrMagnitude > attackData.MaxRange * attackData.MaxRange ||
             aimOffset.sqrMagnitude <= Mathf.Epsilon)
         {
+            _warningElapsed = 0f;
+            SetAttackWarning(0f);
             return;
         }
+
+        // 预警与冷却末尾重叠，维持正常射速；重新进入射程时必须看完整预警。
+        float duration = attackData.WarningDuration;
+        if (_attackTimer <= duration)
+            _warningElapsed = Mathf.Min(duration, _warningElapsed + Mathf.Min(delta, duration - _attackTimer));
+        SetAttackWarning(WarningProgress);
+        if (_attackTimer > 0f || _warningElapsed < duration) return;
 
         if (TryFireAt(aimOffset.normalized))
         {
             _attackTimer = attackData.Cooldown;
+            _warningElapsed = 0f;
+            SetAttackWarning(0f);
         }
     }
 
@@ -157,5 +171,7 @@ public sealed class RangedEnemyController : EnemyBase
     private void ResetAttackCycle()
     {
         _attackTimer = attackData != null ? attackData.FirstShotDelay : 0f;
+        _warningElapsed = 0f;
+        SetAttackWarning(0f);
     }
 }

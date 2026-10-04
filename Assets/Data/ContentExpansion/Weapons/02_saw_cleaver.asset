@@ -13,12 +13,20 @@ MonoBehaviour:
   m_Name: 02_saw_cleaver
   m_EditorClassIdentifier:
   weaponID: 02_saw_cleaver
+  weaponSets:
+  - {fileID: 11400000, guid: 13db042cb99255eba8b338c64d65a8dc, type: 2}
+  - {fileID: 11400000, guid: f1346257048b5b4b9f258c22a4bcde6b, type: 2}
   weaponNameKey: weapon.02_saw_cleaver.name
   descriptionKey: weapon.02_saw_cleaver.description
   weaponDisplayName: "\u952F\u9F7F\u780D\u5200"
   displayDescription: "\u6162\u901f\u5e7f\u89d2\u6325\u51fb\uff1b\u9ad8\u8fd1\u6218\u7f29\u653e\uff0c\u9002\u5408\u4e00\u6b21\u547d\u4e2d\u591a\u4e2a\u76ee\u6807\u3002"
   visualAngleOffset: -45
   runtimeType: 4
+  heldSize: 0.76
+  meleeRecoil: 0.25
+  meleeWindup: 0.1
+  meleeHitWidth: 0.152
+  meleeGripOffset: 0.05
   icon: {fileID: 21300000, guid: a480376b381603446addcbed8be7e5dd, type: 3}
   loadoutIconScale: 1
   loadoutIconOffset: {x: 0, y: 0}

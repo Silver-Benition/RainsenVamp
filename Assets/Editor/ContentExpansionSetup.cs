@@ -21,6 +21,7 @@ public static class ContentExpansionSetup
     [Serializable] public sealed class Weapon
     {
         public string id, name, template, description;
+        public string[] sets;
         public int price;
         public float visualAngleOffset;
         public MeleeAttackPattern meleePattern;
@@ -70,12 +71,19 @@ public static class ContentExpansionSetup
             data.descriptionKey = "weapon." + weapon.id + ".description";
             data.weaponDisplayName = weapon.name; data.displayDescription = weapon.description;
             data.runtimeType = template.runtimeType;
+            data.weaponSets = WeaponSetAuthoring.Resolve(weapon.sets);
             data.retiredFromPool = false;
             data.visualAngleOffset = weapon.visualAngleOffset;
             data.meleePattern = weapon.meleePattern;
             data.icon = ImportIcon(Art + "/Weapons/" + weapon.id + ".png");
             data.roundTierConfigs = weapon.tiers;
             data.levelConfigs = JsonUtility.FromJson<Weapon>(JsonUtility.ToJson(weapon)).tiers;
+            if (data.runtimeType == WeaponRuntimeType.Melee)
+            {
+                data.heldSize = WeaponVisualGeometry.MeleeLength(data.roundTierConfigs[0].meleeRange);
+                data.meleeHitWidth = Mathf.Max(.08f, data.heldSize * .2f);
+                data.meleeRecoil = .25f; data.meleeWindup = .1f; data.meleeGripOffset = .05f;
+            }
             data.projectilePrefab = BuildPrefab(weapon, template, data.icon);
             EditorUtility.SetDirty(data);
             AddReference(catalogObject.FindProperty("weapons"), data);
@@ -175,6 +183,9 @@ public static class ContentExpansionSetup
         RunShopProduct product = shop.products.Find(p => p != null && p.Id == upgrade.upgradeID);
         if (product == null) { product = new RunShopProduct(); shop.products.Add(product); }
         product.content = upgrade; product.basePrice = price;
+        // 已有四档价格保留策划覆写，仅为首次生成的武器补齐默认表。
+        if (weapon != null && (product.weaponTierPrices == null || product.weaponTierPrices.Length != 4))
+            product.weaponTierPrices = new[] { price, price * 2, price * 3, price * 4 };
         if (!loadout.allAvailableUpgrades.Contains(upgrade)) loadout.allAvailableUpgrades.Add(upgrade);
         AddReference(catalog.FindProperty("upgrades"), upgrade);
     }

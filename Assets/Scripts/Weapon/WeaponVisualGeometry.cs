@@ -11,10 +11,10 @@ public static class WeaponVisualGeometry
         return Mathf.Max(.01f, Mathf.Abs(Mathf.Cos(radians)) * size.x + Mathf.Abs(Mathf.Sin(radians)) * size.y);
     }
 
-    /// <summary>近战剑身固定占射程六成，突刺和挥击共用；余下四成由手臂前伸提供。</summary>
+    /// <summary>把旧版基础范围换算为原有显示长度，供资产迁移保留初始尺寸；不得传入动态范围。</summary>
     public static float MeleeLength(float range) { return Mathf.Max(.05f, range * .6f - .05f); }
 
-    /// <summary>近战休息姿势把握柄放在挂点外侧，贴图中心随剑身长度移动。</summary>
+    /// <summary>旧版配置几何换算；现行近战休息位置改用固定 heldSize 与 meleeGripOffset。</summary>
     public static float MeleeCenter(float range) { return .05f + MeleeLength(range) * .5f; }
 
     /// <summary>把发射时的同款武器素材调整为持武长度，整体同步碰撞尺寸；枪弓弹药维持各自素材。</summary>

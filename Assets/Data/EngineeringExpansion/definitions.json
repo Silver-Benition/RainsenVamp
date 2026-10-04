@@ -2,6 +2,7 @@
   "weapons": [
     {
       "id": "11_piston_gauntlet",
+      "sets": ["tool", "heavy"],
       "name": "活塞拳套",
       "kind": 1,
       "runtime": 4,
@@ -84,6 +85,7 @@
     },
     {
       "id": "12_coil_railgun",
+      "sets": ["gun", "precise"],
       "name": "磁轨长铳",
       "kind": 2,
       "runtime": 0,
@@ -166,6 +168,7 @@
     },
     {
       "id": "13_arc_welder",
+      "sets": ["tool", "elemental"],
       "name": "电弧焊枪",
       "kind": 3,
       "runtime": 0,
@@ -248,6 +251,7 @@
     },
     {
       "id": "14_clockwork_minecase",
+      "sets": ["tool", "heavy"],
       "name": "发条雷匣",
       "kind": 4,
       "runtime": 0,
@@ -330,6 +334,7 @@
     },
     {
       "id": "15_homing_scythe",
+      "sets": ["blade"],
       "name": "归巢飞镰",
       "kind": 5,
       "runtime": 0,
@@ -412,6 +417,7 @@
     },
     {
       "id": "16_frost_chime",
+      "sets": ["elemental"],
       "name": "霜鸣铃",
       "kind": 6,
       "runtime": 0,
@@ -494,6 +500,7 @@
     },
     {
       "id": "17_brand_whip",
+      "sets": ["elemental", "primitive"],
       "name": "烙火长鞭",
       "kind": 7,
       "runtime": 4,
@@ -577,6 +584,7 @@
     },
     {
       "id": "18_split_seedpod",
+      "sets": ["primitive"],
       "name": "裂种荚",
       "kind": 8,
       "runtime": 0,
@@ -659,6 +667,7 @@
     },
     {
       "id": "19_echo_dagger",
+      "sets": ["blade", "precise"],
       "name": "叠影短刀",
       "kind": 9,
       "runtime": 4,
@@ -741,6 +750,7 @@
     },
     {
       "id": "20_ink_tide_brush",
+      "sets": ["elemental", "tool"],
       "name": "墨潮笔",
       "kind": 10,
       "runtime": 0,

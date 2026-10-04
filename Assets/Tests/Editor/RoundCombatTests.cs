@@ -31,9 +31,9 @@ public sealed class RoundCombatTests
     {
         var product = new RunShopProduct { basePrice = 17 };
         var reward = new RunCrateReward(product, 3, .25f);
-        Assert.AreEqual(5, reward.RecycleValue);
+        Assert.AreEqual(6, reward.RecycleValue);
         product.basePrice = 100;
-        Assert.AreEqual(5, reward.RecycleValue);
+        Assert.AreEqual(6, reward.RecycleValue);
         var config = AssetDatabase.LoadAssetAtPath<RoundRunConfigSO>("Assets/Data/Rounds/Standard20.asset");
         Assert.AreEqual(1.5f, config.settlementSeconds); Assert.IsNotNull(config.crateIcon);
     }

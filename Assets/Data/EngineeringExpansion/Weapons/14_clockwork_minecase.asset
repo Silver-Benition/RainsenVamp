@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 14_clockwork_minecase
   m_EditorClassIdentifier: 
   weaponID: 14_clockwork_minecase
+  weaponSets:
+  - {fileID: 11400000, guid: fcb033db8d77584d8f2c1da8b503e202, type: 2}
+  - {fileID: 11400000, guid: f1346257048b5b4b9f258c22a4bcde6b, type: 2}
   weaponNameKey: weapon.14_clockwork_minecase.name
   descriptionKey: weapon.14_clockwork_minecase.description
   weaponDisplayName: "\u53D1\u6761\u96F7\u5323"

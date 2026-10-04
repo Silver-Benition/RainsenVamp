@@ -13,7 +13,6 @@ public sealed class RunCrateReward
     public RunCrateReward(RunShopProduct product, int wave, float ratio)
     {
         Product = product;
-        double price = Math.Min(int.MaxValue, (long)product.basePrice + Math.Max(0, wave) * 2L);
-        RecycleValue = (int)Math.Floor(price * Mathf.Clamp01(ratio));
+        RecycleValue = RunEconomyRules.Recycle(product.basePrice, wave, ratio);
     }
 }

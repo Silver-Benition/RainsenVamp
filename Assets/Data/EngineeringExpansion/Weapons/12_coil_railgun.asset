@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 12_coil_railgun
   m_EditorClassIdentifier: 
   weaponID: 12_coil_railgun
+  weaponSets:
+  - {fileID: 11400000, guid: f09f7b3462265442835b623274242c81, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.12_coil_railgun.name
   descriptionKey: weapon.12_coil_railgun.description
   weaponDisplayName: "\u78C1\u8F68\u957F\u94F3"

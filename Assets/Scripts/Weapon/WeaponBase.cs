@@ -8,6 +8,9 @@ public class WeaponBase : MonoBehaviour
     [Header("武器配置")]
     public WeaponDataSO weaponData;
 
+    /// <summary>独立实例的上一波与本波伤害，不以内容 ID 合并同类武器。</summary>
+    public WeaponWaveDamage WaveDamage { get; } = new WeaponWaveDamage();
+
     protected float _currentCooldown;
     protected int _currentLevel = 1;
     protected AimController _aimController;
@@ -18,22 +21,25 @@ public class WeaponBase : MonoBehaviour
     private uint _attackTargetGeneration;
     private float _nextAttackTargetSearch;
     public float CurrentAttackRange => GetAttackRange();
-    /// <summary>近战按玩家中心索敌，避免装备在背侧挂点时损失基础距离。</summary>
-    public Vector2 AttackOrigin => weaponData != null && weaponData.runtimeType == WeaponRuntimeType.Melee
-        ? (Vector2)OwnerTransform.position : (Vector2)transform.position;
-    public MeleeAttackTiming CurrentMeleeTiming => new MeleeAttackTiming(GetCurrentLevelData()?.activeDuration ?? .2f,
-        CurrentVisualRange, GetCurrentCooldownMultiplier());
+    /// <summary>近战和远程均从各自武器挂点选敌与瞄准，常驻范围效果另用玩家中心。</summary>
+    public Vector2 AttackOrigin => transform.position;
+    public bool UsesAutomaticMeleeAim => _aimController == null || _aimController.aimMode == AimController.AimMode.NearestEnemy;
+    public MeleeAttackTiming CurrentMeleeTiming => GetMeleeTiming(CurrentVisualRange);
+    public float CurrentMeleeRecoil => MeleeAttackTiming.Recoil(weaponData.meleeRecoil, GetCurrentCooldownMultiplier());
 
-    /// <summary>出手时锁定攻击落点；手动方向不被自动目标覆盖，大体型敌人只要求碰撞边缘入圈。</summary>
-    protected Vector2 GetMeleeTargetPoint(Vector2 direction)
+    /// <summary>按本次目标距离决定的行程创建计时快照；后续属性变化只影响下一击。</summary>
+    public MeleeAttackTiming GetMeleeTiming(float distance)
     {
-        Collider2D target = WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration)
-            ? _attackTarget : WeaponTargeting.FindNearest(AttackOrigin, CurrentAttackRange);
-        bool automatic = _aimController == null || _aimController.aimMode == AimController.AimMode.NearestEnemy;
-        if (automatic && target != null)
-            return AttackOrigin + Vector2.ClampMagnitude((Vector2)WeaponTargeting.Identity(target).transform.position - AttackOrigin, CurrentAttackRange);
-        float distance = target != null ? Vector2.Distance(AttackOrigin, target.transform.position) : CurrentAttackRange;
-        return AttackOrigin + direction.normalized * Mathf.Clamp(distance, .25f, CurrentAttackRange);
+        return new MeleeAttackTiming(weaponData != null ? weaponData.meleeWindup : .1f, distance, GetCurrentCooldownMultiplier());
+    }
+
+    /// <summary>出手时捕获一个目标身份；主动段由攻击实例持续跟踪它，不再查询或换敌。</summary>
+    protected Collider2D CaptureMeleeTarget()
+    {
+        _attackTarget = WeaponTargeting.FindNearest(AttackOrigin, CurrentAttackRange, null, true);
+        _attackTargetIdentity = WeaponTargeting.Identity(_attackTarget);
+        _attackTargetGeneration = _attackTargetIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
+        return _attackTarget;
     }
 
     /// <summary>攻击挂点与玩家中心分离，持续范围技能显式使用玩家中心。</summary>
@@ -47,9 +53,9 @@ public class WeaponBase : MonoBehaviour
         ? WeaponVisualGeometry.ProjectedLength(HeldView.Renderer.sprite, weaponData.visualAngleOffset) * Mathf.Abs(HeldView.Renderer.transform.lossyScale.x)
         : CurrentVisualLength;
     public float CurrentVisualRange => GetModifiedRange(GetCurrentLevelData()?.meleeRange ?? 1f);
-    /// <summary>发射器随当前射程比例缩放；近战与攻击实体共用剑身长度。</summary>
+    /// <summary>近战使用固定配置刀身长度；其他发射器维持现有射程比例表现。</summary>
     public float CurrentVisualLength => weaponData != null && weaponData.runtimeType == WeaponRuntimeType.Melee
-        ? WeaponVisualGeometry.MeleeLength(CurrentVisualRange)
+        ? Mathf.Max(.05f, weaponData.heldSize)
         : Mathf.Max(.05f, weaponData != null ? weaponData.heldSize : .65f) * CurrentVisualRangeRatio;
     public float CurrentVisualRangeRatio => GetModifiedRange(GetCurrentLevelData()?.attackRange ?? 5f)
         / Mathf.Max(.25f, GetCurrentLevelData()?.attackRange ?? 5f);
@@ -65,6 +71,8 @@ public class WeaponBase : MonoBehaviour
         _aimController = GetComponentInParent<AimController>();
         _playerStats = GetComponentInParent<PlayerStats>();
         _ownerHealth = GetComponentInParent<PlayerHealth>();
+        if (RoundController.Enabled && RoundController.Instance.Phase == RoundPhase.Combat)
+            WaveDamage.Begin(RoundController.Instance.RoundNumber);
     }
 
     /// <summary>
@@ -77,6 +85,10 @@ public class WeaponBase : MonoBehaviour
             return;
         }
 
+        // 开始下一回合的首帧可能仍携带暂停帧的零 deltaTime；只按当前暂停状态阻止出手。
+        if (Time.timeScale <= 0f) return;
+        // 近战动作期间冷却完全冻结，待所有本次攻击实体完成后才开始等待下一击。
+        if (weaponData.runtimeType == WeaponRuntimeType.Melee && !CanStartAttack) return;
         _currentCooldown = Mathf.Max(0f, _currentCooldown - Time.deltaTime);
         if (_currentCooldown > 0f)
         {
@@ -88,7 +100,11 @@ public class WeaponBase : MonoBehaviour
         if (UsesHeldMount && !TryAcquireAttackTarget()) return;
         if (!CanStartAttack) return;
         Attack();
-        _currentCooldown = GetCurrentCooldown();
+        _currentCooldown = weaponData.runtimeType == WeaponRuntimeType.Melee
+            ? MeleeAttackTiming.RandomizedCooldown(
+                MeleeAttackTiming.Cooldown(GetCurrentLevelData().cooldown, GetCurrentCooldownMultiplier()),
+                LevelUpManager.Instance != null ? LevelUpManager.Instance.OwnedWeaponCount : 1, Random.value)
+            : GetCurrentCooldown();
     }
 
     /// <summary>直飞与投掷使用当前品质射程；近战覆盖此入口，按下一动作真实可达距离判断。</summary>
@@ -104,19 +120,23 @@ public class WeaponBase : MonoBehaviour
     /// <summary>就绪武器至多每 0.08 秒查询一次局部物理范围；缓存目标每次出手前校验生命及距离。</summary>
     private bool TryAcquireAttackTarget()
     {
+        if (weaponData.runtimeType == WeaponRuntimeType.Melee && _aimController != null
+            && _aimController.aimMode == AimController.AimMode.Manual) return true;
         float range = GetAttackRange();
         bool valid = WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration);
         if (Time.time >= _nextAttackTargetSearch || (_attackTargetGeneration != 0 && !valid))
         {
-            _attackTarget = WeaponTargeting.FindNearest(AttackOrigin, range);
+            _attackTarget = WeaponTargeting.FindNearest(AttackOrigin, range, null, weaponData.runtimeType == WeaponRuntimeType.Melee);
             _attackTargetIdentity = WeaponTargeting.Identity(_attackTarget);
             _attackTargetGeneration = _attackTargetIdentity is EnemyBase enemy ? enemy.LifeGeneration : 0;
             _nextAttackTargetSearch = Time.time + .08f;
             valid = WeaponTargeting.IsValidCached(_attackTarget, _attackTargetIdentity, _attackTargetGeneration);
         }
-        // 使用敌人碰撞边缘进入范围作为触发，避免大体型敌人必须中心进入才会出手。
-        return valid && ((Vector2)_attackTarget.ClosestPoint(AttackOrigin) - AttackOrigin).sqrMagnitude
-            <= range * range + .00001f;
+        // 近战按目标中心和开火余量判断；其他武器保留碰撞边缘进入范围的现有规则。
+        Vector2 point = valid && weaponData.runtimeType == WeaponRuntimeType.Melee
+            ? (Vector2)_attackTargetIdentity.transform.position
+            : valid ? _attackTarget.ClosestPoint(AttackOrigin) : AttackOrigin;
+        return valid && (point - AttackOrigin).sqrMagnitude <= range * range + .00001f;
     }
 
     /// <summary>
@@ -188,7 +208,7 @@ public class WeaponBase : MonoBehaviour
 
         float interval = levelData.cooldown * GetCurrentCooldownMultiplier();
         if (weaponData.runtimeType == WeaponRuntimeType.Melee)
-            interval = MeleeAttackTiming.Interval(levelData, CurrentVisualRange, GetCurrentCooldownMultiplier());
+            interval = MeleeAttackTiming.Interval(levelData, CurrentVisualRange, GetCurrentCooldownMultiplier(), weaponData.meleeWindup);
         return Mathf.Max(0.05f, interval);
     }
 
@@ -260,7 +280,7 @@ public class WeaponBase : MonoBehaviour
 
     /// <summary>仅在发射/刷新时构造该武器品质的不可变命中快照。</summary>
     protected WeaponHitSnapshot CreateHitSnapshot()
-    { return new WeaponHitSnapshot(_playerStats, _ownerHealth, GetCurrentLevelData()); }
+    { return new WeaponHitSnapshot(_playerStats, _ownerHealth, GetCurrentLevelData(), WaveDamage); }
 
     /// <summary>返回直飞攻击的飞行寿命；新模式以射程除速度，旧模式保留 Duration。</summary>
     protected float GetProjectileLifetime(WeaponLevelData data)

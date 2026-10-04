@@ -26,6 +26,9 @@ public sealed class RoundController : MonoBehaviour
     public IReadOnlyList<int> ChoiceTiers => _choiceTiers;
     /// <summary>按待领取队列还原本页对应的实际升级等级，避免一次获得多级时跳过十级保底。</summary>
     public int UpgradeLevel => RoundUpgradeRollRules.PendingLevel(_player.currentLevel, _player.PendingLevelUps);
+    /// <summary>品质进度使用实际升级次数；显示等级仍从一开始，经验曲线与生命成长保持原有含义。</summary>
+    public int UpgradeCount => Mathf.Max(1, UpgradeLevel - 1);
+    private readonly HashSet<PlayerStatType> _previousChoiceStats = new HashSet<PlayerStatType>();
     private readonly List<int> _choiceTiers = new List<int>(4);
     public string LastReward { get; private set; } = "";
     public PlayerStats Player => _player;
@@ -217,7 +220,6 @@ public sealed class RoundController : MonoBehaviour
     private void ContinueGrowth()
     {
         Phase = RoundPhase.Upgrades;
-        _upgradeRerolls = 0;
         while (_player.PendingLevelUps > 0)
         {
             BuildChoices();
@@ -239,12 +241,16 @@ public sealed class RoundController : MonoBehaviour
                 if (product.IsWeapon || RunState.Instance.IsBanished(product.Id)) continue;
                 if (_player.UsesBrotatoStats && !product.content.abilityToGrant.IsAvailableInBrotato()) continue;
                 OwnedAbilityState owned = _items.GetOwnedAbility(product.content.abilityToGrant);
-                if (owned == null || owned.CurrentLevel < owned.Data.MaxLevel) _crateCandidates.Add(product);
+                int reserved = Shop != null ? Shop.LockedItemCount(product.Id) : 0;
+                if ((long)(owned != null ? owned.CurrentLevel : 0) + reserved < product.content.abilityToGrant.MaxLevel)
+                    _crateCandidates.Add(product);
             }
-            if (_crateCandidates.Count > 0)
+            int tier = _player.UsesBrotatoStats ? BrotatoStatRules.RollTier(RoundNumber,
+                _player.GetFinalStat(PlayerStatType.LuckPoints), UnityEngine.Random.value) : 4;
+            RunShopProduct selectedProduct = RunRewardSelection.Pick(_crateCandidates, false, tier, null, null, UnityEngine.Random.value);
+            if (selectedProduct != null)
             {
-                RunShopProduct product = _crateCandidates[UnityEngine.Random.Range(0, _crateCandidates.Count)];
-                CurrentCrate = new RunCrateReward(product, RoundNumber, config.shopCatalog.recycleRatio);
+                CurrentCrate = new RunCrateReward(selectedProduct, RoundNumber, config.shopCatalog.recycleRatio);
                 Changed?.Invoke(); return;
             }
             _crates--; Wallet.Credit(10);
@@ -288,23 +294,35 @@ public sealed class RoundController : MonoBehaviour
         finally { _busy = false; }
     }
 
-    /// <summary>属性池无放回抽四项；普通页逐卡抽品质，十级页共用不低于三级的品质。</summary>
+    /// <summary>属性家族无放回抽四项，优先排除旧页；新体系按实际升级次数使用原作品质与保底。</summary>
     private void BuildChoices()
     {
+        _previousChoiceStats.Clear();
+        foreach (RoundStatUpgrade previous in _choices) _previousChoiceStats.Add(previous.modifier.StatType);
         _choices.Clear(); _choiceTiers.Clear();
         _candidates.Clear();
         foreach (RoundStatUpgrade entry in config.shopCatalog.stats)
             if (!_player.UsesBrotatoStats || BrotatoStatRules.IsAvailable(entry.modifier.StatType)) _candidates.Add(entry);
         bool milestone = UpgradeLevel % 10 == 0;
-        int guaranteed = _player.UsesBrotatoStats ? BrotatoStatRules.GuaranteedUpgradeTier(UpgradeLevel) : 0;
+        int guaranteed = _player.UsesBrotatoStats ? BrotatoStatRules.GuaranteedUpgradeTier(UpgradeCount) : 0;
         int sharedTier = milestone ? RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck, 3) : 1;
         while (_choices.Count < 4 && _candidates.Count > 0)
         {
-            int index = UnityEngine.Random.Range(0, _candidates.Count);
-            _choices.Add(_candidates[index]); _candidates.RemoveAt(index);
+            // 优先抽取上一页未出现的属性家族；池太小时逐项放宽旧页排除，本页仍不重复。
+            int fresh = 0;
+            foreach (RoundStatUpgrade candidate in _candidates)
+                if (!_previousChoiceStats.Contains(candidate.modifier.StatType)) fresh++;
+            int index = UnityEngine.Random.Range(0, fresh > 0 ? fresh : _candidates.Count);
+            RoundStatUpgrade selected = null;
+            foreach (RoundStatUpgrade candidate in _candidates)
+                if ((fresh == 0 || !_previousChoiceStats.Contains(candidate.modifier.StatType)) && index-- == 0)
+                { selected = candidate; break; }
+            _choices.Add(selected);
+            for (int i = _candidates.Count - 1; i >= 0; i--)
+                if (_candidates[i].modifier.StatType == selected.modifier.StatType) _candidates.RemoveAt(i);
             // 品质随选项一同保存，显示、重投与领取都读取同一份结果。
             _choiceTiers.Add(_player.UsesBrotatoStats ? (guaranteed > 0 ? guaranteed :
-                BrotatoStatRules.RollTier(UpgradeLevel, _player.GetFinalStat(PlayerStatType.LuckPoints), UnityEngine.Random.value))
+                BrotatoStatRules.RollTier(UpgradeCount, _player.GetFinalStat(PlayerStatType.LuckPoints), UnityEngine.Random.value))
                 : milestone ? sharedTier : RoundUpgradeRollRules.RollTier(UnityEngine.Random.value, _player.Luck));
         }
     }
@@ -335,14 +353,17 @@ public sealed class RoundController : MonoBehaviour
         _busy = true;
         try
         {
-            if (!RunState.Instance.TryConsumeReroll() && !Wallet.TrySpend(UpgradeRerollPrice)) return false;
-            _upgradeRerolls++;
+            if (!RunState.Instance.TryConsumeReroll())
+            {
+                if (!Wallet.TrySpend(UpgradeRerollPrice)) return false;
+                _upgradeRerolls++;
+            }
             BuildChoices(); Changed?.Invoke(); return true;
         }
         finally { _busy = false; }
     }
 
-    public int UpgradeRerollPrice => config.shopCatalog.initialRerollPrice + _upgradeRerolls * config.shopCatalog.rerollPriceStep;
+    public int UpgradeRerollPrice => RunEconomyRules.RerollPrice(RoundNumber, _upgradeRerolls);
 
     /// <summary>消耗本局跳过次数，放弃一次属性奖励。</summary>
     public bool SkipUpgrade()
@@ -364,6 +385,7 @@ public sealed class RoundController : MonoBehaviour
             || Shop.IsBusy || RoundNumber >= config.rounds.Count) return false;
         Phase = RoundPhase.Preparing;
         RoundNumber++;
+        _upgradeRerolls = 0;
         DroppedCrates = 0;
         Current = new RoundRuntime(config.rounds[RoundNumber - 1], RoundNumber);
         _health.PrepareRound();
@@ -418,7 +440,8 @@ public sealed class RoundController : MonoBehaviour
         foreach (WeaponBase weapon in _loadout.OwnedWeapons)
         {
             if (weapon == null) continue;
-            if (active) weapon.ResetRoundCooldown();
+            if (active) { weapon.WaveDamage.Begin(RoundNumber); weapon.ResetRoundCooldown(); }
+            else weapon.WaveDamage.Complete();
             weapon.enabled = active;
         }
     }

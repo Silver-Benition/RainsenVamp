@@ -270,11 +270,23 @@ public sealed class WeaponConfigImporterWindow : EditorWindow
         _weaponSerializedObject.Update();
         EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("weaponID"));
         EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("weaponNameKey"));
+        EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("weaponSets"), new GUIContent("武器标签与羁绊"), true);
         EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("descriptionKey"));
         SerializedProperty runtimeTypeProperty =
             _weaponSerializedObject.FindProperty("runtimeType");
         EditorGUILayout.PropertyField(runtimeTypeProperty);
         EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("projectilePrefab"));
+        if ((WeaponRuntimeType)runtimeTypeProperty.enumValueIndex == WeaponRuntimeType.Melee)
+        {
+            EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("meleePattern"));
+            EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("heldSize"), new GUIContent("固定刀身长度"));
+            EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("meleeHitWidth"));
+            EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("meleeGripOffset"));
+            EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("meleeRecoil"));
+            EditorGUILayout.PropertyField(_weaponSerializedObject.FindProperty("meleeWindup"));
+            EditorGUILayout.HelpBox("正式近战：范围改变行程与主动时间，刀身尺寸固定；动作完成后推进冷却。", MessageType.Info);
+        }
+
 
         DrawLevelList(
             _weaponSerializedObject.FindProperty("levelConfigs"),
@@ -387,7 +399,8 @@ public sealed class WeaponConfigImporterWindow : EditorWindow
             case WeaponRuntimeType.Melee:
                 EditorGUILayout.PropertyField(level.FindPropertyRelative("meleeRange"));
                 EditorGUILayout.PropertyField(level.FindPropertyRelative("meleeArc"));
-                EditorGUILayout.PropertyField(level.FindPropertyRelative("activeDuration"));
+                using (new EditorGUI.DisabledScope(true))
+                    EditorGUILayout.PropertyField(level.FindPropertyRelative("activeDuration"), new GUIContent("历史主动时长（保留）"));
                 break;
             default:
                 EditorGUILayout.PropertyField(level.FindPropertyRelative("projectileCount"));

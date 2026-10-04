@@ -124,16 +124,16 @@ public class WorldWaveManager : MonoBehaviour
         Vector3 position = playerTransform.position + (Vector3)(direction * Random.Range(min, max));
         if (RoundController.Enabled && !RoundArena.TrySpawnPosition(playerTransform.position, out position)) return;
         EnemyDataSO enemyData = GetEnemyData(rule.enemyPrefab);
-        EnemySpawnSnapshot snapshot = EnemySpawnSnapshotFactory.Create(
-            enemyData,
-            _playerStats,
-            Random.value);
+        float defangRoll = Random.value;
+        EnemySpawnSnapshot snapshot;
         if (RoundController.Enabled)
         {
-            RoundDefinition round = RoundController.Instance.Current.Definition;
-            snapshot = new EnemySpawnSnapshot(snapshot.MaxHealth * round.enemyHealthMultiplier, snapshot.MoveSpeed,
-                snapshot.CollisionDamage * round.enemyDamageMultiplier, snapshot.OutgoingDamageMultiplier * round.enemyDamageMultiplier, snapshot.IsDefanged);
+            RoundController rounds = RoundController.Instance;
+            RoundDefinition round = rounds.Current.Definition;
+            snapshot = EnemySpawnSnapshotFactory.CreateForRound(enemyData, _playerStats, defangRoll,
+                rounds.RoundNumber, round.enemyHealthMultiplier, round.enemyDamageMultiplier);
         }
+        else snapshot = EnemySpawnSnapshotFactory.Create(enemyData, _playerStats, defangRoll);
         GameObject enemy = enemySimulation.SpawnEnemy(
             rule.enemyPrefab,
             position,

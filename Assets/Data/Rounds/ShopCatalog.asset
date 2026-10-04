@@ -15,8 +15,18 @@ MonoBehaviour:
   products:
   - content: {fileID: 11400000, guid: 2e87e0eacd6d695498e92618491ece73, type: 2}
     basePrice: 12
+    weaponTierPrices:
+    - 12
+    - 24
+    - 36
+    - 48
   - content: {fileID: 11400000, guid: 2e29f349924bc69478a151313abd1cef, type: 2}
     basePrice: 12
+    weaponTierPrices:
+    - 12
+    - 24
+    - 36
+    - 48
   - content: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17301, type: 2}
     basePrice: 18
   - content: {fileID: 11400000, guid: f17a0e4b9d2147258f3a6c8e10b17302, type: 2}
@@ -71,44 +81,144 @@ MonoBehaviour:
     basePrice: 72
   - content: {fileID: 11400000, guid: f1f8c0ae59521734f8b2df1367c74f12, type: 2}
     basePrice: 16
+    weaponTierPrices:
+    - 16
+    - 32
+    - 48
+    - 64
   - content: {fileID: 11400000, guid: e4f8ff1540433424b9899d55e3310492, type: 2}
     basePrice: 20
+    weaponTierPrices:
+    - 20
+    - 40
+    - 60
+    - 80
   - content: {fileID: 11400000, guid: dc202603e43f7224cac64a2ee0f68cad, type: 2}
     basePrice: 20
+    weaponTierPrices:
+    - 20
+    - 40
+    - 60
+    - 80
   - content: {fileID: 11400000, guid: 1fcdc7003fab94540812b646bc29004f, type: 2}
     basePrice: 22
+    weaponTierPrices:
+    - 22
+    - 44
+    - 66
+    - 88
   - content: {fileID: 11400000, guid: 27ef8ea6d3f117d438bf867e7eedb002, type: 2}
     basePrice: 22
+    weaponTierPrices:
+    - 22
+    - 44
+    - 66
+    - 88
   - content: {fileID: 11400000, guid: d35805d93ad6b2f47990667174515a2e, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 862e5ab7a3a404c4fbc192d1ce597588, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 13ee8052a72b9814f86e39882d897a6a, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: d9cefa2efc725b54fadde69b108d442b, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 4700b5d3dc6b12b4eb7d0e0f566cbea7, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 93895fe524c3b7e4fbde8d66df801f26, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 628b177c9ee3a3345ab8b93bf80ee53a, type: 2}
     basePrice: 28
+    weaponTierPrices:
+    - 28
+    - 56
+    - 84
+    - 112
   - content: {fileID: 11400000, guid: 3994d5822c35f864585f1905ee2d11b8, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: b61c600e229cb6643b84706cfe077cdc, type: 2}
     basePrice: 28
+    weaponTierPrices:
+    - 28
+    - 56
+    - 84
+    - 112
   - content: {fileID: 11400000, guid: 750b994033087b24eafb4aa3a3960aa9, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 5d1b205f39110f343924f3a17626de62, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 881c99a0b93ff9e4eac61de9fd306cfd, type: 2}
     basePrice: 26
+    weaponTierPrices:
+    - 26
+    - 52
+    - 78
+    - 104
   - content: {fileID: 11400000, guid: 2cbed2695e5fa9f45a82444eb7c052d8, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: fbfd5076a0b9bbf438d645a951c0f5e4, type: 2}
     basePrice: 22
+    weaponTierPrices:
+    - 22
+    - 44
+    - 66
+    - 88
   - content: {fileID: 11400000, guid: 87720b84bdd5ae046b3c0a1a0663f4ac, type: 2}
     basePrice: 24
+    weaponTierPrices:
+    - 24
+    - 48
+    - 72
+    - 96
   - content: {fileID: 11400000, guid: 878e0617a2b3b554baa78246a39d9842, type: 2}
     basePrice: 24
   - content: {fileID: 11400000, guid: 25af59f166f0c6b40aa8183546e212cc, type: 2}

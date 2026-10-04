@@ -140,7 +140,9 @@ public sealed class EnemyProjectile : MonoBehaviour, IPoolable
             return;
         }
 
-        if (collision != null && _defaultLayer >= 0 && collision.gameObject.layer == _defaultLayer)
+        // 玩家攻击使用 Trigger；只有实体地形/掩体才能拦截敌弹，攻击和辅助范围不消弹。
+        if (collision != null && _defaultLayer >= 0 && collision.gameObject.layer == _defaultLayer
+            && !collision.isTrigger)
         {
             ReleaseToPool();
             return;

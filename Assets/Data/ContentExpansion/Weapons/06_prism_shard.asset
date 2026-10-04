@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 06_prism_shard
   m_EditorClassIdentifier:
   weaponID: 06_prism_shard
+  weaponSets:
+  - {fileID: 11400000, guid: 03ec5124ed5e58378509b7c2640124ff, type: 2}
+  - {fileID: 11400000, guid: b1a361b51f8b509ca2194c9fcb52041b, type: 2}
   weaponNameKey: weapon.06_prism_shard.name
   descriptionKey: weapon.06_prism_shard.description
   weaponDisplayName: "\u68F1\u6676\u98DE\u68AD"

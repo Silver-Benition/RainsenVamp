@@ -6,19 +6,26 @@ using UnityEngine;
 /// </summary>
 public readonly struct EnemySpawnSnapshot
 {
-    /// <summary>建立一份完整敌人快照。</summary>
+    /// <summary>保留既有五参数入口，未配置波次加成时远程额外伤害为零。</summary>
+    public EnemySpawnSnapshot(float maxHealth, float moveSpeed, float collisionDamage,
+        float outgoingDamageMultiplier, bool isDefanged)
+        : this(maxHealth, moveSpeed, collisionDamage, outgoingDamageMultiplier, isDefanged, 0f) { }
+
+    /// <summary>建立一份完整敌人快照，远程成长独立于接触伤害。</summary>
     public EnemySpawnSnapshot(
         float maxHealth,
         float moveSpeed,
         float collisionDamage,
         float outgoingDamageMultiplier,
-        bool isDefanged)
+        bool isDefanged,
+        float outgoingDamageBonus)
     {
         MaxHealth = Mathf.Max(0.01f, maxHealth);
         MoveSpeed = Mathf.Max(0f, moveSpeed);
         CollisionDamage = Mathf.Max(0f, collisionDamage);
         OutgoingDamageMultiplier = Mathf.Max(0f, outgoingDamageMultiplier);
         IsDefanged = isDefanged;
+        OutgoingDamageBonus = Mathf.Max(0f, outgoingDamageBonus);
     }
 
     /// <summary>本生命周期最大生命。</summary>
@@ -33,6 +40,9 @@ public readonly struct EnemySpawnSnapshot
     /// <summary>远程攻击等其他伤害来源使用的统一倍率。</summary>
     public float OutgoingDamageMultiplier { get; }
 
+    /// <summary>逐波增长的远程基础伤害，先相加再应用难度倍率。</summary>
+    public float OutgoingDamageBonus { get; }
+
     /// <summary>本敌人是否被 Defang，所有主动伤害均应为零。</summary>
     public bool IsDefanged { get; }
 
@@ -42,7 +52,7 @@ public readonly struct EnemySpawnSnapshot
     /// </summary>
     public float ResolveOutgoingDamage(float baseDamage)
     {
-        return IsDefanged ? 0f : Mathf.Max(0f, baseDamage) * OutgoingDamageMultiplier;
+        return IsDefanged ? 0f : Mathf.Max(0f, baseDamage + OutgoingDamageBonus) * OutgoingDamageMultiplier;
     }
 }
 
@@ -84,6 +94,26 @@ public static class EnemySpawnSnapshotFactory
             defanged ? 0f : baseCollisionDamage * safeCurse,
             damageMultiplier,
             defanged);
+    }
+
+
+    /// <summary>
+    /// 回合生成入口：按敌种的基础值加逐波成长，再应用可选关卡倍率和旧 Curse。
+    /// 每个对象池生命周期只计算一次，不修改共享资产，已发出的弹体仍保留发射快照。
+    /// </summary>
+    public static EnemySpawnSnapshot CreateForRound(EnemyDataSO data, PlayerStats player, float defangRoll,
+        int wave, float healthMultiplier, float damageMultiplier)
+    {
+        EnemySpawnSnapshot baseSnapshot = Create(data, player, defangRoll);
+        if (data == null) return baseSnapshot;
+        int growth = Mathf.Max(0, wave - 1);
+        float curse = Mathf.Max(0f, player != null ? player.Curse : 1f);
+        float damage = baseSnapshot.IsDefanged ? 0 : Mathf.Max(0, damageMultiplier) * curse;
+        return new EnemySpawnSnapshot(
+            Mathf.Max(1, Mathf.Floor(data.maxHealth + growth * data.healthPerWave)) * curse * Mathf.Max(0, healthMultiplier),
+            Mathf.Max(0, data.moveSpeed + growth * data.speedPerWave) * curse,
+            Mathf.Max(0, data.collisionDamage + growth * data.contactDamagePerWave) * damage,
+            damage, baseSnapshot.IsDefanged, growth * data.projectileDamagePerWave);
     }
 
     /// <summary>计算一条规则经过 Curse 与 Charm 修正后的每秒生成速率。</summary>

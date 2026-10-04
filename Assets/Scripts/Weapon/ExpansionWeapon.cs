@@ -11,11 +11,11 @@ public sealed class ExpansionWeapon : WeaponBase
     protected override bool CanStartAttack => (_swing == null || !_swing.gameObject.activeInHierarchy || _swing.ExpansionOwner != this)
         && (_blocking == null || !_blocking.BelongsTo(transform));
 
-    /// <summary>近战按完整基础距离锁定目标，实际动作移至目标旁执行。</summary>
+    /// <summary>近战按挂点到目标中心加开火余量索敌，动作始终跟随本挂点。</summary>
     protected override float GetAttackRange()
     {
         if (weaponData == null || weaponData.runtimeType != WeaponRuntimeType.Melee) return base.GetAttackRange();
-        return CurrentVisualRange;
+        return CurrentVisualRange + .5f;
     }
     /// <summary>基类确认范围内有目标后才推进实例攻击序号；所有弹体从实际挂点出发。</summary>
     protected override void Attack()
@@ -23,6 +23,7 @@ public sealed class ExpansionWeapon : WeaponBase
         if (weaponData == null || PoolManager.Instance == null) return;
         if (!CanStartAttack) return;
         WeaponLevelData level = GetCurrentLevelData();
+        Collider2D meleeTarget = weaponData.runtimeType == WeaponRuntimeType.Melee ? CaptureMeleeTarget() : null;
         Vector2 direction = GetAimDirection();
         if (weaponData.runtimeType == WeaponRuntimeType.Melee)
         {
@@ -33,7 +34,7 @@ public sealed class ExpansionWeapon : WeaponBase
             _sequence++;
             _swing.InitializeDirected(weaponData, transform, direction, weaponData.expansionKind == ExpansionWeaponKind.Piston,
                 GetCurrentDamage(), CurrentVisualRange, level.meleeArc, level.activeDuration, CreateHitSnapshot());
-            _swing.ConfigureTargeted(GetMeleeTargetPoint(direction), CurrentMeleeTiming);
+            _swing.ConfigureMotion(this, meleeTarget, UsesAutomaticMeleeAim);
             _swing.ConfigureExpansion(this, _sequence % 3 == 0, SecondaryDamage(level));
             if (HeldView != null) _swing.BeginFromHeld(HeldView);
             return;
@@ -57,7 +58,7 @@ public sealed class ExpansionWeapon : WeaponBase
     {
         float flat = level.secondaryDamage + level.secondaryElementalScaling * (_playerStats != null ? _playerStats.GetFinalStat(PlayerStatType.ElementalDamage) : 0);
         float percent = level.damagePercent + (_playerStats != null ? _playerStats.GetFinalStat(PlayerStatType.DamagePercent) : 0);
-        return Mathf.Max(1, Mathf.Floor(flat * Mathf.Max(0, 1 + percent * .01f)));
+        return BrotatoStatRules.ScaleDamage(flat, percent);
     }
     /// <summary>建立发射快照；手动模式沿玩家指定方向定点，自动模式采用当前最近目标的位置。</summary>
     private EffectSpec CreateSpec(Vector2 direction)
@@ -84,7 +85,7 @@ public sealed class ExpansionWeapon : WeaponBase
         else if (weaponData.expansionKind == ExpansionWeaponKind.Echo)
         {
             spec.Kind = ExpansionEffectKind.Echo; spec.Damage = Mathf.Max(1, Mathf.Floor(damage * .6f));
-            spec.Delay = .3f; spec.Range = GetAttackRange(); spec.Width = GetCurrentLevelData().meleeArc;
+            spec.Delay = .3f; spec.Range = CurrentVisualRange; spec.Width = GetCurrentLevelData().meleeArc;
             SpawnEffect(spec, origin);
         }
     }

@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: 15_homing_scythe
   m_EditorClassIdentifier: 
   weaponID: 15_homing_scythe
+  weaponSets:
+  - {fileID: 11400000, guid: 13db042cb99255eba8b338c64d65a8dc, type: 2}
   weaponNameKey: weapon.15_homing_scythe.name
   descriptionKey: weapon.15_homing_scythe.description
   weaponDisplayName: "\u5F52\u5DE2\u98DE\u9570"

@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: 10_meteor_hammer
   m_EditorClassIdentifier:
   weaponID: 10_meteor_hammer
+  weaponSets:
+  - {fileID: 11400000, guid: 3767169519c95de28b5bd2389b5a4a8f, type: 2}
+  - {fileID: 11400000, guid: f1346257048b5b4b9f258c22a4bcde6b, type: 2}
   weaponNameKey: weapon.10_meteor_hammer.name
   descriptionKey: weapon.10_meteor_hammer.description
   weaponDisplayName: "\u9668\u94C1\u9524"

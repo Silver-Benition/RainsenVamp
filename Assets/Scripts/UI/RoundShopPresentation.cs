@@ -30,6 +30,14 @@ public static class RoundShopPresentation
 
     /// <summary>商店与暂停页共享详情；每个有效属性独占一行，图标只在已绑定图集的 TMP 文本中启用。</summary>
     public static string WeaponDetails(WeaponDataSO data, int tier, PlayerStats player = null, bool richText = false)
+    { return BuildWeaponDetails(data, tier, player, richText, true); }
+
+    /// <summary>商品标签由独立悬停行展示，正文不重复标签；保留原详情入口的参数契约。</summary>
+    public static string WeaponOfferDetails(WeaponDataSO data, int tier, PlayerStats player, bool richText)
+    { return BuildWeaponDetails(data, tier, player, richText, false); }
+
+    /// <summary>共用武器属性格式；标签是否内嵌仅影响正文，不影响属性数值或本地化。</summary>
+    private static string BuildWeaponDetails(WeaponDataSO data, int tier, PlayerStats player, bool richText, bool includeSets)
     {
         if (data == null) return "";
         WeaponLevelData level = data.GetRoundTierConfig(tier);
@@ -40,6 +48,8 @@ public static class RoundShopPresentation
         bool melee = data.runtimeType == WeaponRuntimeType.Melee;
         bool projectile = data.runtimeType == WeaponRuntimeType.Projectile || data.runtimeType == WeaponRuntimeType.Lobbed;
         var text = new StringBuilder();
+        string sets = WeaponSetPresentation.Names(data);
+        if (includeSets && sets.Length > 0) text.Append(sets).Append("\n");
         float damage = modern ? BrotatoStatRules.Damage(level, player) : level.damage;
         text.Append(Text("round.damage", "伤害")).Append("：").Append(damage.ToString("0.##"));
         if (modern)
@@ -62,7 +72,7 @@ public static class RoundShopPresentation
         float range = modern ? BrotatoStatRules.WeaponRange(baseRange, level.rangeBonus, player.GetFinalStat(PlayerStatType.Range), melee) : baseRange;
         float speed = modern ? BrotatoStatRules.AttackIntervalMultiplier(level.attackSpeed + player.GetFinalStat(PlayerStatType.AttackSpeed)) : 1;
         float interval = (aura ? level.tickInterval : level.cooldown) * speed;
-        if (melee) interval = MeleeAttackTiming.Interval(level, range, speed);
+        if (melee) interval = MeleeAttackTiming.Interval(level, range, speed, data.meleeWindup);
         if (orbit) Row(text, "rotation", "转速", (level.orbitAngularSpeed / speed).ToString("0.#") + "度/秒");
         else Row(text, aura ? "tick" : "cooldown", aura ? "伤害间隔" : "冷却", Mathf.Max(aura ? .01f : .05f, interval).ToString("0.##") + Text("round.seconds", "秒"));
         if (range > 0)
@@ -95,7 +105,7 @@ public static class RoundShopPresentation
             case ExpansionWeaponKind.Whip:
                 float elemental = player != null ? player.GetFinalStat(PlayerStatType.ElementalDamage) : 0;
                 float percent = level.damagePercent + (player != null ? player.GetFinalStat(PlayerStatType.DamagePercent) : 0);
-                float burn = Mathf.Max(1, Mathf.Floor((level.secondaryDamage + level.secondaryElementalScaling * elemental) * Mathf.Max(0, 1 + percent * .01f)));
+                float burn = BrotatoStatRules.ScaleDamage(level.secondaryDamage + level.secondaryElementalScaling * elemental, percent);
                 return "灼烧 " + burn + "×3（基础 " + level.secondaryDamage + " + 25%元素），只取最强";
             case ExpansionWeaponKind.Seed: return "分裂三颗 " + Mathf.Max(1, Mathf.Floor(damage * .35f)) + " 伤害子种，射程 " + (180 + 20 * (tier - 1));
             case ExpansionWeaponKind.Echo: return "0.3 秒后原地残影 " + Mathf.Max(1, Mathf.Floor(damage * .6f)) + " 伤害";
